@@ -678,6 +678,7 @@ private:
     // The calc thread only.
     Input input_;
     std::vector<Slot> slots_;
+    coop::host::orm::bodies::ReadBack read_back_;  // ORM bodies: a puppet drawn aside, read back
     Pending pending_ = Pending::none;
     std::uint8_t pending_slot_ = 0;
     int calls_ = 0;  // this frame
@@ -789,7 +790,8 @@ bool PackHasTunicPuppets(std::string_view manifest);
 
 class Planner {
 public:
-    explicit Planner(PlannerSettings settings = {}) : settings_(std::move(settings)) {}
+    explicit Planner(PlannerSettings settings = {})
+        : settings_(std::move(settings)), colliders_(settings_.colliders) {}
     // `local_event`: our own cutscene runs (it hides every puppet;
     // coop::host::local_event_hides). Each remote's case is
     // coop::host::visibility, with its animation (riding shows it, issue 199).

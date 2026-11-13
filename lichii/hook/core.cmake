@@ -6,6 +6,7 @@ target_sources(core PRIVATE
     "${_coop_hook}/coop_age_game.cpp"
     "${_coop_hook}/coop_boss.cpp"
     "${_coop_hook}/coop_boss_game.cpp"
+    "${_coop_hook}/coop_bodies.cpp"  # ORM choque: the mates' bodies
     "${_coop_hook}/coop_teleport.cpp"
     "${_coop_hook}/coop_teleport_game.cpp"
     "${_coop_hook}/coop_pvp.cpp"

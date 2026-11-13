@@ -344,6 +344,272 @@ def puppet_name(variant):
     return f"CoopPuppet_{variant}"
 
 
+# ORM orm/pvp (oot-remake docs/COMANDOS.md, "Fijar aliados"): the lock-on variant of each puppet.
+# Z-targeting takes an actor with an AttentionSender whose client list has a lock-on client (every
+# enemy: AttentionSenderParam/EnemyCommon lists EnemyCommon_LockOn and EnemyCommon_AutoAim); the
+# player has only an AttentionReceiver. The variant is the puppet plus our own AttentionSenderParam
+# with the lock-on client alone (no auto-aim: arrows do not bend toward mates) and the player's own
+# ActorPositionCalculatorParam (where the lock-on cursor and camera look, on Link's own bones). The
+# client param is taken from LOCK_SOURCE's pack, Dark Link: the game's enemy copy of Link.
+LOCK_SUFFIX = "_Lock"
+LOCK_SOURCE = "Enemy_MiddleBoss_DarkLink"
+LOCK_CLIENT = "Work/Attention/ClientParam/EnemyCommon_LockOn.game__attention__ClientParam.gyml"
+LOCK_SENDER_PARENT = "Work/Component/AttentionSenderParam/Default.game__component__AttentionSenderParam.gyml"
+LOCK_SENDER = "Component/AttentionSenderParam/CoopPuppet_Lock.game__component__AttentionSenderParam.bgyml"
+
+
+def lock_name(variant):
+    return puppet_name(variant) + LOCK_SUFFIX
+
+
+def add_lock_on(files, doc, player_components, lock_members):
+    """Turns a puppet's (files, ActorParam doc) into its lock-on variant, in place. Returns the
+    member paths added. BuildError when the lock-on client or the player's position calculator is
+    not there."""
+    client = ref_to_member(LOCK_CLIENT)
+    if client not in lock_members:
+        raise BuildError(f"{LOCK_SOURCE} has no {client}")
+    apc = player_components.get("ActorPositionCalculatorRef")
+    if not apc:
+        raise BuildError("the player's ActorParam has no ActorPositionCalculatorRef")
+    added = collect_members(lock_members, [LOCK_CLIENT])
+    sender = {"$parent": LOCK_SENDER_PARENT, "ClientList": [LOCK_CLIENT]}
+    added[LOCK_SENDER] = byml.dumps(sender)
+    doc["Components"]["AttentionSenderRef"] = "?" + LOCK_SENDER
+    doc["Components"]["ActorPositionCalculatorRef"] = apc
+    for path, data in added.items():
+        files.setdefault(path, data)
+    return sorted(added)
+
+
+# ORM choque (oot-remake docs/CHOQUE.md): each puppet's body in our game, a separate actor of ours the
+# hook places with the puppet every frame (lichii/hook/coop_bodies.h). Read from the romfs on 2026-11-12:
+# - What stops Link at a townsperson is the NPC's character controller's matter rigid body: layer
+#   Character, sublayer NPC, hit mask DefaultCharacterController (Phive/CharacterMatterRigidBodyParam/
+#   Npc_Default), a Prism with Material_Character (Kokiri: radius 0.30, head 1.40; Hylian, Goron alike).
+#   Navi and the fairies (layer SmallObject, HitToWater / HitOnlyGround) and the cutscene Rauru (no matter
+#   body, sensors only) do not stop him.
+# - Material_Character has the shape tags Unridable and DisableSurfaceVelocity (PhiveConfig,
+#   MaterialPresetCollection): nobody stands on an NPC. What carries Link is a kinematic GroundObject body
+#   (MotionType 4269567940, the moving floors' Ptm_ObjKinematicLarge).
+# The body actor is not a character controller (that runs its own walk and gravity): kinematic rigid bodies
+# that track the actor (RigidBodyControllerUnit IsTrackingActor, as the NPCs' own SweepOutSmallObject body),
+# so the hook moves only that actor and the game's physics makes our Link collide with it. Both hit only the
+# Player layer (EnableLayerHitMask HitOnlyPlayer, the mask of Dark Link's own sweep-out body): no camera,
+# arrow, object, enemy or other body meets them.
+# - CoopBody: the sides, the player's own cct prism (the Player_cct shape of his ControllerSetParam: child
+#   radius 0.23 head 1.17, adult 0.35 and 1.68), Character / NPC, Material_Character: a mate stops our Link
+#   as a townsperson does, and nobody stands on his shoulders.
+# - CoopTop (the _Body variant only): a disc on his head, GroundObject, Material_Undefined (no Unridable):
+#   our Link can stand on a mate. _BodySide is the sides alone (the hook's LICHII_ORM_BODY_TOP=0).
+# The actor is shaped as the game's own invisible walls (FldObj_AirWall_Npc: ActorLogicSimpleActor, a
+# PhysicsRef whose $parent is ProjectBase, a ModelInfo naming no model, the GameActorInfo row's
+# MainRigidBodyLayer): our own "no model" ModelInfo, the shared defaults, the physics.
+BODY_KINDS = (("_Body", True), ("_BodySide", False))
+BODY_PLAYER_SHAPE = "Player_cct"
+BODY_KINEMATIC = 4269567940   # MotionType of the moving floors and of the player's own elastic bodies
+BODY_WARP_MODE = 705520239    # every RigidBodyControllerUnit seen (player, NPCs, floors)
+BODY_BONE_BIND = 1517876668   # the same
+BODY_TOP_HEIGHT = 0.12        # the disc's thickness, at the top of the prism
+BODY_TOP_RADIUS = 0.9         # of the prism's: our Link meets the sides first
+BODY_HEAP = 0x100000          # InstanceHeapSize: two shapes and their bodies, no model (a guess, --heap)
+BODY_PHYSICS_PARENT = "Work/Component/Physics/ProjectBase.engine__component__PhysicsParam.gyml"
+BODY_SIDE = {"LayerEntity": "Character", "SubLayerEntity": "NPC", "EnableLayerHitMask": "HitOnlyPlayer",
+             "Material": "Material_Character", "Mass": 60.0}
+BODY_TOP = {"LayerEntity": "GroundObject", "SubLayerEntity": "Unspecified", "EnableLayerHitMask": "HitOnlyPlayer",
+            "Material": "Material_Undefined", "Mass": 1.0}
+# ActorInfo fields of the player row a body keeps: where it is made and kept, nothing of his model.
+BODY_INFO_KEEP = ("ApplyScaleType", "ClassName", "CreateRadiusOffset", "DeleteRadiusOffset", "DisplayRadius",
+                  "IsCalcNodePushBack", "LoadRadius", "UnloadRadiusOffset")
+# A Phive param's size-table entry: the game's run about 5.1 KB over the file and grow with what it lists,
+# not with its bytes (Kokiri's ControllerSetParam 2,688 bytes: 10,624; the player's 15,256: 34,160; a
+# ShapeParam 548: 6,600; but the air wall's 608-byte ControllerSetParam: 7,480, 3.9 times its bytes over the
+# base). At 3 times the bytes our 924-byte ControllerSetParam (two bodies, two shapes) got 7,892: too small,
+# the game's parse got a null object and the create crashed (choque1, 2026-11-12, docs/CHOQUE.md). 8 times
+# is over every one of the romfs's we looked at; a few KB per body is nothing.
+PARAM_ENTRY_BASE = 0x1400
+PARAM_ENTRY_PER_BYTE = 8
+
+
+def param_entry_size(length):
+    return max(PARAM_ENTRY_BASE + PARAM_ENTRY_PER_BYTE * length, length + PACK_SIZE_MARGIN)
+
+
+def body_name(variant, suffix="_Body"):
+    return puppet_name(variant) + suffix
+
+
+def body_names():
+    return [body_name(v, s) for v in VARIANTS for s, _ in BODY_KINDS]
+
+
+def merged_doc(members, path):
+    """A pack member with its $parent chain merged in (child wins, key by key, without the `$parent`).
+    A parent not in the pack (one the engine holds, ResidentCommon) ends the chain."""
+    chain, seen = [], set()
+    while path and path in members and path not in seen:
+        seen.add(path)
+        doc = byml.loads(members[path])
+        if not isinstance(doc, dict):
+            break
+        chain.append(doc)
+        path = ref_to_member(doc.get("$parent"))
+    out = {}
+    for doc in reversed(chain):
+        out.update(doc)
+    out.pop("$parent", None)
+    return out
+
+
+def player_prism(members, variant):
+    """(shape member, {Radius, HeightHead, HeightShoulder, HeightStep}) of the player's cct prism: the
+    BODY_PLAYER_SHAPE entry of his PhysicsRef's ControllerSetParam ($parent chain, child first)."""
+    comps = flatten_actor_param(members, f"Player_{variant}")
+    phys = ref_to_member(comps.get("PhysicsRef"))
+    if not phys or phys not in members:
+        raise BuildError("the player's ActorParam has no PhysicsRef in the pack")
+    cs = ref_to_member(merged_doc(members, phys).get("ControllerSetPath"))
+    shape, seen = None, set()
+    while shape is None and cs and cs in members and cs not in seen:
+        seen.add(cs)
+        doc = byml.loads(members[cs])
+        for e in doc.get("ShapeNamePathAry") or []:
+            if isinstance(e, dict) and e.get("Name") == BODY_PLAYER_SHAPE and e.get("FilePath"):
+                shape = ref_to_member(e["FilePath"])
+                break
+        cs = ref_to_member(doc.get("$parent"))
+    if shape is None or shape not in members:
+        raise BuildError(f"the player's ControllerSetParam names no {BODY_PLAYER_SHAPE} shape in the pack")
+    prisms = merged_doc(members, shape).get("Prism")
+    if not isinstance(prisms, list) or not prisms or not isinstance(prisms[0], dict):
+        raise BuildError(f"{shape} has no Prism")
+    try:
+        out = {k: float(_num(prisms[0][k])) for k in ("Radius", "HeightHead", "HeightShoulder", "HeightStep")}
+    except (KeyError, TypeError, ValueError):
+        raise BuildError(f"{shape}'s prism has no Radius, HeightHead, HeightShoulder or HeightStep") from None
+    if not (0.05 <= out["Radius"] <= 2.0 and 0.3 <= out["HeightHead"] <= 5.0):
+        raise BuildError(f"{shape}'s prism is not a Link's (radius {out['Radius']}, head {out['HeightHead']})")
+    return shape, out
+
+
+def _vec(x, y, z):
+    return {"X": float(x), "Y": float(y), "Z": float(z)}
+
+
+def upright_autocalc(radius, y0, y1):
+    """A ShapeParam's AutoCalc for an upright round shape from y0 to y1 (the game's own numbers for the
+    player's prism: centre half way, box bounds, the cylinder's inertia (3r^2+h^2)/12 and r^2/2, volume
+    of the box)."""
+    h = y1 - y0
+    r = radius
+    side = (3 * r * r + h * h) / 12
+    return {"Axis": _vec(0, 0, 0), "Center": _vec(0, (y0 + y1) / 2, 0), "Max": _vec(r, y1, r),
+            "Min": _vec(-r, y0, -r), "Tensor": _vec(side, r * r / 2, side), "Volume": float(4 * r * r * h)}
+
+
+def _work(member):
+    """A pack member as a `Work/...gyml` reference."""
+    return "Work/" + member[:-len(".bgyml")] + ".gyml"
+
+
+def body_paths(actor):
+    return {
+        "model": f"Component/ModelInfo/{actor}.engine__component__ModelInfo.bgyml",
+        "physics": f"Component/Physics/{actor}.engine__component__PhysicsParam.bgyml",
+        "set": f"Phive/ControllerSetParam/{actor}.phive__ControllerSetParam.bgyml",
+        "controller": f"Phive/RigidBodyControllerEntityParam/{actor}.phive__RigidBodyControllerEntityParam.bgyml",
+        "side_entity": f"Phive/RigidBodyEntityParam/{actor}_Side.phive__RigidBodyEntityParam.bgyml",
+        "side_shape": f"Phive/ShapeParam/{actor}_Side.phive__ShapeParam.bgyml",
+        "top_entity": f"Phive/RigidBodyEntityParam/{actor}_Top.phive__RigidBodyEntityParam.bgyml",
+        "top_shape": f"Phive/ShapeParam/{actor}_Top.phive__ShapeParam.bgyml",
+    }
+
+
+def _body_unit(name):
+    """A RigidBodyControllerUnit that keeps body `name` (and its shape of that name) on the actor, every
+    frame, from when the actor is made: the actor's next main matrix, as the cow's Physical body
+    (Npc_Animal_Base_Body, a kinematic Character body with a Prism) and 847 of the romfs's 915 units;
+    IsTrackingActor on with UseNextMainRigidBodyMatrix off is in no unit of the romfs."""
+    return {"BoneBindModePosition": byml.UInt(BODY_BONE_BIND), "BoneBindModeRotation": byml.UInt(BODY_BONE_BIND),
+            "ContactCollectionName": "", "IgnoreChangeMassOnScaling": False, "IsAddToWorldOnReset": True,
+            "IsSkipTrackingWhenNoHit": True, "IsTrackingActor": False, "IsTrackingEntity": False, "Name": name,
+            "ShapeName": name, "TrackingBoneName": "", "TrackingEntityAlias": "",
+            "UseActorPosForNonTrackingComp": False, "UseDummyShape": False, "UseNextMainRigidBodyMatrix": True,
+            "WarpMode": byml.UInt(BODY_WARP_MODE)}
+
+
+def _body_entity(kind, name):
+    return {"EnableLayerHitMask": kind["EnableLayerHitMask"], "LayerEntity": kind["LayerEntity"],
+            "Mass": float(kind["Mass"]), "MotionProperty": "Default", "MotionType": byml.UInt(BODY_KINEMATIC),
+            "ShapeName": name, "SubLayerEntity": kind["SubLayerEntity"]}
+
+
+def body_params(actor, prism, top=True):
+    """{member path: bytes} of a body actor's Phive files (BODY_KINDS), sized from the player's prism."""
+    p = body_paths(actor)
+    r, head = prism["Radius"], prism["HeightHead"]
+    side_head = head - BODY_TOP_HEIGHT if top else head
+    shoulder = min(prism["HeightShoulder"], side_head - 0.05)
+    step = max(0.0, min(prism["HeightStep"], shoulder - 0.05))
+    side_shape = {"AutoCalc": upright_autocalc(r, 0.0, side_head),
+                  "Prism": [{"HeightHead": float(side_head), "HeightShoulder": float(shoulder),
+                             "HeightStep": float(step), "MaterialPresets": [BODY_SIDE["Material"]],
+                             "OffsetTranslation": _vec(0, 0, 0), "Radius": float(r)}]}
+    entities = [{"FilePath": _work(p["side_entity"]), "Name": "CoopBody"}]
+    shapes = [{"FilePath": _work(p["side_shape"]), "Name": "CoopBody"}]
+    units = [_body_unit("CoopBody")]
+    files = {p["side_entity"]: byml.dumps(_body_entity(BODY_SIDE, "CoopBody")),
+             p["side_shape"]: byml.dumps(side_shape)}
+    if top:
+        tr = r * BODY_TOP_RADIUS
+        top_shape = {"AutoCalc": upright_autocalc(tr, side_head, head),
+                     "Cylinder": [{"CenterA": _vec(0, side_head, 0), "CenterB": _vec(0, head, 0),
+                                   "MaterialPresets": [BODY_TOP["Material"]], "Radius": float(tr)}]}
+        entities.append({"FilePath": _work(p["top_entity"]), "Name": "CoopTop"})
+        shapes.append({"FilePath": _work(p["top_shape"]), "Name": "CoopTop"})
+        units.append(_body_unit("CoopTop"))
+        files[p["top_entity"]] = byml.dumps(_body_entity(BODY_TOP, "CoopTop"))
+        files[p["top_shape"]] = byml.dumps(top_shape)
+    cset = {"ConstraintControllerPath": "",
+            "ControllerEntityNamePathAry": [{"FilePath": _work(p["controller"]), "Name": "Body"}],
+            "ControllerSensorNamePathAry": [], "RigidBodyEntityNamePathAry": entities,
+            "RigidBodySensorNamePathAry": [], "ShapeNamePathAry": shapes}
+    files[p["controller"]] = byml.dumps({"RigidBodyControllerUnitAry": units})
+    files[p["set"]] = byml.dumps(cset)
+    files[p["physics"]] = byml.dumps({"$parent": BODY_PHYSICS_PARENT, "ControllerSetPath": _work(p["set"])})
+    files[p["model"]] = byml.dumps({"FmdbName": "", "ModelProjectName": ""})  # as the air walls' None
+    return files
+
+
+def build_body(members, variant, top=True, actor=None):
+    """Returns (pack bytes, actor param bytes, member list, info, params) for one body actor of a variant:
+    `info` its numbers for the manifest, `params` the Phive files (each needs a size-table entry).
+    BuildError when the player's prism cannot be read."""
+    actor = actor or body_name(variant, BODY_KINDS[0][0] if top else BODY_KINDS[1][0])
+    shape, prism = player_prism(members, variant)
+    params = body_params(actor, prism, top)
+    paths = body_paths(actor)
+    doc = {"Components": {"ModelInfoRef": "?" + paths["model"], "PhysicsRef": "?" + paths["physics"]}}
+    doc["Components"].update(FIXED_COMPONENTS)
+    ap = byml.dumps(doc)
+    files = dict(params)
+    files[actor_param_path(actor)] = ap
+    info = {"radius": prism["Radius"], "height": prism["HeightHead"], "top": top, "shape_from": shape}
+    return sarc.write(files), ap, sorted(files), info, params
+
+
+def body_row(player_row, actor, heap=None):
+    """A body's ActorInfo row: the player's placement fields (BODY_INFO_KEEP) with the puppet's
+    INFO_OVERRIDES and BODY_HEAP (or `heap`) as InstanceHeapSize, of the player field's BYML type."""
+    row = {k: v for k, v in player_row.items() if k in BODY_INFO_KEEP}
+    row.update(INFO_OVERRIDES)
+    old = player_row.get("InstanceHeapSize")
+    size = int(heap) if heap is not None else BODY_HEAP
+    row["InstanceHeapSize"] = type(old)(size) if isinstance(old, byml._Num) else size
+    row["__RowId"] = actor
+    return row
+
+
 def actor_param_path(actor):
     return f"Actor/{actor}.engine__actor__ActorParam.bgyml"
 
@@ -954,6 +1220,7 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
                                self_dark_tiles=self_dark_tiles, self_files=self_files) if tunics else {}
     tunics = [c for c in tunics if c in tunic_files]
     test_tunic = test_tunic if test_tunic in tunic_files else None
+    player_members = {}
     jobs = [(v, None) for v in VARIANTS] + [(v, c) for v in VARIANTS for c in tunics]
     for v, color in jobs:
         player = f"Player_{v}"
@@ -964,6 +1231,7 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
         if not os.path.isfile(src):
             raise BuildError(f"missing {rel(romfs, src)}")
         members = sarc.read(dicts.decompress(read(src)))
+        player_members[v] = members
         pack, ap, names, keys = build_pack(members, v, sound, player_footsteps, sound_user, actor, project,
                                            basic_xlink=basic_xlink, effects=effects)
         dst_rel = f"Pack/Actor/{actor}.pack.zs"
@@ -1374,8 +1642,9 @@ def _main_build(a, romfs, hud_reader=None):
     heaps = {}
     for h in a.heap:
         name, sep, size = h.partition("=")
-        if not sep or name not in (puppet_name(v) for v in VARIANTS) or not size.isdigit():
-            print(f"error: --heap {h}: want CoopPuppet_Child=BYTES or CoopPuppet_Adult=BYTES", file=sys.stderr)
+        known = [puppet_name(v) for v in VARIANTS] + body_names()
+        if not sep or name not in known or not size.isdigit():
+            print(f"error: --heap {h}: want {'=BYTES, '.join(known)}=BYTES", file=sys.stderr)
             return 2
         heaps[name] = int(size)
     try:

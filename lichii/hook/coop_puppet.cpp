@@ -725,7 +725,31 @@ void Director::NewFrame(Guest& guest, std::uint64_t now_ms) {
                         (*t->why ? std::string(" (") + t->why + ")" : std::string()));
                     slot.shown = t->show;
                 }
-                if (t->show != Show::hide && slot.number < 32) {
+                if (t->first_sight_m < 0.0f) {
+                    slot.first_said = false;  // a new scene: its first sight comes again
+                } else if (!slot.first_said) {
+                    slot.first_said = true;
+                    char m[32];
+                    std::snprintf(m, sizeof(m), "%.2f", static_cast<double>(t->first_sight_m));
+                    Say(who + " first seen here " + m + " m from our Link" +
+                        (t->first_sight_m < Planner::kOverlapNear ? ": on it, drawn aside at once"
+                                                                  : ": apart, left on its sample"));
+                }
+                if (const bool stepped = t->side_step != Vec3{}; stepped != slot.side_said) {
+                    slot.side_said = stepped;
+                    char step[48];
+                    std::snprintf(step, sizeof(step), "%.2f",
+                                  static_cast<double>(std::hypot(t->side_step[0], t->side_step[2])));
+                    const bool first = std::hypot(t->side_step[0], t->side_step[2]) > Planner::kSideStep + 0.01f;
+                    Say(stepped ? who + (first ? " stands on our Link when first seen here (one Continue spot): drawn "
+                                               : " stands on our Link after an event: drawn ") + step +
+                                      " to its side " + VecText(t->side_step) + ", its sample kept"
+                                : who + " drawn on its sample again");
+                }
+                // While it waits for the reveal it is parked as for a hide,
+                // facing the right way, its pose and animation still written.
+                const Show show = slot.revealed ? t->show : Show::hide;
+                if (show != Show::hide && slot.number < 32) {
                     live |= 1u << slot.number;
                 }
                 // Issue 194 (coop_snap.h): a held puppet (their cutscene) follows their
@@ -734,10 +758,44 @@ void Director::NewFrame(Guest& guest, std::uint64_t now_ms) {
                 if (t->color && tint_ > 0.0f) {
                     Tint(slot, guest, *t->color);  // LICHII_COOP_PUPPET_TINT only
                 }
-                if (t->show == Show::show || t->show == Show::hold) {
-                    DrawAt(slot, guest, *t, now_ms);
-                } else if (t->show == Show::hide) {
-                    slot.smooth.Set(t->position);  // out of sight: comes back where they are
+                Vec3 at = t->position;
+                Mat3 rot = t->rotation;
+                if (show != Show::hold) {
+                    Smooth(slot, *t, now_ms, at, rot);  // ORM: as planned without it
+                }
+                if (show == Show::show || show == Show::hold) {
+                    if (show == Show::show) {
+                        // ORM efectos2: the damage flash blinks it, drawn under
+                        // its spot on every other CoopEffects::kBlinkMs.
+                        if (CoopEffects::FlashHidden(t->flash_since_ms, now_ms)) {
+                            at[1] -= kHideDrop;
+                        }
+                        // ORM bodies: drawn aside last pass? Its actor read back against it.
+                        if (slot.aside_drawn) {
+                            Vec3 read{};
+                            if (ReadValue(guest, slot.actor + addr::kActorPosition, read)) {
+                                if (const std::string line = read_back_.judge(slot.number, *slot.aside_drawn, read);
+                                    !line.empty()) {
+                                    Say(line);
+                                }
+                            }
+                        }
+                    }
+                    // Issue 194's draw (eased jumps, the snap meter) at ORM's smoothed place.
+                    Target drawn = *t;
+                    drawn.position = at;
+                    drawn.rotation = rot;
+                    drawn.show = show;
+                    DrawAt(slot, guest, drawn, now_ms);
+                    if (show == Show::show && t->aside != Vec3{}) {
+                        slot.aside_drawn = at;
+                    } else if (slot.aside_drawn) {
+                        slot.aside_drawn.reset();
+                        read_back_.end(slot.number);
+                    }
+                } else if (show == Show::hide) {
+                    slot.aside_drawn.reset();
+                    slot.smooth.Set(at);  // out of sight: comes back where they are
                     slot.meter.Reset();
                     Vec3 parked = at;
                     parked[1] -= kHideDrop;
@@ -2133,7 +2191,43 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
         t.number = r.number;
         t.color = r.color ? r.color : coop::protocol::slot_color(r.number);
         t.actor = ActorFor(r.adult, t.color);
-        t.position = r.position;
+        t.adult = r.adult;
+        // Drawn a step aside while it stands on our Link after an event.
+        const auto [step, weight] = SideStep(r, position, local_event, now_ms, show == Show::show);
+        t.offset = {step[0] * weight, step[1] * weight, step[2] * weight};
+        // ORM choque: its real body, solid or a ghost (coop/host/orm_bodies.hpp BodyGate).
+        if (colliders_) {
+            coop::host::orm::bodies::GateIn g;
+            g.number = r.number;
+            g.sample = {r.position[0] + t.offset[0], r.position[1] + t.offset[1], r.position[2] + t.offset[2]};
+            g.ours = position;
+            g.shown = show == Show::show && !keep_only;
+            g.down = (r.status & coop::protocol::status::dead) != 0;
+            g.riding = coop::host::epona::ride_of(anim) != coop::host::epona::Ride::none;
+            g.adult = r.adult;
+            g.our_adult = our_adult_;
+            g.now_ms = now_ms;
+            t.solid = gate_.solid(g);
+        }
+        // ORM bodies: out of our Link, drawn (our Link is never moved: CUERPOS.md).
+        if (settings_.bodies) {
+            coop::host::orm::bodies::AsideIn a;
+            a.number = r.number;
+            a.sample = {r.position[0] + t.offset[0], r.position[1] + t.offset[1], r.position[2] + t.offset[2]};
+            a.ours = position;
+            a.shown = show == Show::show;
+            a.down = (r.status & coop::protocol::status::dead) != 0;
+            a.solid = t.solid;  // ORM choque: a solid body parts the two; drawn on its sample
+            a.now_ms = now_ms;
+            t.aside = aside_.step(a);
+            for (int i = 0; i < 3; ++i) {
+                t.offset[i] += t.aside[i];
+            }
+        }
+        t.position = {r.position[0] + t.offset[0], r.position[1] + t.offset[1],
+                      r.position[2] + t.offset[2]};
+        t.side_step = step;
+        t.first_sight_m = FirstSightM(r.number);
         if (r.rotation) {
             t.rotation = QuatToMatrix(*r.rotation);
         }
@@ -2163,6 +2257,30 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
         }
         in.targets.push_back(std::move(t));
     }
+    if (settings_.bodies) {
+        aside_.prune(now_ms);
+        for (auto& line : aside_.take_lines()) {
+            effect_lines_.push_back(std::move(line));
+        }
+        if (effect_lines_.size() > 64) {  // nobody takes them (a test): keep the newest
+            effect_lines_.erase(effect_lines_.begin(), effect_lines_.end() - 64);
+        }
+    }
+    if (colliders_) {
+        gate_.prune(now_ms);
+        for (auto& line : gate_.take_lines()) {
+            effect_lines_.push_back(std::move(line));
+        }
+        if (effect_lines_.size() > 64) {  // nobody takes them (a test): keep the newest
+            effect_lines_.erase(effect_lines_.begin(), effect_lines_.end() - 64);
+        }
+    }
+    if (settings_.effects.any()) {
+        effects_.Prune(now_ms);
+        if (effect_lines_.size() > 64) {  // nobody takes them (a test): keep the newest
+            effect_lines_.erase(effect_lines_.begin(), effect_lines_.end() - 64);
+        }
+    }
     if (settings_.debug && position && now_ms - scene_since_ms_ >= settings_.debug_delay_ms) {
         if (!debug_spot_) {
             debug_spot_ = Vec3{(*position)[0] + settings_.debug_offset[0],
@@ -2173,6 +2291,19 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
         t.number = 0;
         t.actor = ActorFor(false, own_color);
         t.position = *debug_spot_;
+        if (colliders_) {
+            // ORM choque: the test puppet has its body too (one game can walk into it).
+            coop::host::orm::bodies::GateIn g;
+            g.number = 0;
+            g.sample = t.position;
+            g.ours = position;
+            g.our_adult = our_adult_;
+            g.now_ms = now_ms;
+            t.solid = gate_.solid(g);
+            for (auto& line : gate_.take_lines()) {
+                effect_lines_.push_back(std::move(line));
+            }
+        }
         t.gear = own_gear;
         t.drawn = own_drawn;
         t.color = own_color;  // the test puppet wears your own colour, if you chose one
@@ -2656,6 +2787,12 @@ void Publish(std::uint64_t main_base, const std::optional<std::string>& scene,
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count());
+    if (session != nullptr) {
+        // ORM choque: our age, for the bodies' heights (BodyGate).
+        if (const auto& sample = session->sampler().last_sample(); sample && sample->age) {
+            g_planner->SetOurAdult(*sample->age == coop::protocol::Age::adult);
+        }
+    }
     g_planner->SetFailedTunics(g_director->FailedTunics());
     auto input = g_planner->Plan(main_base, scene, position, local_event, remotes, now_ms, own_gear, own_drawn, own_color);
     // ORM moving floors (orm_ride.h): a partner on a lift or boat drawn on our copy of it.
@@ -2674,6 +2811,22 @@ void Publish(std::uint64_t main_base, const std::optional<std::string>& scene,
         observer(input);  // ORM choque: the bodies (coop_bodies.cpp)
     }
     g_director->SetInput(std::move(input));
+}
+
+void OnPlan(PlanObserver observer) {
+    g_plan_observer = std::move(observer);
+}
+
+void AddPlanObserver(PlanObserver observer) {
+    if (observer) {
+        g_plan_observers.push_back(std::move(observer));
+    }
+}
+
+void SetColliders(bool on) {
+    if (g_configured && g_planner) {
+        g_planner->SetColliders(on);
+    }
 }
 
 void StampDrawing(Input& input, std::uint64_t now_ms) {

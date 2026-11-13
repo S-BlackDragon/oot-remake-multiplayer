@@ -1936,5 +1936,247 @@ class DungeonRoomsTest(unittest.TestCase):
                 self.assertEqual(best[0], room, f"{scene} {p}")
 
 
+class RiesgosVisualTest(unittest.TestCase):
+    """ORM riesgos-visual (oot-remake docs/RIESGOS_RESUELTOS.md): Nayru's time read from the game,
+    and the elemental arrows' stand-ins."""
+
+    def test_nayru_seconds_from_the_game_param(self):
+        doc = {"Param": {"Magic": {"NayruLoveTime": 34.0, "DinFireTime": 2.0}}}
+        members = {build.PLAYER_GAME_PARAM: byml.dumps(doc)}
+        self.assertEqual(build.nayru_seconds(members), 34.0)
+        self.assertIsNone(build.nayru_seconds({}))
+        self.assertIsNone(build.nayru_seconds({build.PLAYER_GAME_PARAM: b"not a byml"}))
+        self.assertIsNone(build.nayru_seconds({build.PLAYER_GAME_PARAM: byml.dumps({"Other": 1.0})}))
+
+    def test_combo_stand_in_has_the_model_of_one_and_the_effect_user_of_the_other(self):
+        arrow = {build.actor_param_path("NormalArrow"): byml.dumps(
+            {"Components": {"ModelInfoRef": "?Component/ModelInfo/Arrow.engine__component__ModelInfo.bgyml",
+                            "LODRef": "?Component/LOD/Arrow.bgyml", "PhysicsRef": "?Component/Phys/Arrow.bgyml"}})}
+        fx = {build.actor_param_path("EftLoc_Fire"): byml.dumps(
+            {"Components": {"ELinkRef": "?Component/ELink/Fire.bgyml", "ModelInfoRef": "?Component/ModelInfo/X.bgyml"}})}
+        pack, ap, names = build.build_combo_stand_in(arrow, "NormalArrow", fx, "EftLoc_Fire", "CoopShot_Arrow_Fire")
+        comps = byml.loads(ap)["Components"]
+        self.assertEqual(comps["ModelInfoRef"], "?Component/ModelInfo/Arrow.engine__component__ModelInfo.bgyml")
+        self.assertEqual(comps["ELinkRef"], "?Component/ELink/Fire.bgyml")
+        self.assertNotIn("PhysicsRef", comps)
+        self.assertIn(build.actor_param_path("CoopShot_Arrow_Fire"), names)
+        with self.assertRaises(build.BuildError):
+            build.build_combo_stand_in(fx, "EftLoc_Fire", arrow, "NormalArrow", "CoopShot_X")  # no ELinkRef there
+
+    def test_the_test_romfs_says_no_nayru_time_and_no_elemental_arrow(self):
+        names = [n for _, _, n, _ in build.ARROW_ELEMENT_STAND_INS]
+        self.assertEqual(names, ["CoopShot_Arrow_Fire", "CoopShot_Arrow_Ice", "CoopShot_Arrow_Light"])
+
+
+# The player's prisms as the game has them (Phive/ShapeParam/Player.phive and Player_Child.phive, 2026-11-12).
+CHILD_PRISM = {"Radius": 0.23, "HeightHead": 1.17, "HeightShoulder": 1.02, "HeightStep": 0.35}
+ADULT_PRISM = {"Radius": 0.35, "HeightHead": 1.68, "HeightShoulder": 1.48, "HeightStep": 0.45}
+
+
+def with_physics(members, variant, child_lists_shape=True):
+    """A fake player pack with the game's physics chain: the child ActorParam's own PhysicsRef ($parent the
+    base's), its ControllerSetParam ($parent the base's) naming Player_cct, the shape with its $parent."""
+    members = dict(members)
+    sh = "Phive/ShapeParam/"
+    cs = "Phive/ControllerSetParam/"
+    ph = "Component/Physics/"
+    prism = CHILD_PRISM if variant == "Child" else ADULT_PRISM
+    members[f"{ph}P.engine__component__PhysicsParam.bgyml"] = byml.dumps(
+        {"ControllerSetPath": f"Work/{cs}Player.phive__ControllerSetParam.gyml"})
+    members[f"{ph}Player_{variant}.engine__component__PhysicsParam.bgyml"] = byml.dumps(
+        {"$parent": f"Work/{ph}P.engine__component__PhysicsParam.gyml",
+         "ControllerSetPath": f"Work/{cs}Player_{variant}.phive__ControllerSetParam.gyml"})
+    members[f"{cs}Player.phive__ControllerSetParam.bgyml"] = byml.dumps(
+        {"ShapeNamePathAry": [{"FilePath": f"Work/{sh}Player_Tgt.phive__ShapeParam.gyml", "Name": "Tgt"},
+                              {"FilePath": f"Work/{sh}Player_{variant}.phive__ShapeParam.gyml", "Name": "Player_cct"}]})
+    own = [{"FilePath": f"Work/{sh}Player_{variant}.phive__ShapeParam.gyml", "Name": "Player_cct"}]
+    members[f"{cs}Player_{variant}.phive__ControllerSetParam.bgyml"] = byml.dumps(
+        {"$parent": f"Work/{cs}Player.phive__ControllerSetParam.gyml",
+         "ShapeNamePathAry": own if child_lists_shape else []})
+    members[f"{sh}Player.phive__ShapeParam.bgyml"] = byml.dumps(
+        {"Prism": [{"HeightHead": 9.0, "HeightShoulder": 8.0, "HeightStep": 1.0, "Radius": 0.5}]})
+    members[f"{sh}Player_{variant}.phive__ShapeParam.bgyml"] = byml.dumps(
+        {"$parent": f"Work/{sh}Player.phive__ShapeParam.gyml",
+         "Prism": [dict(prism, MaterialPresets=["Material_Character"])]})
+    path = f"Actor/Player_{variant}.engine__actor__ActorParam.bgyml"
+    child = byml.loads(members[path])
+    child["Components"]["PhysicsRef"] = f"?{ph}Player_{variant}.engine__component__PhysicsParam.bgyml"
+    members[path] = byml.dumps(child)
+    return members
+
+
+class BodyTest(unittest.TestCase):
+    """ORM choque (oot-remake docs/CHOQUE.md): the body actor of each puppet."""
+
+    def test_the_players_prism_through_both_chains(self):
+        shape, prism = build.player_prism(with_physics(fake_player_pack("Child"), "Child"), "Child")
+        self.assertEqual(shape, "Phive/ShapeParam/Player_Child.phive__ShapeParam.bgyml")
+        for k, v in CHILD_PRISM.items():
+            self.assertAlmostEqual(prism[k], v, places=5)
+        # The child's set lists nothing of its own: the base's set names the shape.
+        shape, prism = build.player_prism(with_physics(fake_player_pack("Adult"), "Adult", False), "Adult")
+        self.assertEqual(shape, "Phive/ShapeParam/Player_Adult.phive__ShapeParam.bgyml")
+        self.assertAlmostEqual(prism["Radius"], 0.35, places=5)
+        self.assertAlmostEqual(prism["HeightHead"], 1.68, places=5)
+
+    def test_no_physics_no_body(self):
+        with self.assertRaises(build.BuildError):
+            build.build_body(fake_player_pack("Child"), "Child")  # its PhysicsRef names no ControllerSetPath
+
+    def test_the_body_with_its_head_disc(self):
+        pack, ap, names, info, params = build.build_body(with_physics(fake_player_pack("Child"), "Child"), "Child")
+        out = sarc.read(pack)
+        actor = "CoopPuppet_Child_Body"
+        p = build.body_paths(actor)
+        doc = byml.loads(out[build.actor_param_path(actor)])
+        comps = doc["Components"]
+        self.assertEqual(comps["PhysicsRef"], "?" + p["physics"])
+        self.assertEqual(comps["ModelInfoRef"], "?" + p["model"])
+        self.assertEqual(byml.loads(out[p["model"]]), {"FmdbName": "", "ModelProjectName": ""})  # no model drawn
+        self.assertEqual(set(comps), {"ModelInfoRef", "PhysicsRef"} | set(build.FIXED_COMPONENTS))  # no AS, life, AI
+        self.assertTrue(info["top"])
+        self.assertAlmostEqual(info["radius"], 0.23, places=5)
+        physics = byml.loads(out[p["physics"]])
+        self.assertEqual(physics["$parent"], build.BODY_PHYSICS_PARENT)
+        self.assertEqual(build.ref_to_member(physics["ControllerSetPath"]), p["set"])
+        cset = byml.loads(out[p["set"]])
+        self.assertEqual([e["Name"] for e in cset["RigidBodyEntityNamePathAry"]], ["CoopBody", "CoopTop"])
+        self.assertEqual([e["Name"] for e in cset["ShapeNamePathAry"]], ["CoopBody", "CoopTop"])
+        self.assertEqual(build.ref_to_member(cset["ControllerEntityNamePathAry"][0]["FilePath"]), p["controller"])
+        for e in cset["RigidBodyEntityNamePathAry"] + cset["ShapeNamePathAry"]:
+            self.assertIn(build.ref_to_member(e["FilePath"]), out)  # every file it names is in the pack
+        units = byml.loads(out[p["controller"]])["RigidBodyControllerUnitAry"]
+        self.assertEqual([(u["Name"], u["ShapeName"]) for u in units], [("CoopBody", "CoopBody"), ("CoopTop", "CoopTop")])
+        for u in units:
+            # the body follows the actor the hook places by its next main matrix (as the cow's Physical);
+            # tracking the actor without it crashed the game's create (choque1)
+            self.assertIs(u["IsTrackingActor"], False)
+            self.assertIs(u["IsAddToWorldOnReset"], True)
+            self.assertIs(u["UseNextMainRigidBodyMatrix"], True)
+            self.assertIsInstance(u["WarpMode"], byml.UInt)
+        side = byml.loads(out[p["side_entity"]])
+        self.assertEqual((side["LayerEntity"], side["SubLayerEntity"], side["EnableLayerHitMask"]),
+                         ("Character", "NPC", "HitOnlyPlayer"))
+        self.assertIsInstance(side["MotionType"], byml.UInt)
+        self.assertEqual(side["MotionType"].v, 4269567940)  # kinematic, as the moving floors
+        top = byml.loads(out[p["top_entity"]])
+        self.assertEqual((top["LayerEntity"], top["EnableLayerHitMask"]), ("GroundObject", "HitOnlyPlayer"))
+        prism = byml.loads(out[p["side_shape"]])["Prism"][0]
+        self.assertAlmostEqual(prism["Radius"], 0.23, places=5)
+        self.assertAlmostEqual(prism["HeightHead"], 1.17 - build.BODY_TOP_HEIGHT, places=5)
+        self.assertLess(prism["HeightShoulder"], prism["HeightHead"])
+        self.assertEqual(prism["MaterialPresets"], ["Material_Character"])  # Unridable: no standing on shoulders
+        disc = byml.loads(out[p["top_shape"]])["Cylinder"][0]
+        self.assertAlmostEqual(disc["CenterB"]["Y"], 1.17, places=5)
+        self.assertAlmostEqual(disc["CenterA"]["Y"], prism["HeightHead"], places=5)
+        self.assertAlmostEqual(disc["Radius"], 0.23 * build.BODY_TOP_RADIUS, places=5)
+        self.assertEqual(disc["MaterialPresets"], ["Material_Undefined"])  # ridable: our Link stands on it
+        self.assertEqual(sorted(params), sorted(n for n in names if n != build.actor_param_path(actor)))
+
+    def test_the_sides_alone(self):
+        pack, _, names, info, _ = build.build_body(with_physics(fake_player_pack("Adult"), "Adult"), "Adult", top=False)
+        out = sarc.read(pack)
+        p = build.body_paths("CoopPuppet_Adult_BodySide")
+        self.assertFalse(info["top"])
+        self.assertNotIn(p["top_entity"], out)
+        self.assertNotIn(p["top_shape"], out)
+        self.assertAlmostEqual(byml.loads(out[p["side_shape"]])["Prism"][0]["HeightHead"], 1.68, places=5)
+        cset = byml.loads(out[p["set"]])
+        self.assertEqual([e["Name"] for e in cset["RigidBodyEntityNamePathAry"]], ["CoopBody"])
+
+    def test_autocalc_is_the_games_for_the_players_prisms(self):
+        # The game's own AutoCalc of Player.phive (adult) and Player_Child.phive.
+        a = build.upright_autocalc(0.35, 0.0, 1.68)
+        self.assertAlmostEqual(a["Tensor"]["X"], 0.265825, places=5)
+        self.assertAlmostEqual(a["Tensor"]["Y"], 0.06125, places=5)
+        self.assertAlmostEqual(a["Volume"], 0.8232, places=4)
+        self.assertAlmostEqual(a["Center"]["Y"], 0.84, places=5)
+        c = build.upright_autocalc(0.23, 0.0, 1.17)
+        self.assertAlmostEqual(c["Tensor"]["X"], 0.1273, places=4)
+        self.assertAlmostEqual(c["Tensor"]["Y"], 0.02645, places=5)
+        self.assertAlmostEqual(c["Volume"], 0.247572, places=5)
+
+    def test_body_row_and_param_sizes(self):
+        player = {"__RowId": "Player_Child", "ActorName": "Player", "FmdbName": "Player_Child", "ClassName": "GameActor",
+                  "InstanceHeapSize": byml.UInt(5692448), "LoadRadius": 100100.0, "SLinkUserName": "Player_Child",
+                  "ELinkUserName": "Player", "ModelProjectName": "Player_Child"}
+        row = build.body_row(player, "CoopPuppet_Child_Body")
+        self.assertEqual(row["__RowId"], "CoopPuppet_Child_Body")
+        self.assertEqual(row["ClassName"], "GameActor")
+        self.assertEqual(row["LoadRadius"], 100100.0)
+        for k in ("ActorName", "FmdbName", "SLinkUserName", "ELinkUserName", "ModelProjectName"):
+            self.assertNotIn(k, row)  # no name, model, sound or effect user
+        self.assertIsInstance(row["InstanceHeapSize"], byml.UInt)
+        self.assertEqual(row["InstanceHeapSize"].v, build.BODY_HEAP)
+        self.assertEqual(build.body_row(player, "X", 3000000)["InstanceHeapSize"].v, 3000000)
+        self.assertEqual(row["CalcRadius"], build.INFO_OVERRIDES["CalcRadius"])
+        # At least the game's entries for files of these sizes (Kokiri's ControllerSetParam, a ShapeParam).
+        self.assertGreaterEqual(build.param_entry_size(2688), 10624)
+        self.assertGreaterEqual(build.param_entry_size(548), 6600)
+        self.assertGreaterEqual(build.param_entry_size(15256), 34160)
+        self.assertGreaterEqual(build.param_entry_size(608), 7480)  # the air wall's ControllerSetParam
+        self.assertGreaterEqual(build.param_entry_size(740), 7728)  # the cow's
+        self.assertEqual(build.body_names(), ["CoopPuppet_Child_Body", "CoopPuppet_Child_BodySide",
+                                              "CoopPuppet_Adult_Body", "CoopPuppet_Adult_BodySide"])
+
+
+@unittest.skipIf(zstandard is None, "needs the zstandard package")
+class FullBuildBodiesTest(unittest.TestCase):
+    """The whole tool with player packs that have the game's physics chain: the four bodies are built."""
+
+    tearDown = FullBuildTest.tearDown
+    write = FullBuildTest.write
+
+    def setUp(self):
+        FullBuildTest.setUp(self)
+        d = zstandard.ZstdCompressionDict(sarc.read(zstandard.ZstdDecompressor().decompress(self.dicts_raw))["pack.zsdic"])
+        for v in ("Child", "Adult"):
+            p = sarc.write(with_physics(fake_player_pack(v), v))
+            self.write(f"Pack/Actor/Player_{v}.pack.zs", zstandard.ZstdCompressor(dict_data=d).compress(p))
+
+    def test_build_bodies(self):
+        from puppet_pack import zs
+        mod = os.path.join(self.dir, "modb")
+        m = build.build(self.romfs, mod, log=lambda *_: None, heaps={"CoopPuppet_Adult_Body": 2000000})
+        d = zs.Dicts.from_romfs(self.romfs)
+        out = os.path.join(mod, "romfs")
+        self.assertEqual([b["actor"] for b in m["bodies"]], build.body_names())
+        self.assertEqual([b["top"] for b in m["bodies"]], [True, False, True, False])
+        rows = {r["__RowId"]: r for r in byml.loads(d.decompress(build.read(
+            os.path.join(out, "RSDB/ActorInfo.Product.999.rstbl.byml.zs"))))}
+        gai = {r["__RowId"]: r for r in byml.loads(d.decompress(build.read(
+            os.path.join(out, "RSDB/GameActorInfo.Product.999.rstbl.byml.zs"))))}
+        t = rstb.Rstb.loads(d.decompress(build.read(os.path.join(
+            out, "System/Resource/ResourceSizeTable.Product.999.Test.rsizetable.zs"))))
+        for b in m["bodies"]:
+            a = b["actor"]
+            self.assertIn(a, rows)
+            self.assertNotIn("ActorName", rows[a])
+            self.assertEqual(gai[a]["MainRigidBodyLayer"], "Character")
+            files = sarc.read(d.decompress(build.read(os.path.join(out, b["pack"]))))
+            self.assertEqual(sorted(files), b["members"])
+            self.assertGreater(t.get(f"Pack/Actor/{a}.pack"), 0)
+            self.assertEqual(t.get(build.actor_param_path(a)), 8000 + 13336)  # as the puppet's (issue 111)
+            for path in files:
+                if path != build.actor_param_path(a):
+                    self.assertEqual(t.get(path), build.param_entry_size(len(files[path])))
+        self.assertEqual(m["bodies"][2]["instance_heap"], 2000000)  # --heap
+        self.assertEqual(m["bodies"][0]["instance_heap"], build.BODY_HEAP)
+        self.assertAlmostEqual(m["bodies"][0]["radius"], 0.23, places=5)
+        self.assertAlmostEqual(m["bodies"][2]["height"], 1.68, places=5)
+        # The puppets themselves are as before, and the hook finds the bodies in the manifest by name.
+        self.assertEqual([a["actor"] for a in m["actors"]], ["CoopPuppet_Child", "CoopPuppet_Adult"])
+        text = build.read(os.path.join(mod, "coop_puppet.json")).decode()
+        for a in build.body_names():
+            self.assertIn(f'"{a}"', text)
+
+    def test_main_heap_switch_takes_a_body(self):
+        mod = os.path.join(self.dir, "modh")
+        self.assertEqual(build.main(["--romfs", self.romfs, "--mod-dir", mod, "--any-version",
+                                     "--heap", "CoopPuppet_Child_BodySide=1234567"]), 0)
+        man = json.loads(build.read(os.path.join(mod, "coop_puppet.json")))
+        self.assertEqual(man["bodies"][1]["instance_heap"], 1234567)
+
+
 if __name__ == "__main__":
     unittest.main()
