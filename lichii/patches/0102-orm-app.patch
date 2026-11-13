@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: S-BlackDragon <88566750+S-BlackDragon@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 19:28:08 -0800
+Subject: [PATCH] orm: the single app's Cooperativo screen in the main window
+
+With orm-app.ini beside the exe, the main window shows the Cooperativo
+screen (lichii/app, built in by hook/qt.cmake) in place of the game list,
+starts co-op only when the screen asks (after the helper's play has set
+the environment) and boots the chosen game with its own BootGame. When
+the game stops the screen comes back. Without orm-app.ini nothing changes.
+---
+ src/yuzu/main_window.cpp | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
+index fcd45bfe58..fb04c2df3b 100644
+--- a/src/yuzu/main_window.cpp
++++ b/src/yuzu/main_window.cpp
+@@ -19,6 +19,7 @@
+ #ifdef LICHII_COOP
+ #include "coop_hook.h"
+ #include "coop_window.h"
++#include "orm_app.h"
+ #endif
+ #ifdef HAS_RESHADE
+ #include "configuration/configure_post_processing.h"
+@@ -1081,7 +1082,9 @@ void MainWindow::InitializeWidgets() {
+     render_window = new GRenderWindow(this, input_subsystem);
+     render_window->hide();
+ #ifdef LICHII_COOP
+-    CoopWindow::Attach(this, render_window);
++    if (!OrmApp::Enabled()) { // with orm-app.ini, co-op starts on "Jugar" (lichii/app)
++        CoopWindow::Attach(this, render_window);
++    }
+ #endif
+ 
+     game_list = new GameList(QtCommon::vfs, QtCommon::provider.get(), *play_time_manager,
+@@ -1095,6 +1098,16 @@ void MainWindow::InitializeWidgets() {
+     loading_screen = new LoadingScreen(this);
+     loading_screen->hide();
+     ui->horizontalLayout->addWidget(loading_screen);
++#ifdef LICHII_COOP
++    // ORM single app: the "Cooperativo" screen in place of the game list.
++    OrmApp::Attach(this, render_window, ui->horizontalLayout, {game_list, game_list_placeholder},
++                   {render_window, loading_screen}, [this](const QString& game, bool fullscreen) {
++                       if (fullscreen) {
++                           ui->action_Fullscreen->setChecked(true);
++                       }
++                       BootGame(game, ApplicationAppletParameters());
++                   });
++#endif
+     connect(loading_screen, &LoadingScreen::Hidden, this, [&] {
+         loading_screen->Clear();
+         if (emulation_running) {
+@@ -2553,6 +2566,9 @@ void MainWindow::OnEmulationStopped() {
+         game_list->show();
+     }
+     game_list->SetFilterFocus();
++#ifdef LICHII_COOP
++    OrmApp::OnGameStopped();
++#endif
+     tas_label->clear();
+     input_subsystem->GetTas()->Stop();
+     OnTasStateChanged();

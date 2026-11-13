@@ -19,3 +19,5 @@ target_compile_definitions(yuzu PRIVATE LICHII_COOP)
 if(NOT MSVC)
     target_compile_options(yuzu PRIVATE -Wno-error=range-loop-construct)
 endif()
+# ORM single app: the "Cooperativo" screen (lichii/app/, patch 0102).
+include("${LICHII_COOP_DIR}/lichii/app/app.cmake")

@@ -250,6 +250,9 @@ doctest_discover_tests(coop_tests)
 
 add_subdirectory(server)
 
+# The single app's helper client and status model (Qt 6 Core; skipped without Qt).
+include(${CMAKE_CURRENT_SOURCE_DIR}/../lichii/app/tests.cmake)
+
 # The test tool runs a server and two clients for 3 s and loses nothing.
 add_test(NAME coop_test_two_clients COMMAND coop_test --clients 2 --seconds 3 --port 0 --report-every 0)
 
