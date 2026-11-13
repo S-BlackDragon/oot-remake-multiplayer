@@ -57,6 +57,7 @@
 #include "coop_scene_probe.h"
 #include "coop_camera.h"
 #include "coop_colors.h"
+#include "coop_camera_probe.h"
 #include "coop_chat.h"
 #include "coop_hud.h"  // the HUD's hearts (PLAYER_LIFE), docs/overlay.md
 #include "coop_cheats.h"
@@ -218,6 +219,7 @@ struct FrameView {
     std::optional<coop::protocol::Age> age;
     std::vector<coop::overlay::Shown> others;
     std::vector<std::uint8_t> hidden;  // others with no marker (scene.hpp: hide)
+    std::string connection_line;       // ORM: "Sin conexion..." (coop::host::connection_text)
     std::optional<Markers> markers;  // none: no camera
     std::string camera_note;         // for the panel, when the game runs
 };
@@ -227,6 +229,7 @@ struct RoomView {
     coop::net::State state = coop::net::State::idle;
     std::uint8_t self = 0;
     std::optional<std::uint64_t> round_trip_us;
+    coop::net::RttStats rtt;
     std::vector<coop::net::Player> players;
     std::string note;  // the last refusal or error
     bool encrypted = false;  // docs/protocol.md "Encrypted traffic"
@@ -248,6 +251,8 @@ public:
         coop::net::ClientConfig config;
         config.host = settings_.server;
         config.port = settings_.port;
+        config.transport = settings_.transport;
+        config.path = settings_.path;
         config.hello.build_id = kBuildId;
         config.hello.game_build_id = std::string(kGameBuildId);
         config.hello.game_version = std::string(kGameVersion);
@@ -409,6 +414,54 @@ public:
         FrameView view;
         view.at = Clock::now();
         const auto reading = Read(system, view);
+        // Our own event (a talk, a sign, a cutscene) starting and ending: one
+        // line each, so a log shows what ran while the others stayed visible
+        // (ORM D-R12: events hide nobody).
+        // ORM: with the event's own name (the current event object's, read
+        // safely: nothing when unreadable), and a line each time the name
+        // changes while events run (one event can start another).
+        std::optional<std::string> event_name;
+        if (view.game && reading && reading->event_running.value_or(false)) {
+            EmulatorMemory memory(system.ApplicationMemory(), base_);
+            event_name = coop::host::PlayerReader(memory).read_event_name();
+        }
+        if (reading && reading->event_running.has_value() &&
+            *reading->event_running != last_event_running_) {
+            last_event_running_ = *reading->event_running;
+            const std::string named =
+                last_event_running_ ? (event_name ? " '" + *event_name + "'" : std::string(" (name not readable yet)"))
+                                    : (last_event_name_.empty() ? std::string() : " (was '" + last_event_name_ + "')");
+            LOG_INFO(Core, "coop: event {}{}{}", last_event_running_ ? "running" : "over", named,
+                     reading->animation ? " (we play '" + reading->animation->name + "')" : std::string());
+            if (!last_event_running_) {
+                last_event_name_.clear();
+            } else if (event_name) {
+                last_event_name_ = *event_name;
+            }
+        } else if (last_event_running_ && event_name && *event_name != last_event_name_) {
+            LOG_INFO(Core, "coop: event name '{}'{}", *event_name,
+                     last_event_name_.empty() ? std::string() : " (was '" + last_event_name_ + "')");
+            last_event_name_ = *event_name;
+        }
+        if (debug_anim_ && reading && reading->animation &&
+            (reading->animation->name != last_anim_name_ || reading->animation->rate != last_anim_rate_)) {
+            last_anim_name_ = reading->animation->name;
+            last_anim_rate_ = reading->animation->rate;
+            LOG_INFO(Core, "coop: you play '{}' rate {:.2f} from frame {:.1f}{}", last_anim_name_,
+                     last_anim_rate_, reading->animation->frame,
+                     view.scene ? " in " + *view.scene : std::string());
+        }
+        // ORM (docs/SONDAS.md, 2026-11-12): in an event one command can run for many seconds (the
+        // remake's chest: DemoOpenTreasureBox from the kick to the end of the find); its frame once a
+        // second tells the parts apart.
+        if (debug_anim_ && reading && reading->animation && last_event_running_) {
+            const std::uint64_t now_us = CoopEvery::NowUs();
+            if (now_us - anim_event_log_us_ >= 1'000'000) {
+                anim_event_log_us_ = now_us;
+                LOG_INFO(Core, "coop: you play '{}' at frame {:.1f} (event '{}')", reading->animation->name,
+                         reading->animation->frame, last_event_name_);
+            }
+        }
 
         // The game's flags, when it is the right game and a list is shared.
         std::optional<EmulatorMemory> memory;
@@ -809,6 +862,26 @@ public:
                 for (auto& s : shown) {
                     const auto* player = p.player(s.number);
                     s.head = HeadHeight(player ? player->age() : std::nullopt);
+                    // ORM: a downed mate's tag reads "Ana (caido, 23 m)" and
+                    // stays solid at any distance, so he can be found.
+                    if (CoopDowned::MateDown(player)) {
+                        s.down = true;
+                        s.urgent = true;
+                        std::optional<float> metres;
+                        if (view.position) {
+                            const float dx = s.position[0] - (*view.position)[0];
+                            const float dy = s.position[1] - (*view.position)[1];
+                            const float dz = s.position[2] - (*view.position)[2];
+                            metres = std::sqrt(dx * dx + dy * dy + dz * dz);
+                        }
+                        s.note = coop::host::downed_tag_note(metres);
+                    } else if (player != nullptr) {
+                        // ORM menus (MENUS_PAUSA.md M2): "Ana (pausa)"; the
+                        // downed tag above wins.
+                        if (auto note = CoopMenus::TagNote(player->flags()); !note.empty()) {
+                            s.note = std::move(note);
+                        }
+                    }
                 }
                 // The same rule as the puppet: no marker for a player in
                 // another scene or while our own cutscene runs.
@@ -843,7 +916,7 @@ public:
                         reading ? reading->rotation : std::nullopt,
                         reading ? reading->animation : std::nullopt, report.server_now_us);
         CoopObjects::Share(system, report.connected ? session_.get() : nullptr, view.scene,
-                           report.server_now_us);
+                           report.server_now_us, event);
         CoopHud::Frame(report.connected ? session_.get() : nullptr);  // our hearts (PLAYER_LIFE)
         CoopSpawn::Frame(system, report.connected ? session_.get() : nullptr, view.scene, report.server_now_us);
         CoopDrops::Frame(system, report.connected ? session_.get() : nullptr, view.scene, report.server_now_us);
@@ -867,6 +940,10 @@ public:
                 }
             }
         }
+        // ORM: with the event's name (the same one the story work reads above) and our
+        // downed state, so a revive or a game over is never taken for the boss's death and a
+        // reload after the game over starts over.
+        const auto downed_state = CoopDowned::State();
         CoopBoss::Frame(system, view.game ? base_ : 0, view.scene, view.position,
                         reading && reading->event_running.value_or(false), boss_shut_in,
                         report.connected ? session_.get() : nullptr, report.server_now_us);
@@ -931,6 +1008,11 @@ public:
 
         std::lock_guard lock(view_mutex_);
         frame_ = std::move(view);
+    }
+
+    std::string ConnectionLine() {
+        std::lock_guard lock(view_mutex_);
+        return frame_.connection_line;
     }
 
     std::optional<Markers> CurrentMarkers() {
@@ -1346,6 +1428,8 @@ private:
 
     void Run() {
         auto last_state = coop::net::State::idle;
+        bool rtt_first = false;              // the "first rtt" line is out
+        std::uint64_t next_rtt_us = 0;
         while (!stop_) {
             session_->service();
             {
@@ -1365,8 +1449,8 @@ private:
                 session_->with_client([&](coop::net::Client& c) { CoopPose::Send(c, now_ms, rates.pose_gap_ms); });
             }
             RoomView room = session_->with_client([&](coop::net::Client& c) {
-                return RoomView{c.state(), c.player_number(), c.round_trip_us(), c.players(),
-                                note_, c.encrypted()};
+                return RoomView{c.state(), c.player_number(), c.round_trip_us(), c.rtt(),
+                                c.players(), note_, c.encrypted()};
             });
             if (room.state != last_state) {
                 last_state = room.state;
@@ -1407,6 +1491,55 @@ private:
                 }
             } else {
                 quiet_warned_ = false;
+            }
+            // ORM (coop/host/orm_link_watch.hpp): our uplink falling behind,
+            // and the relay's LINK_NOTICEs about our downlink, are told to the
+            // player in Spanish (HUD and chat lines) and logged; nothing for a
+            // link that keeps up. Four times a second is plenty.
+            if (const std::uint64_t now_ms = SteadyMs(); now_ms >= next_link_watch_ms_) {
+                next_link_watch_ms_ = now_ms + 250;
+                auto [link, notices] = session_->with_client(
+                    [](coop::net::Client& c) { return std::pair{c.link(), c.take_link_notices()}; });
+                coop::host::LinkSample sample;
+                sample.now_ms = now_ms;
+                sample.connected = room.state == coop::net::State::connected;
+                sample.send_queued_bytes = link.send_queued_bytes;
+                sample.send_dropped_frames = link.send_dropped_frames;
+                sample.has_loss = link.mtu != 0;  // ENet's numbers (the WebSocket wire has none)
+                sample.loss_percent = link.loss_percent;
+                for (const auto& advice : link_watch_.sample(sample)) {
+                    TellLink(advice);
+                }
+                for (const auto& notice : notices) {
+                    for (const auto& advice : link_watch_.notice(notice, now_ms)) {
+                        TellLink(advice);
+                    }
+                }
+            }
+            // Round-trip time from the last PINGs (rtt()): the first sample
+            // once it is in, then once every 10 seconds while connected.
+            const std::uint64_t now = CoopEvery::NowUs();
+            if (room.state == coop::net::State::connected) {
+                if (!rtt_first) {
+                    if (room.rtt.samples > 0) {
+                        LOG_INFO(Core, "coop: rtt first {:.1f} ms",
+                                 static_cast<double>(room.rtt.median_us) / 1000.0);
+                        rtt_first = true;
+                        next_rtt_us = now + 10 * CoopEvery::kSecondUs;
+                    }
+                } else if (now >= next_rtt_us) {
+                    LOG_INFO(Core,
+                             "coop: rtt median {:.1f} ms, min {:.1f} ms, max {:.1f} ms over {} "
+                             "pings (transport {})",
+                             static_cast<double>(room.rtt.median_us) / 1000.0,
+                             static_cast<double>(room.rtt.min_us) / 1000.0,
+                             static_cast<double>(room.rtt.max_us) / 1000.0, room.rtt.samples,
+                             settings_.transport);
+                    next_rtt_us = now + 10 * CoopEvery::kSecondUs;
+                }
+            } else {
+                rtt_first = false;
+                next_rtt_us = 0;
             }
             {
                 std::lock_guard view(view_mutex_);
@@ -1626,6 +1759,18 @@ private:
     std::uint64_t doubled_since_ms_ = 0;  // issue 195: a reopened chest's take-back is armed
     bool doubled_event_seen_ = false;     // its get scene (our Link's event) began
     static constexpr std::uint64_t kDoubledNoEventMs = 1000;
+    // LICHII_COOP_DEBUG_ANIM: a line each time our own sampled animation (slot
+    // 0's AS command and rate) changes, to see what the others receive from us
+    // (2026-11-10: a friend saw a mate walking while he ran).
+    const bool debug_anim_ = [] {
+        const char* v = std::getenv("LICHII_COOP_DEBUG_ANIM");
+        return v != nullptr && *v != '\0' && std::string_view(v) != "0";
+    }();
+    std::string last_anim_name_;
+    float last_anim_rate_ = 0.0f;
+    bool last_event_running_ = false;
+    std::string last_event_name_;  // ORM: the running event's name, last read
+    std::uint64_t anim_event_log_us_ = 0;  // ORM: the last "at frame" line in an event (debug anim)
     std::size_t pickups_given_ = 0;  // CoopPickups keys handed to the session
     bool holding_logged_ = false;  // issue 129: HoldFlagStore held something last frame
     CoopScrubTalk::Hold scrub_talk_;  // issue 144: scrub destroy flags wait for our event
@@ -1865,6 +2010,7 @@ private:
     std::string note_;  // network thread only
     CoopChat::Log chat_;  // locks itself
     std::atomic<bool> welcomed_once_ = false;
+    std::uint64_t lost_since_ms_ = 0;  // ORM, present thread: connection lost since (0: not)
     // Network thread (Run): the "no packets from the server" warning is out (issue 143).
     bool quiet_warned_ = false;
     // ORM, network thread (Run): the link watch (orm_link_watch.hpp) and its next look.
@@ -1951,8 +2097,14 @@ void Start() {
         LOG_INFO(Core, "coop: off (no server in {} or LICHII_COOP_SERVER)", ini.string());
         return;
     }
-    LOG_INFO(Core, "coop: on, server {}:{}, name '{}', join password {}", settings.server,
-             settings.port, settings.name, settings.password.empty() ? "none" : "set");
+    if (settings.transport == "ws" || settings.transport == "wss") {
+        LOG_INFO(Core, "coop: on, server {}:{} ({} {}), name '{}', join password {}", settings.server,
+                 settings.port, settings.transport, settings.path, settings.name,
+                 settings.password.empty() ? "none" : "set");
+    } else {
+        LOG_INFO(Core, "coop: on, server {}:{} (udp), name '{}', join password {}", settings.server,
+                 settings.port, settings.name, settings.password.empty() ? "none" : "set");
+    }
     auto coop = std::make_unique<Coop>(std::move(settings));
     if (coop->Begin()) {
         g_coop = std::move(coop);
@@ -2022,6 +2174,17 @@ std::vector<ChatLine> ChatLines() {
         return coop->ChatLines();
     }
     return {};
+}
+
+std::string DownedBanner() {
+    auto* coop = Get();
+    if (coop == nullptr) {
+        return {};
+    }
+    // ORM: our connection first (it explains the rest), then the downed line
+    // and whom the spectator camera looks at (C2: "Mirando a Ana ...").
+    return coop::host::join_screen_lines(
+        coop->ConnectionLine(), coop::host::join_screen_lines(CoopDowned::Banner(), CoopCameraProbe::Banner()));
 }
 
 std::vector<PlayerRow> PlayerList() {

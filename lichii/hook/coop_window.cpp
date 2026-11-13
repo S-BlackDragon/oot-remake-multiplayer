@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <QApplication>
+#include <QByteArray>
 #include <QEvent>
 #include <QFontDatabase>
 #include <QFontMetrics>
@@ -219,6 +220,12 @@ QRectF Picture(const QSizeF& area, double game_w = 16.0, double game_h = 9.0) {
                   game_h * s);
 }
 
+// LICHII_COOP_PANEL=1: the panel starts shown. Read once, like the hook's
+// other switches; F9 toggles it at any time.
+bool PanelFromEnvironment() {
+    return CoopSwitch::On("LICHII_COOP_PANEL", false);  // ORM: coop_switch.h
+}
+
 // Where an overlay window sits: on the game when it is shown, else on the
 // main window.
 QWidget* Anchor(QWidget* main, QWidget* render) {
@@ -245,7 +252,8 @@ void MakeOverlay(QWidget* w, int pixel_size) {
 // widget would be hidden under the native render surface.
 class Panel : public QWidget {
 public:
-    Panel(QWidget* main, QWidget* render) : QWidget(main), render_(render) {
+    Panel(QWidget* main, QWidget* render, bool shown)
+        : QWidget(main), render_(render), shown_(shown) {
         setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowTransparentForInput |
                        Qt::WindowDoesNotAcceptFocus);
         setAttribute(Qt::WA_TranslucentBackground);
@@ -257,6 +265,12 @@ public:
         auto* timer = new QTimer(this);
         connect(timer, &QTimer::timeout, this, [this] { Refresh(); });
         timer->start(kRefreshMs);
+    }
+
+    // F9: hide or show the panel; the markers and the chat are not affected.
+    void Toggle() {
+        shown_ = !shown_;
+        Refresh();
     }
 
 protected:
@@ -282,7 +296,9 @@ private:
         const bool game_shown = render_ && render_->isVisible();
         // The game look shows the players under the hearts (HudLayer); the
         // panel is then for debugging only (F7, LICHII_COOP_DEBUG_PANEL=1).
-        if ((Game() && !DebugPanel()) || lines_.empty() || !main || !main->isVisible() ||
+        // ORM: hidden by default in either look (LICHII_COOP_PANEL=1 or F9 shows it);
+        // upstream's debug switch (F7) shows it too.
+        if (!(shown_ || DebugPanel()) || lines_.empty() || !main || !main->isVisible() ||
             main->isMinimized()) {
             hide();
             return;
@@ -304,6 +320,7 @@ private:
 
     QPointer<QWidget> render_;
     std::vector<CoopHook::OverlayLine> lines_;
+    bool shown_ = false;  // LICHII_COOP_PANEL=1 at start; F9 toggles it
 };
 
 // The players over the game, when the hook knows the camera: a frameless,
@@ -349,8 +366,12 @@ protected:
             if (a == 0) {
                 continue;
             }
-            QColor fill = m.self ? QColor(255, 210, 60, a) : QColor(90, 200, 255, a);
-            if (Game() && !m.self) {
+            // ORM: each player in its colour (PLAYER_LOOK, else its number's);
+            // a downed mate's arrow and tag in orange-red, to be found.
+            QColor fill = m.self     ? QColor(255, 210, 60, a)
+                          : m.urgent ? QColor(255, 110, 70, a)
+                                     : QColor(m.color[0], m.color[1], m.color[2], a);
+            if (Game() && !m.self && !m.urgent) {
                 fill = PlayerColour(names_.Of(m.tag), names_.self);
                 fill.setAlpha(a);
             }
@@ -397,7 +418,9 @@ protected:
                           Qt::RoundJoin));
             p.drawPath(path);
             p.setPen(Qt::NoPen);
-            p.setBrush(m.self ? QColor(255, 225, 120, a) : QColor(255, 255, 255, a));
+            p.setBrush(m.self     ? QColor(255, 225, 120, a)
+                       : m.urgent ? QColor(255, 150, 110, a)
+                                  : QColor(m.color[0], m.color[1], m.color[2], a));
             p.drawPath(path);
         }
     }
@@ -591,6 +614,7 @@ public:
     // The chat box is open (`box_height` tall): every line, unfaded, above it.
     void SetTyping(int box_height) {
         box_height_ = box_height;
+        OrmHud::SetTyping(box_height != 0);  // ORM: the HUD's chat lines step aside meanwhile
         Refresh();
     }
 
@@ -715,6 +739,59 @@ private:
     std::vector<Shown> shown_;
     Names names_;
     unsigned names_age_ = 0;
+};
+
+// ORM "downed, not dead": one line at the top middle of the game while there
+// is something to say ("hold A to revive ...", "... is reviving you 40 %").
+class DownedBanner : public QWidget {
+public:
+    DownedBanner(QWidget* main, QWidget* render) : QWidget(main), render_(render) {
+        MakeOverlay(this, 18);
+        auto* timer = new QTimer(this);
+        connect(timer, &QTimer::timeout, this, [this] { Refresh(); });
+        timer->start(kRefreshMs);
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(0, 0, 0, 160));
+        p.drawRoundedRect(rect(), 6, 6);
+        const QFontMetrics fm(font());
+        p.setPen(QColor(255, 220, 120));
+        p.drawText(kPad, kPad + fm.ascent(), text_);
+    }
+
+private:
+    void Refresh() {
+        const QString text = QString::fromStdString(CoopHook::DownedBanner());
+        QWidget* main = parentWidget();
+        if (text.isEmpty() || !MainShown(main)) {
+            text_.clear();
+            hide();
+            return;
+        }
+        const QFontMetrics fm(font());
+        const QSize size(fm.horizontalAdvance(text) + 2 * kPad, fm.height() + 2 * kPad);
+        QWidget* anchor = Anchor(main, render_);
+        const QPoint at = anchor->mapToGlobal(
+            QPoint(std::max(0, (anchor->width() - size.width()) / 2), kMargin));
+        if (geometry() != QRect(at, size)) {
+            setGeometry(QRect(at, size));
+        }
+        if (!isVisible()) {
+            show();
+        }
+        if (text != text_) {
+            text_ = text;
+            update();
+        }
+    }
+
+    QPointer<QWidget> render_;
+    QString text_;
 };
 
 // The one-line chat box: Enter sends, Esc (or clicking back on the game)
@@ -995,14 +1072,15 @@ private:
 
 // The keys, taken only while the game's render window has the keyboard:
 // Enter opens the chat box, Tab held shows the player list, F7 shows or hides
-// the debug panel in the game look. None is a
-// button in the emulator's default keymap (they only reach the emulated USB
-// keyboard, which Ocarina does not read), and both are eaten. With a
-// modifier held they pass, so emulator hotkeys keep working.
+// the debug panel in the game look (ORM: the partner map's pause view instead
+// while LICHII_ORM_MAP is on), F9 (ORM) shows or hides the information panel.
+// None is a button in the emulator's default keymap (Enter and Tab only reach
+// the emulated USB keyboard, which Ocarina does not read), and all are eaten.
+// With a modifier held they pass, so emulator hotkeys keep working.
 class Keys : public QObject {
 public:
-    Keys(QWidget* main, QWidget* render, ChatBox* box, PlayerList* list)
-        : QObject(main), main_(main), render_(render), box_(box), list_(list) {
+    Keys(QWidget* main, QWidget* render, Panel* panel, ChatBox* box, PlayerList* list)
+        : QObject(main), main_(main), render_(render), panel_(panel), box_(box), list_(list) {
         qApp->installEventFilter(this);
     }
 
@@ -1055,6 +1133,7 @@ private:
 
     QPointer<QWidget> main_;
     QPointer<QWidget> render_;
+    QPointer<Panel> panel_;
     QPointer<ChatBox> box_;
     QPointer<PlayerList> list_;
 };
@@ -1075,7 +1154,7 @@ void Attach(QWidget* main, QWidget* render) {
     auto* lines = new ChatLayer(main, render);
     auto* box = new ChatBox(main, render, lines);
     auto* list = new PlayerList(main, render);
-    new Keys(main, render, box, list);
+    new Keys(main, render, panel, box, list);
 }
 
 } // namespace CoopWindow

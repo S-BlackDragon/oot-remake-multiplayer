@@ -84,6 +84,18 @@ struct Shown {
   // The top of the head, in world units above `position` (the feet). Above
   // 0, the name tag floats just over the head instead of over the marker.
   float head = 0.0f;
+  // ORM: the player's colour; none: default_color(number).
+  std::optional<Rgb> color;
+  // ORM: a player who must be found (a downed mate waiting for a revive).
+  // The tag does not fade with distance (Settings::fade_start/fade_end): it is
+  // drawn solid up to far_distance, and `note`, when set, follows the name
+  // ("Ana (down, 23 m)").
+  bool urgent = false;
+  std::string note;
+  // ORM: the player is down (his PLAYER_STATUS dead bit, read from presence
+  // by the hook with the rest of this list: CoopDowned::MateDown). The
+  // spectator camera follows the ones not down.
+  bool down = false;
 };
 
 // The players presence shows at `server_now_us`, lowest number first.

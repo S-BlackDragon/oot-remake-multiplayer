@@ -1916,7 +1916,51 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
             }
             // Another owner: its samples alone place the enemy from now on,
             // none of the old owner's are blended in.
+            // ORM (kHandOverHold): until the first of them, the copy holds
+            // where it was shown (the old owner's place 100 ms late, or ours
+            // when it was ours), not its own AI.
+            std::optional<Received> hold;
+            if (kHandOverHold && owner->owner != self && owner->owner != 0) {
+                if (before == self) {
+                    Received r;
+                    r.position = o->position;
+                    if (o->rotation) r.rotation = QuatOf(*o->rotation);
+                    r.animation = o->animation;
+                    hold = r;
+                } else if (!o->received.empty() && now_us >= o->received.back().time &&
+                           now_us - o->received.back().time <= kPoseStaleUs) {
+                    const std::uint64_t shown = now_us > kBehindUs ? now_us - kBehindUs : 0;
+                    Received r = o->received.back();
+                    PlaceAt(o->received, shown, r.position, r.rotation);
+                    // ORM golpes: held where it is shown, smoothed or after our own hit.
+                    if (hits_on_ && hits_.Active(o->address, now_us)) {
+                        r.position = o->position;
+                        if (o->rotation) r.rotation = QuatOf(*o->rotation);
+                    } else if (smooth_on_ && !o->received.back().bridge) {
+                        if (const auto p = smooth_.At(o->address, now_us)) {
+                            r.position = p->position;
+                            if (p->rotation) r.rotation = p->rotation;
+                        }
+                    }
+                    if (r.animation) {
+                        const float rate = std::isfinite(r.animation->rate) && r.animation->rate > 0.0f
+                                               ? r.animation->rate
+                                               : 1.0f;
+                        r.animation->frame = FrameAfter(
+                            r.animation->frame, rate,
+                            static_cast<std::int64_t>(now_us - o->received.back().time));
+                    }
+                    hold = r;
+                }
+            }
             o->received.clear();
+            smooth_.Reset(o->address);  // ORM golpes: the new owner's samples alone, as above
+            if (hold) {
+                hold->time = now_us;
+                hold->velocity.reset();
+                hold->bridge = true;
+                o->received.push_back(*hold);
+            }
             if (owner->owner == self) {
                 // Ours now, where it stands here: nothing pulls it. A hit of
                 // ours not yet sent is already in its life, and the others
@@ -1944,6 +1988,10 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
             }
             if (sample->state.position && Finite(*sample->state.position)) {
                 const std::uint64_t t = sample->state.time.server_time_us;
+                // ORM: the new owner's first sample ends the hand-over hold.
+                while (!o->received.empty() && o->received.back().bridge) {
+                    o->received.pop_back();
+                }
                 if (o->received.empty() || t > o->received.back().time) {
                     o->received.push_back({t, *sample->state.position, sample->state.rotation,
                                            sample->state.velocity, sample->state.animation,

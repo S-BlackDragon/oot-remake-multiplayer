@@ -67,6 +67,17 @@ struct FlagStats {
   std::uint64_t counts_guarded = 0;    // a guarded count's gain taken back (guard_count)
   std::uint64_t doubled_gains = 0;     // a chest opened again here: its gain taken back (expect_doubled_gain)
   std::uint64_t entries_unsent = 0;    // entries a message kind cannot carry: left out, the rest sent
+  std::uint64_t quiet_held = 0;        // incoming entries for a quiet flag, written after
+  std::uint64_t continue_loads = 0;    // ORM: load windows taken as a save load by set_continue_load
+  std::uint64_t continue_kept = 0;     // ORM: keep: values a Continue's reload moved, written back
+  std::uint64_t continue_held = 0;     // ORM: frames x flags of ours held before a Continue's window
+  // ORM (RIESGOS_RESUELTOS.md "Mundo e historia"): host, keep: count deltas of other players added
+  // on the group's value while our Continue reloads (never on the reload's older value).
+  std::uint64_t continue_counts = 0;
+  // ORM (SONDAS.md round 6): a host whose game has no save in (the title screen) holds its table;
+  // a guest's save load from the title, with no group value come yet, keeps its save's values.
+  std::uint64_t snapshots_held = 0;    // host: table requests held while our game had no save in
+  std::uint64_t load_kept_own = 0;     // player: values a title load moved, kept (no group yet)
 };
 
 class FlagWatcher {
@@ -221,6 +232,35 @@ class FlagWatcher {
   // or an Int to any other value, is the game's own change and is sent.
   void set_loading(bool loading);
 
+  // ORM (oot-remake docs/CONTINUAR.md): the game's Continue after a game over
+  // reloads the save. While the mode is not off, every load window is taken
+  // as a save load from its first frame, whatever its signs (no title screen
+  // needed). Turn it off once the window is over.
+  // - keep (the N64 game over, as in ZMP): the group goes on with what it had
+  //   when it fell. Every shared flag the reload moves, back or forward, is
+  //   written back to its value from just before the window (the snapshot:
+  //   the group's values, also changed by what comes in meanwhile), at once
+  //   and at the window's end, by host and players alike; nothing is sent and
+  //   it is no reset (take_reset stays false). One-way room flags are left to
+  //   the room. The keep_extra keys (per player values the group keeps too:
+  //   the wallet) are kept the same way from their value before the window.
+  // - save: the group follows the host's reload: its moved flags go out as
+  //   FLAG_RESET at the window's end, a player's own save's values go back.
+  // While the mode is on and no window is open yet (the game over, or a
+  // Continue that fills the hearts before its reload starts), none of our
+  // game's own changes of shared flags is sent: the window decides them (in
+  // keep they go back, in save the host's go out as FLAG_RESET); if the mode
+  // goes off with no window, the next frame sends them as usual. The
+  // keep_extra values are taken once, on the first frame of keep with no
+  // window (the game over: nobody spends then), and written with write_own.
+  enum class ContinueMode : std::uint8_t { off, keep, save };
+  void set_continue_load(ContinueMode mode) {
+    if (mode == ContinueMode::off) keep_extra_taken_ = false;
+    continue_mode_ = mode;
+  }
+  ContinueMode continue_load() const { return continue_mode_; }
+  void set_continue_keep_extra(std::vector<FlagKey> keys) { keep_extra_keys_ = std::move(keys); }
+
   // A shared value another game's change wrote into ours (the chat notices,
   // coop/host/notify.hpp): the flag, its value before and after, who made
   // the change (the asker named by FLAG_ORIGIN, else the host that sent it;
@@ -339,6 +379,7 @@ class FlagWatcher {
   void settle_guards(FlagStore& store, Table& changes);
   // Notes a 64-bit key about to be written to 1 when the game has it at 0.
   void note_for_others(FlagStore& store, const protocol::FlagEntry& entry);
+  std::set<FlagKey> quiet_;    // not read nor written for now (set_quiet)
   std::size_t learned_ = 0;
   bool learn_ = false;
   std::vector<Incoming> queue_;
@@ -371,6 +412,20 @@ class FlagWatcher {
   int no_scene_frames_ = 0;  // frames in this window with no scene loaded
   bool scene_readable_ = true;  // set_scene
   bool reset_seen_ = false;  // take_reset
+  // ORM: set_continue_load. keep_: this window keeps the snapshot.
+  ContinueMode continue_mode_ = ContinueMode::off;
+  bool keep_ = false;
+  std::vector<FlagKey> keep_extra_keys_;
+  Table keep_extra_;  // their values at the game over (taken once, keep_extra_taken_)
+  bool keep_extra_taken_ = false;
+  void keep_extra(FlagStore& store);  // writes them back where the reload moved them
+  bool keep_back(FlagStore& store, const FlagKey& key, const protocol::FlagEntry& want, bool own = false);
+  // ORM: host, keep (a Continue's game over or its reload): a player's count delta is added to the
+  // group's value (last_), not to what the reload put in our game, and that total is written exact
+  // and answered (keep_totals_). So the total is the same whichever comes first, the delta or the
+  // reload's write. Nothing when the rule does not apply (then the usual add).
+  std::optional<protocol::FlagEntry> keep_count_delta(FlagStore& store, const protocol::FlagEntry& delta);
+  Table keep_totals_;  // host: totals keep_count_delta made, sent with this frame's answers
   std::set<FlagKey> restate_;  // host: counts a delta was added to this frame
   bool resend_pending_ = false;
   bool snapshot_requested_ = false;

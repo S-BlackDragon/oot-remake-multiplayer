@@ -8,6 +8,7 @@
 
 #include "../../coop/host/src/addresses.hpp"
 #include "coop_fairy.h"
+#include "coop_downed.h"
 #include "coop_game_build.h"
 #include "coop_hold.h"
 #include "coop_puppet.h"
@@ -99,6 +100,11 @@ TEST_CASE("game build: the table agrees with the readers' constants") {
     CHECK(m.hold_hook == CoopHold::kHookOffset);
     CHECK(m.hold_cave == CoopHold::kCaveOffset);
     CHECK(m.hold_table == CoopHold::kTableOffset);
+    CHECK(m.downed_hook == CoopDowned::kHookOffset);
+    CHECK(m.start_event == CoopDowned::kStartEvent);
+    CHECK(m.downed_cave == CoopDowned::kCaveOffset);
+    CHECK(m.downed_gate == CoopDowned::kGateOffset);
+    CHECK(BlTarget(CoopDowned::kHookOffset, CoopDowned::kHookOriginal) == m.start_event);
     // Both hooked calls go to frame_step in the unpatched game.
     for (const auto& hook : CoopSvc::kHooks) {
         CHECK(BlTarget(hook.offset, hook.original) == m.frame_step);
@@ -106,7 +112,9 @@ TEST_CASE("game build: the table agrees with the readers' constants") {
     // The caves sit in main's zero padding, before rodata.
     CHECK(m.svc_cave < m.hold_cave);
     CHECK(m.hold_cave < m.hold_table);
-    CHECK(m.hold_table < m.cave_end);
+    CHECK(m.hold_table < m.downed_cave);
+    CHECK(m.downed_cave < m.downed_gate);
+    CHECK(m.downed_gate < m.cave_end);
     // game_flags_ptr, world_mgr_ptr and set_time are file-local constants
     // (coop_flags.cpp, coop/host/src/game_flags.cpp, coop_time.cpp): checked
     // by hand against docs/flags.md and docs/time.md, not here.

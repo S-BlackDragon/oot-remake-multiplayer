@@ -187,7 +187,11 @@ struct SessionConfig {
   std::uint64_t boss_near_hold_us = 0;
   // An owner paused or dead this long (or loading at all) loses its objects
   // to another player who has them, fight or not.
-  std::uint64_t owner_paused_us = 6'000'000;
+  // ORM menus (oot-remake docs/MENUS_PAUSA.md M3): paused 1 s, not daurosk's
+  // 6 s, as a downed owner (ENEMIGOS.md): a paused game is frozen, so its
+  // enemies stand still for everyone; a glance at the map under 1 s moves
+  // nothing.
+  std::uint64_t owner_paused_us = 1'000'000;
   std::uint64_t owner_dead_us = 10'000'000;
   // A player position older than this is not used for distances.
   std::uint64_t position_stale_us = 5'000'000;
@@ -476,6 +480,9 @@ class Session {
     std::uint8_t status = 0;
     std::uint64_t paused_since = 0;
     std::uint64_t dead_since = 0;
+    // ORM D-R66: the last REVIVE relayed to it while dead (0: none since it
+    // went down); a mate holding A beside it.
+    std::uint64_t revive_hold_at = 0;
     // It entered a scene and has not been sent that scene's spawns yet.
     bool replay_due = false;
     std::uint64_t owners_told_at = 0;

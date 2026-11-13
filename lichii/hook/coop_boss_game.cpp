@@ -32,11 +32,13 @@
 #include "common/logging.h"
 #include "core/core.h"
 #include "core/memory.h"
+#include "coop/host/boss_rules.hpp"
 #include "coop/host/flags.hpp"
 #include "coop/host/game_flags.hpp"
 #include "coop/host/player_reader.hpp"
 #include "coop/host/session.hpp"
 #include "coop/net/client.hpp"
+#include "coop_downed_game.h"
 #include "coop_flags.h"
 #include "coop_puppet.h"
 #include "coop_svc.h"
@@ -159,6 +161,14 @@ struct Glue {
     std::uint64_t debug_at = 0;
     Sync sync;
     Mover mover;
+    // ORM (oot-remake docs/JEFES.md, D-R17): a Link lying down is moved in
+    // with the group as he lies; after a game over in a boss room and its
+    // reload, back into that room. Both on by default with LICHII_COOP_DOWNED=1
+    // (off without it); LICHII_COOP_BOSS_PULL_DOWNED=0 / LICHII_COOP_BOSS_RESPAWN=0
+    // turn them off, =1 turns them on.
+    bool pull_downed = false;
+    bool respawn_on = false;
+    coop::host::BossRespawn respawn;
 
     Glue() {
         on = Env("LICHII_COOP_BOSS") != "0";
@@ -176,7 +186,47 @@ struct Glue {
                 return mover.Step(guest, after_call);
             });
         }
-        LOG_INFO(Core, "coop: boss rooms {}", on ? "shared" : "off (LICHII_COOP_BOSS=0)");
+        LOG_INFO(Core, "coop: boss rooms {}{}{}", on ? "shared" : "off (LICHII_COOP_BOSS=0)",
+                 on && pull_downed ? ", a downed Link moved in as he lies" : "",
+                 on && respawn_on ? ", back into the boss room after a game over in it" : "");
+    }
+
+    // ORM: back into the boss room after a game over in it (coop::host::BossRespawn).
+    void Respawn(Core::System& system, std::uint64_t main, const Local& local, std::uint64_t now_us,
+                 coop::host::DownedState state) {
+        coop::host::BossRespawnInput in;
+        in.now_us = now_us;
+        in.readable = local.scene.has_value() && local.position.has_value();
+        in.scene = local.scene;
+        const Room* room = nullptr;
+        if (in.readable) {
+            room = RoomAt(*local.scene, *local.position);
+            if (room != nullptr) {
+                in.in_room = room->index;
+            }
+            if (const Room* dungeon = RoomOfScene(*local.scene)) {
+                in.beaten = sync.Beaten(dungeon->scene, dungeon->index);
+            }
+        }
+        in.game_over = state == coop::host::DownedState::game_over ||
+                       (local.event && IsGameOverEvent(local.event_name));
+        in.up = state == coop::host::DownedState::alive;
+        in.event = local.event;
+        const auto act = respawn.tick(in);
+        for (const auto& line : act.log) {
+            LOG_INFO(Core, "coop: boss: respawn: {}", line);
+        }
+        if (act.move_to) {
+            if (const Room* back = RoomByIndex(*act.move_to)) {
+                bool asked = false;
+                if (act.by_event && by_scene && !back->start.empty()) {
+                    asked = AskScene(system, main, *back);
+                }
+                if (!asked) {
+                    AskMove(system, main, ArrivalFor(*back, local.self));
+                }
+            }
+        }
     }
 
     // The game's scene change, as tools/autotest's warp asks it.
@@ -211,8 +261,9 @@ struct Glue {
     }
 
     void Frame(Core::System& system, std::uint64_t main, const std::optional<std::string>& scene,
-               const std::optional<coop::protocol::Vec3>& position, bool event, std::optional<bool> shut_in,
-               coop::host::Session* session, std::uint64_t now_us) {
+                const std::optional<coop::protocol::Vec3>& position, bool event, std::optional<bool> shut_in,
+                coop::host::Session* session, std::uint64_t now_us, std::string_view event_name, bool downed,
+                bool game_over) {
         if (!on) {
             return;
         }
@@ -227,6 +278,7 @@ struct Glue {
         if (main == 0 || now_us == 0 || session == nullptr) {
             if (connected) {
                 sync.Reset();
+                respawn.reset();
                 connected = false;
             }
             return;
@@ -244,6 +296,12 @@ struct Glue {
                 local.boss_alive = CoopObjects::LastBossAlive(Bodies(*room));
             }
         }
+        local.event_name = event_name;  // ORM
+        local.downed = downed;
+        local.game_over = game_over;
+        const auto downed_state = CoopDowned::State();
+        local.pull_while_down =
+            coop::host::boss_pull(downed_state, pull_downed) == coop::host::BossPull::matrix_only;
         local.self = session->with_client([](coop::net::Client& c) { return c.player_number(); });
         Actions act = sync.Tick(local, now_us);
         for (const auto& line : act.log) {
@@ -251,9 +309,10 @@ struct Glue {
         }
         if (debug && now_us - debug_at >= kDebugEveryUs) {
             debug_at = now_us;
-            LOG_INFO(Core, "coop: boss: phase {}, scene {}, at {:.1f} {:.1f} {:.1f}, event {}, shut in {}",
+            LOG_INFO(Core, "coop: boss: phase {}, scene {}, at {:.1f} {:.1f} {:.1f}, event {} '{}'{}, shut in {}",
                      PhaseName(sync.phase()), scene.value_or("?"), position ? (*position)[0] : 0.0f,
-                     position ? (*position)[1] : 0.0f, position ? (*position)[2] : 0.0f, event,
+                     position ? (*position)[1] : 0.0f, position ? (*position)[2] : 0.0f, event, event_name,
+                     game_over ? ", game over" : downed ? ", down" : "",
                      shut_in ? (*shut_in ? "1" : "0") : "-");
         }
         if (act.pull) {
@@ -268,6 +327,9 @@ struct Glue {
         }
         if (act.skip_intro) {
             mover.WantSkip(main);
+        }
+        if (respawn_on) {
+            Respawn(system, main, local, now_us, downed_state);
         }
         if (!act.send.empty()) {
             session->with_client([&](coop::net::Client& c) {
@@ -292,8 +354,10 @@ Glue& TheGlue() {
 
 void Frame(Core::System& system, std::uint64_t main_base, const std::optional<std::string>& scene,
            const std::optional<coop::protocol::Vec3>& position, bool event_running, std::optional<bool> shut_in,
-           coop::host::Session* session, std::uint64_t server_now_us) {
-    TheGlue().Frame(system, main_base, scene, position, event_running, shut_in, session, server_now_us);
+           coop::host::Session* session, std::uint64_t server_now_us, std::string_view event_name, bool downed,
+           bool game_over) {
+    TheGlue().Frame(system, main_base, scene, position, event_running, shut_in, session, server_now_us, event_name,
+                    downed, game_over);
 }
 
 bool Fighting() {

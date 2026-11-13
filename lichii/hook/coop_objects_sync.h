@@ -483,6 +483,15 @@ public:
     static constexpr std::uint64_t kDeadGraceUs = 3'000'000;
     // Present thread, every frame: where each copy we do not own should be.
     void Poses(std::uint64_t now_us, std::vector<PoseWrite>& out) const;
+    // ORM: the hand-over hold. When a copy's owner changes, the old owner's
+    // samples go (none is blended into the new owner's), but the copy is not
+    // left to its own AI until the new owner's first sample comes (a round
+    // trip: over the tunnel 100 to 300 ms, in which an NPC's own idle or walk
+    // played and then snapped back, "tiembla"; issue 133 flips NPCs 45 m
+    // away every few seconds). It is held where it was shown, with the
+    // animation it played, for at most kPoseStaleUs; the first sample of the
+    // new owner then places it as before.
+    static constexpr bool kHandOverHold = true;
 
     // Present thread: for each copy we do not own, the owner's latest
     // animation and its frame (the mover compares it with the copy's own).
@@ -575,6 +584,11 @@ private:
         std::optional<coop::protocol::Vec3> velocity;
         std::optional<coop::protocol::Animation> animation;
         std::vector<coop::protocol::SlotAnimation> slots;  // issue 150
+        // ORM: not a sample but where the copy stood when its owner changed,
+        // held until the new owner's first sample replaces it (Apply).
+        bool bridge = false;
+        // ORM "Levantar": the sample's carry (in a player's hands).
+        std::optional<coop::protocol::ObjectCarry> carry;
     };
     struct Object {
         coop::protocol::ObjectId id;
@@ -658,6 +672,9 @@ private:
         bool stun_due = false;
         std::uint64_t stun_at = 0;
     };
+    static void PlaceAt(const std::deque<Received>& received, std::uint64_t t,
+                        coop::protocol::Vec3& position,
+                        std::optional<coop::protocol::Quat>& rotation);
 
     // One step of `o` towards our Link at `now_us` (NoteDrift).
     static void ChaseStep(Object& o, std::uint64_t now_us);

@@ -1217,6 +1217,26 @@ public:
             }
             sync_.Bind(live);
         }
+        if (npc_) {
+            // ORM: the others' PLAYER_STATUS flags as presence holds them (the
+            // one store; the downed, spectator and escape code read it too).
+            std::map<u8, u8> statuses;
+            session->with_presence([&](coop::presence::Presence& p) {
+                for (const u8 n : p.players()) {
+                    if (const auto* player = p.player(n)) {
+                        statuses[n] = player->flags();
+                    }
+                }
+            });
+            Talk(*scene, event, server_now_us, seen, self, statuses);
+        }
+        sync_.SetLidsShown(CoopDoors::LidsShown());  // ORM cofre: lids opened for a CHEST_OPEN stay
+        sync_.SetKeep(KeepNow());  // ORM endgame: Twinrova's owner (docs/FINAL.md)
+        sync_.SetFamilyExtras(std::move(family_extras_));  // ORM boss families: the tennis balls
+        family_extras_.clear();
+        if (carry_) {
+            Carry(system.ApplicationMemory(), *scene, server_now_us, seen, self);
+        }
         sync_.Tick(*scene, self, server_now_us, seen, send, writes);
         if (const unsigned twice = sync_.ChestsOpenedTwice(); twice != chests_twice_seen_) {
             // Issue 195: a chest shown open that our Link opened again; the

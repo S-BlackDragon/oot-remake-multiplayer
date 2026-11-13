@@ -30,12 +30,19 @@ constexpr Table kInt{0xd0, 0xd8, 0xe0, 0xec, 0x28, 0x1c, 0xf0, 0xf8, 0x100, 12};
 // table (slots at M + 0x800) for a hash not in this one; that is not read,
 // so such a flag is not found here.
 constexpr Table kUInt{0x790, 0x798, 0x7a0, 0x7ac, 0x28, 0x1c, 0x7b0, 0x7b8, 0x7c0, 12};
+// Enum (type 6, M + 0x250 = 0x10 + 0x60 x 6), as the game's Enum getter
+// 0x7e73d0 and setter 0x3e0980 read it: entries of 0x38 (the getter's stride),
+// the live u32 at +0x1c, which holds the Murmur3 hash of the value's name
+// (BottleItem = flag_hash("Empty") seen in a run); the entry also holds the
+// number of values at +0x28 and a pointer to their hashes at +0x30. The
+// setter queues 8-byte slots {u32 value, u32 hash} (the slot index << 3) at
+// +0x270 / +0x278 / +0x280, as the Bool setter does. Both fall back to the
+// type 7 table (M + 0x2b0, entries of 0x50) for a hash not in this one; that
+// is not read, so such a flag is not found here. docs/flags.md, "Enum flags".
+constexpr Table kEnum{0x250, 0x258, 0x260, 0x26c, 0x38, 0x1c, 0x270, 0x278, 0x280, 8};
+constexpr std::uint64_t kEnumValueCount = 0x28, kEnumValueArray = 0x30;  // u32, u32* in an entry
 // String64 (type 16, M + 0x610): entries of 0x108, char* to the text at
 // +0x68, s32 buffer size at +0x70 (0x3758110). Queue not read.
-// Enum (type 6, M + 0x250): entries of 0x38, value (the name's hash) at
-// +0x1c, 8-byte queue slots {u32 value, u32 hash}, as the getter 0x7e73d0
-// and the setter 0x3e0980 read them.
-constexpr Table kEnum{0x250, 0x258, 0x260, 0x26c, 0x38, 0x1c, 0x270, 0x278, 0x280, 8};
 constexpr Table kString64{0x610, 0x618, 0x620, 0x62c, 0x108, 0, 0, 0, 0, 0};
 constexpr std::uint64_t kStringText = 0x68, kStringSize = 0x70;
 // The game's String64 buffers hold 64 bytes; more is not a String64.
@@ -232,6 +239,26 @@ std::optional<std::uint32_t> GameFlags::get_enum(std::uint32_t hash) {
   return read_u32(memory_, *entries + kEnum.stride * *index + kEnum.value);
 }
 
+std::optional<std::vector<std::uint32_t>> GameFlags::enum_values(std::uint32_t hash) {
+  const auto mgr = manager(memory_);
+  if (!mgr) return std::nullopt;
+  const auto index = find(memory_, *mgr, kEnum, hash);
+  const auto entries = index ? read_ptr(memory_, *mgr + kEnum.entries) : std::nullopt;
+  if (!entries) return std::nullopt;
+  const std::uint64_t entry = *entries + kEnum.stride * *index;
+  const auto count = read_u32(memory_, entry + kEnumValueCount);
+  const auto array = read_ptr(memory_, entry + kEnumValueArray);
+  if (!count || !array || *count == 0 || *count > EnumFlags::kMaxValues) return std::nullopt;
+  std::vector<std::uint32_t> out;
+  out.reserve(*count);
+  for (std::uint32_t i = 0; i < *count; ++i) {
+    const auto v = read_u32(memory_, *array + 4ull * i);
+    if (!v) return std::nullopt;
+    out.push_back(*v);
+  }
+  return out;
+}
+
 std::optional<bool> GameFlags::get_key64(std::uint64_t key) {
   const auto mgr = manager(memory_);
   if (!mgr) return std::nullopt;
@@ -330,6 +357,17 @@ std::optional<int> GameFlags::find_type(std::uint32_t hash) {
   return std::nullopt;
 }
 
+std::optional<std::uint64_t> GameFlags::live_address(Live kind, std::uint32_t hash) {
+  // Enum (type 6): only the table the getter reads first (kEnum).
+  const Table& t = kind == Live::bool8 ? kBool : kind == Live::int32 ? kInt : kEnum;
+  const auto mgr = manager(memory_);
+  if (!mgr) return std::nullopt;
+  const auto index = find(memory_, *mgr, t, hash);
+  const auto entries = index ? read_ptr(memory_, *mgr + t.entries) : std::nullopt;
+  if (!entries) return std::nullopt;
+  return *entries + t.stride * *index + t.value;
+}
+
 bool GameFlags::set_bool(WritableGameMemory& m, std::uint32_t hash, bool value) {
   const auto mgr = manager(m);
   if (!mgr || !find(m, *mgr, kBool, hash)) return false;
@@ -367,9 +405,23 @@ bool GameFlags::set_key64(WritableGameMemory& m, std::uint64_t key, bool value) 
                  true);
 }
 
+bool GameFlagStore::is_enum(FlagKey key) const {
+  return enums_ != nullptr && key.kind == FlagKeyKind::named && key.index == 0 &&
+         enums_->contains(key.hash);
+}
+
 std::optional<protocol::FlagEntry> GameFlagStore::read(FlagKey key) {
   GameFlags flags(memory_);
   protocol::FlagEntry e{key, protocol::FlagKind::boolean, 0};
+  if (is_enum(key)) {
+    // Declared an Enum by the list: only the Enum table, and only a value of
+    // its set (anything else is a misread, not a value to share).
+    const auto v = flags.get_enum(key.hash);
+    if (!v || !enums_->allows(key.hash, *v)) return std::nullopt;
+    e.kind = protocol::FlagKind::uint32;
+    e.value = *v;
+    return e;
+  }
   if (key.kind == FlagKeyKind::key64) {
     if (key.table != 0) return std::nullopt;  // the game has one table
     const auto v = flags.get_key64(key.key);

@@ -119,7 +119,7 @@ Then the old player is dropped and reported as `PLAYER_LEFT` timed out, with the
 | 5 | `PLAYER_LEFT` | 0 | server | `u8` player number, `u8` reason: 0 left, 1 timed out, 2 kicked (an unknown reason is kept) |
 | 6 | `PING` | 0 | both | above |
 | 7 | `PONG` | 0 | both | above |
-| 8 | `PLAYER_STATUS` | 0 | both | `u8` player field, `u8` flags: bit 0 paused, 1 loading, 2 in cutscene, 3 in menu, 4 dead (unknown bits are kept); sent on every change |
+| 8 | `PLAYER_STATUS` | 0 | both | `u8` player field, `u8` flags: bit 0 paused, 1 loading, 2 in cutscene, 3 in menu, 4 dead (unknown bits are kept); sent on every change; a joiner gets each other player's last non-zero one from the server after its `WELCOME` (ORM) |
 | 9 | `CHAT` | 0 | both | `u8` player field, text up to 200 characters |
 | 10 | `PLAYER_SAMPLE` | 3 | both | `u8` player field, then the components below |
 | 11 | `TEST_PAYLOAD` | 0 or 3 | both | `u32` sequence number, then the rest of the body is filler; used only by the stage 0 test tool |

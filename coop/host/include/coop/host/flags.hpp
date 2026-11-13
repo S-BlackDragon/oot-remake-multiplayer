@@ -80,6 +80,12 @@ class FlagStore {
   // Writes the value as it is, with no merging (the host's save load,
   // docs/flags.md "Saves"). Default: write().
   virtual bool write_exact(const protocol::FlagEntry& entry) { return write(entry); }
+
+  // ORM (oot-remake docs/CONTINUAR.md): one of this game's own per player
+  // values (the wallet, ammo: never shared) written back as it was before a
+  // kept Continue's reload. A store that refuses per player flags on write
+  // (ItemFlagStore) lets these through. Default: write_exact().
+  virtual bool write_own(const protocol::FlagEntry& entry) { return write_exact(entry); }
 };
 
 // A FlagStore that refuses the flags `hold` names for now and passes all
@@ -115,6 +121,7 @@ class HoldFlagStore final : public FlagStore {
     }
     return inner_.write_exact(entry);
   }
+  bool write_own(const protocol::FlagEntry& entry) override { return inner_.write_own(entry); }
 
   // Writes refused so far, and their flags (at most 64).
   std::uint64_t held() const { return held_; }

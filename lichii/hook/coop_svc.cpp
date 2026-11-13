@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "common/fs/path_util.h"
+
 #include "common/logging.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_process.h"
@@ -24,6 +25,8 @@
 #include "core/memory.h"
 
 #include "coop_counters.h"
+#include "coop_downed.h"
+#include "coop_perf.h"  // ORM: LICHII_ORM_PERF
 #include "coop_hold.h"
 #include "coop_sites.h"
 #include "coop_puppet.h"
@@ -112,37 +115,13 @@ std::string Refusal() {
     return g_refusal;
 }
 
-void PatchMain(std::uint64_t title_id, std::string_view module, std::string_view build_id,
-               const std::vector<std::uint8_t>& original, std::vector<std::uint8_t>& out) {
-    if (title_id != kOcarinaProgramId || module != "main") {
-        return;
-    }
-    SetRefusal({});  // a new game start
+namespace {
+
+// The puppet cave, its two calls and the AI hold (coop_svc.s, coop_hold.s).
+// `out` is the NSO header, then main of the right build, already checked by
+// CoopSites::ChangedSite.
+void PatchPuppet(const std::vector<std::uint8_t>& original, std::vector<std::uint8_t>& out) {
     constexpr std::size_t header = sizeof(Loader::NSOHeader);
-    if (build_id == kMainBuild && original.size() >= header + kCaveEnd &&
-        out.size() >= header + kCaveEnd) {
-        // No game mods with co-op (issue 136): a mod that patches the game's
-        // code where co-op does would break one or the other. Checked always,
-        // so co-op stays off with any such mod, puppets on or not.
-        if (const auto changed = CoopSites::ChangedSite(out, header)) {
-            char where[24];
-            std::snprintf(where, sizeof where, "%#llx", static_cast<unsigned long long>(*changed));
-            SetRefusal(std::string("main+") + where);
-            LOG_WARNING(Loader,
-                        "    - Skipping \"coop puppet\": main+{} is not the game's own (a game "
-                        "mod patches it); co-op stays off. Remove or turn off the game's mods.",
-                        where);
-            return;
-        }
-    }
-    if (!Wanted()) {
-        return;
-    }
-    if (build_id != kMainBuild) {
-        LOG_WARNING(Loader, "    - Skipping \"coop puppet\": build id {} is not {}", build_id,
-                    kMainBuild);
-        return;
-    }
     const std::size_t cave = header + kCaveOffset;
     if (original.size() < header + kCaveEnd || out.size() < header + kCaveEnd) {
         LOG_WARNING(Loader, "    - Skipping \"coop puppet\": main is too small");
@@ -218,6 +197,87 @@ void PatchMain(std::uint64_t title_id, std::string_view module, std::string_view
     }
     if (EnvOn("LICHII_COOP_PUPPET") || EnvOn("LICHII_COOP_DEBUG_PUPPET")) {
         CoopPuppetConfig::Configure();  // the cave may be here for the other callers alone
+    }
+}
+
+// The downed gate (coop_downed.s): the call that starts the game over event
+// goes through a cave that skips it while the gate word is nonzero. Its hook
+// and cave are in CoopSites::ChangedSite too.
+void PatchDownedGate(const std::vector<std::uint8_t>& original, std::vector<std::uint8_t>& out) {
+    constexpr std::size_t header = sizeof(Loader::NSOHeader);
+    if (original.size() < header + CoopDowned::kGateEnd ||
+        out.size() < header + CoopDowned::kGateEnd) {
+        LOG_WARNING(Loader, "    - Skipping \"coop downed gate\": main is too small");
+        return;
+    }
+    const std::size_t at = header + CoopDowned::kHookOffset;
+    if (Word(original, at) != CoopDowned::kHookOriginal ||
+        Word(out, at) != CoopDowned::kHookOriginal) {
+        LOG_WARNING(Loader,
+                    "    - Skipping \"coop downed gate\": main+{:#x} holds {:#010x} (patched "
+                    "{:#010x}), expected {:#010x}",
+                    CoopDowned::kHookOffset, Word(original, at), Word(out, at),
+                    CoopDowned::kHookOriginal);
+        return;
+    }
+    for (std::size_t i = header + CoopDowned::kCaveOffset; i < header + CoopDowned::kGateEnd;
+         ++i) {
+        if (original[i] != 0 || out[i] != 0) {
+            LOG_WARNING(Loader, "    - Skipping \"coop downed gate\": main+{:#x} is not free",
+                        i - header);
+            return;
+        }
+    }
+    const std::uint32_t call = CoopDowned::HookWord();
+    std::memcpy(out.data() + at, &call, sizeof(call));
+    std::memcpy(out.data() + header + CoopDowned::kCaveOffset, CoopDowned::kCave.data(),
+                CoopDowned::kCave.size());
+    LOG_INFO(Loader,
+             "    - Applying \"coop downed gate\": bl {:#x} at main+{:#x}, gate word at "
+             "main+{:#x} (open)",
+             CoopDowned::kCaveOffset, CoopDowned::kHookOffset, CoopDowned::kGateOffset);
+}
+
+} // namespace
+
+void PatchMain(std::uint64_t title_id, std::string_view module, std::string_view build_id,
+               const std::vector<std::uint8_t>& original, std::vector<std::uint8_t>& out) {
+    if (title_id != kOcarinaProgramId || module != "main") {
+        return;
+    }
+    SetRefusal({});  // a new game start
+    constexpr std::size_t header = sizeof(Loader::NSOHeader);
+    if (build_id == kMainBuild && original.size() >= header + kCaveEnd &&
+        out.size() >= header + kCaveEnd) {
+        // No game mods with co-op (issue 136): a mod that patches the game's
+        // code where co-op does would break one or the other. Checked always,
+        // so co-op stays off with any such mod, puppets on or not.
+        if (const auto changed = CoopSites::ChangedSite(out, header)) {
+            char where[24];
+            std::snprintf(where, sizeof where, "%#llx", static_cast<unsigned long long>(*changed));
+            SetRefusal(std::string("main+") + where);
+            LOG_WARNING(Loader,
+                        "    - Skipping \"coop puppet\": main+{} is not the game's own (a game "
+                        "mod patches it); co-op stays off. Remove or turn off the game's mods.",
+                        where);
+            return;
+        }
+    }
+    const bool puppet = Wanted();
+    const bool downed = CoopSwitch::On("LICHII_COOP_DOWNED", false);  // ORM "downed, not dead", as CoopDowned::On
+    if (!puppet && !downed) {
+        return;
+    }
+    if (build_id != kMainBuild) {
+        LOG_WARNING(Loader, "    - Skipping \"coop {}\": build id {} is not {}",
+                    puppet ? "puppet" : "downed gate", build_id, kMainBuild);
+        return;
+    }
+    if (puppet) {
+        PatchPuppet(original, out);
+    }
+    if (downed) {
+        PatchDownedGate(original, out);
     }
 }
 

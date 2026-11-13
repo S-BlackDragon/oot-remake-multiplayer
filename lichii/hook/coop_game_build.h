@@ -4,7 +4,7 @@
 //
 // Today only the hook's build check reads this table (coop_hook.cpp). The
 // readers still use their own constants (coop_puppet.h addr, coop_world.h,
-// coop_fairy.h, coop_svc.h, coop_hold.h, coop/host/src/addresses.hpp and a
+// coop_fairy.h, coop_svc.h, coop_hold.h, coop_downed.h, coop/host/src/addresses.hpp and a
 // few .cpp files); tests/lichii/game_build_test.cpp checks that this table
 // and those constants agree, so moving a reader onto the table later is a
 // plain swap. Struct offsets (fields inside the game's objects) are not here:
@@ -51,7 +51,7 @@ struct MainOffsets {
     std::uint64_t set_matrix;          // kSetMatrix
     std::uint64_t set_time;            // coop_time.cpp kSetTime
     std::uint64_t cut_foliage;         // CoopWorld::kCutFoliage
-    // Code patches. The caves (coop_svc.s, coop_hold.s) are linked at these
+    // Code patches. The caves (coop_svc.s, coop_hold.s, coop_downed.s) are linked at these
     // addresses and branch to frame_step, so a new build needs them
     // re-linked, not only new numbers.
     std::uint64_t frame_step;          // the call the svc hooks replace
@@ -62,6 +62,10 @@ struct MainOffsets {
     std::uint64_t hold_hook;           // CoopHold::kHookOffset
     std::uint64_t hold_cave;           // CoopHold::kCaveOffset
     std::uint64_t hold_table;          // CoopHold::kTableOffset
+    std::uint64_t downed_hook;         // CoopDowned::kHookOffset
+    std::uint64_t start_event;         // CoopDowned::kStartEvent (what downed_hook calls)
+    std::uint64_t downed_cave;         // CoopDowned::kCaveOffset
+    std::uint64_t downed_gate;         // CoopDowned::kGateOffset
 };
 
 struct Build {
@@ -106,6 +110,10 @@ inline constexpr std::array<Build, 1> kBuilds{{
          .hold_hook = 0x369df8,
          .hold_cave = 0x3c46300,
          .hold_table = 0x3c46400,
+         .downed_hook = 0x4ae6bc,
+         .start_event = 0x4aa890,
+         .downed_cave = 0x3c46800,
+         .downed_gate = 0x3c46880,
      }},
 }};
 

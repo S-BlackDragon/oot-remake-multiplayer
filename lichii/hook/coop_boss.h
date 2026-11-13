@@ -40,6 +40,13 @@
 //   Without that reading, the first event is the death, as before. After a
 //   real defeat nobody is pulled into that room again until they leave the
 //   dungeon's scene: walking out of a beaten boss room is allowed.
+// - ORM, a downed player (oot-remake docs/CAIDO_REVIVIR.md): an event that
+//   starts while our Link is down, being revived or in the game over, or that
+//   is the game over event itself (by name), is never the intro nor the boss's
+//   death (the revive runs the game over event's fairy branch). A downed Link
+//   is not pulled into the room. After a game over and its reload (Continue),
+//   the room starts over: only a defeat heard from another game keeps it
+//   beaten (oot-remake docs/ESPECTADOR_Y_JEFES.md B.2, B0).
 #pragma once
 
 #include <array>
@@ -116,7 +123,7 @@ const Room* RoomOfScene(std::string_view scene);
 bool Inside(const Room& room, const Vec& p);
 // The room `p` is in, in scene `scene`, or null.
 const Room* RoomAt(std::string_view scene, const Vec& p);
-// Where player `number` (1 to 4) is put in a room: the room's arrival point,
+// Where player `number` (1 to kMaxPlayers) is put in a room: the room's arrival point,
 // moved 1.5 units around it by player number so two moved players do not
 // stand in each other.
 Vec ArrivalFor(const Room& room, std::uint8_t number);
@@ -135,12 +142,16 @@ struct Actions {
     std::vector<std::string> log;
 };
 
+// The game over event (the game's own names, "DmF_SY_GameOver" and
+// "Delayed_GameOver"): a death, and also a fairy's revive. Never the boss's.
+bool IsGameOverEvent(std::string_view event_name);
+
 // This game's Link, read this frame.
 struct Local {
     std::optional<std::string> scene;  // nothing while loading
     std::optional<Vec> position;
     bool event = false;                // an event (cutscene) runs
-    std::uint8_t self = 0;             // our player number, 1 to 4 (0 unknown)
+    std::uint8_t self = 0;             // our player number, 1 to kMaxPlayers (0 unknown)
     // The dungeon's boss as the object walk saw it last: true while its actor
     // is there with life left, false once it is gone or at 0 life, nothing
     // when the walk does not run (LICHII_COOP_OBJECTS off, or stale).
@@ -148,6 +159,19 @@ struct Local {
     // ShutInFlag(room) of the scene's boss room as the game has it: nothing
     // when the room has no such flag or it cannot be read (issue 148).
     std::optional<bool> shut_in;
+    // ORM. The running event's name, "" when not known (the caller keeps it
+    // alive for the Tick).
+    std::string_view event_name;
+    // ORM, from the downed state machine (coop/host/downed.hpp): our Link is
+    // not up (down, being revived, or in the game over)...
+    bool downed = false;
+    // ...and of that, the game over runs (Continue reloads the save).
+    bool game_over = false;
+    // ORM (oot-remake docs/JEFES.md, D-R17; coop::host::boss_pull): our Link
+    // lies down (not being revived, not in the game over) and may still be
+    // moved into the room as he lies, with the group: the door is no free
+    // revive. Such a pull is never by the scene change (a load would get him up).
+    bool pull_while_down = false;
 };
 
 class Sync {
@@ -172,6 +196,9 @@ public:
     // An event shorter than this near a boss room with no shut-in flag is not
     // its intro (a door opening, a text, Navi): it moves no one in (issue 148).
     static constexpr std::uint64_t kMinIntroUs = 3'000'000;
+    // ORM: a game over seen, then up, readable and with no event this long
+    // and no load came: it was a fairy's revive, not a reload.
+    static constexpr std::uint64_t kOverCalmUs = 5'000'000;
 
     // Network thread: BOSS_ROOM from the others. Taken on the next Tick.
     void Receive(const coop::protocol::Message& message);
@@ -184,6 +211,9 @@ public:
     // For the debug overlay and tests.
     enum class Phase : std::uint8_t { none, waiting, intro, fight, outro, done };
     Phase phase() const { return phase_; }
+    // ORM: that room of that scene is beaten as this sync knows it (our own
+    // defeat, or one heard from another game, while we are in that scene).
+    bool Beaten(std::string_view scene, std::uint8_t room) const;
 
 private:
     struct Remote {
@@ -200,6 +230,7 @@ private:
     bool FightActive(const Room& room, std::uint64_t now_us) const;
     bool OtherFinishedIntro(const Room& room, std::uint64_t now_us) const;
     void Commit(Actions& out, const char* why);  // we are past the door (issue 148)
+    void Restart(Actions& out, const Local& local);
 
     // Our side.
     const Room* here_ = nullptr;
@@ -218,6 +249,18 @@ private:
     std::uint64_t last_now_ = 0;  // the clock never goes back (server time can)
     std::optional<std::string> scene_;  // the scene of the last Tick with one
     std::vector<std::uint8_t> defeated_;  // rooms beaten while we were in this scene
+    // ORM. Of those, the ones another game said (BOSS_ROOM defeated, relayed
+    // by the server): kept through a reload.
+    std::vector<std::uint8_t> heard_defeated_;
+    // ORM. The running event is not the boss's (it started while we were down
+    // or it is the game over): neither the intro nor the death, until it ends.
+    bool ignored_ = false;
+    // ORM. A game over seen (and not yet over); a load (nothing readable) came
+    // after it; since when we are up and calm without a load.
+    bool over_seen_ = false;
+    bool over_last_ = false;  // last Tick's game over (state or event)
+    bool reload_ = false;
+    std::optional<std::uint64_t> calm_since_;
     // Pulling.
     unsigned pulls_ = 0;
     std::uint64_t pulled_at_ = 0;
@@ -254,9 +297,13 @@ private:
 // Present thread, once per presented frame. `main_base` 0 when the game is
 // not up; `session` null when not connected.
 // `shut_in`: Local::shut_in, read by the hook from the game's flags.
+// ORM: `event_name` the running event's name ("" when not known); `downed`
+// our Link is not up (coop::host::Downed not alive) and `game_over` the game
+// over runs (its state game_over); both false without LICHII_COOP_DOWNED.
 void Frame(Core::System& system, std::uint64_t main_base, const std::optional<std::string>& scene,
            const std::optional<coop::protocol::Vec3>& position, bool event_running,
-           std::optional<bool> shut_in, coop::host::Session* session, std::uint64_t server_now_us);
+           std::optional<bool> shut_in, coop::host::Session* session, std::uint64_t server_now_us,
+           std::string_view event_name = {}, bool downed = false, bool game_over = false);
 
 // Network thread, from the session's on_event.
 void OnEvent(const coop::net::Event& event);

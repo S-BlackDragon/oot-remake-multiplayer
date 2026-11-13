@@ -71,6 +71,13 @@ struct ChatLine {
     std::uint64_t age_ms = 0;
 };
 std::vector<ChatLine> ChatLines();
+
+// ORM "downed, not dead" (coop_downed_game.h): the one line about it, shown
+// over the game ("hold A to revive ...", "... is reviving you 40 %"), UTF-8;
+// empty for nothing. Any thread. ORM: a lost connection comes first on the
+// same line ("Sin conexion con el servidor: reconectando (n s)"), so it shows
+// with the panel hidden (F9) until the connection is back.
+std::string DownedBanner();
 // Everyone in the room, this player first, then by number.
 struct PlayerRow {
     std::uint8_t number = 0;

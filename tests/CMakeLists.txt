@@ -21,6 +21,8 @@ add_executable(coop_tests
   net/client_test.cpp
   net/small_path_test.cpp
   net/encrypt_loopback_test.cpp
+  net/client_rtt_test.cpp
+  net/ws_transport_test.cpp
   presence/presence_test.cpp
   host/reader_test.cpp
   host/sampler_test.cpp
@@ -34,6 +36,9 @@ add_executable(coop_tests
   host/scene_test.cpp
   overlay/overlay_test.cpp
   lichii/camera_test.cpp
+  lichii/camera_aim_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_camera_aim.cpp
+  lichii/spectator_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_spectator.cpp
+  lichii/npc_gaze_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_npc_gaze.cpp
   lichii/settings_test.cpp
   lichii/puppet_test.cpp
   lichii/puppet_config_test.cpp
@@ -109,6 +114,7 @@ add_executable(coop_tests
   lichii/game_build_test.cpp
   lichii/game_scan_test.cpp
   lichii/boss_test.cpp
+  lichii/boss_rules_test.cpp
   lichii/teleport_test.cpp
   lichii/pvp_test.cpp
   lichii/live_events_test.cpp
@@ -154,7 +160,19 @@ target_sources(coop_tests PRIVATE hookshot/module_test.cpp hookshot/draw_test.cp
   hookshot/cheats_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../hookshot/src/coop_cheats_panel.cpp
   hookshot/png_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../hookshot/src/coop_png.cpp)
 target_include_directories(coop_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../hookshot/src)
+# The WebSocket transport's header lives beside its source, not in the public
+# include folder; its test drives it directly.
+target_include_directories(coop_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../coop/net/src)
 target_link_libraries(coop_tests PRIVATE coop coop_presence coop_host coop_overlay doctest::doctest coop_warnings)
+target_link_libraries(coop_tests PRIVATE coop_boost coop_openssl)
+if(MSVC)
+  # The TLS WebSocket server in the transport tests needs the same as coop_net.
+  target_compile_options(coop_tests PRIVATE /bigobj)
+endif()
+if(WIN32)
+  target_compile_definitions(coop_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
+  target_link_libraries(coop_tests PRIVATE ws2_32)
+endif()
 # The session tests run the real server in process.
 target_link_libraries(coop_tests PRIVATE coop_server_lib)
 doctest_discover_tests(coop_tests)

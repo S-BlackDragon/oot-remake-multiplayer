@@ -74,6 +74,10 @@ class Sampler {
   std::uint32_t sequence_ = 0;
   std::uint8_t flags_ = 0;
   bool status_sent_ = false;
+  bool downed_ = false;
+  bool age_waits_ = false;  // ORM: set_age_waits
+  std::uint8_t menu_bits_ = 0;  // set_menu_status, masked
+  std::optional<protocol::Ride> ride_;  // ORM: set_ride
   std::optional<PlayerReading> previous_;   // last frame's reading
   std::uint64_t previous_time_us_ = 0;
   std::optional<protocol::PlayerSample> last_sent_;

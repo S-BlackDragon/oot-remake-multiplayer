@@ -185,6 +185,13 @@ TEST_CASE("puppet cave: the call and the cave decode to the right places") {
 
     const auto& cave = CoopSvc::kCave;
     CHECK(CoopSvc::kCaveOffset >= 0x3c46278);  // after Dynamic FPS
+    // ORM: Fritchii v5.7 and later keep their high refresh cave at 0x3c46e00 to
+    // 0x3c46f10 (lichii/README.md); none of our caves may reach it. (Our patch
+    // 0008 moved the caves past 0x3c46310 for Fritchii v5.6; not needed since.)
+    CHECK(CoopSvc::kCaveOffset + cave.size() <= 0x3c46e00);
+    CHECK(CoopHold::kTableOffset + CoopHold::kTableSize <= 0x3c46e00);
+    CHECK(CoopDowned::kGateEnd <= 0x3c46e00);
+    CHECK(CoopHold::kTableOffset + CoopHold::kTableSize <= CoopDowned::kCaveOffset);
     CHECK(CoopSvc::kCaveOffset + cave.size() <= CoopSvc::kCaveEnd);
     std::uint32_t last = 0;
     std::memcpy(&last, cave.data() + cave.size() - 4, 4);
@@ -210,6 +217,7 @@ TEST_CASE("puppet cave: a game mod at a place co-op patches is found, others' by
     for (const auto& h : CoopSvc::kHooks) put(main, h.offset, h.original);
     put(main, CoopHold::kHookOffset, CoopHold::kHookOriginal);
     put(main, CoopCounters::kStartOffset, CoopCounters::kStartOriginal);
+    put(main, CoopDowned::kHookOffset, CoopDowned::kHookOriginal);  // ORM downed gate
     CHECK_FALSE(CoopSites::ChangedSite(main).has_value());
     // The emulator's own built-ins and other bytes in the padding are not ours.
     main[0x3c46200] = 0xff;  // Dynamic FPS
@@ -226,6 +234,13 @@ TEST_CASE("puppet cave: a game mod at a place co-op patches is found, others' by
     mod = main;
     mod[CoopHold::kHookOffset] ^= 1;
     CHECK(CoopSites::ChangedSite(mod) == std::optional<std::uint64_t>(CoopHold::kHookOffset));
+    // ORM: the downed gate's call and its gate word.
+    mod = main;
+    put(mod, CoopDowned::kHookOffset, 0x94000000);
+    CHECK(CoopSites::ChangedSite(mod) == std::optional<std::uint64_t>(CoopDowned::kHookOffset));
+    mod = main;
+    mod[CoopDowned::kGateOffset] = 1;
+    CHECK(CoopSites::ChangedSite(mod) == std::optional<std::uint64_t>(CoopDowned::kGateOffset));
     mod = main;
     mod[CoopHold::kTableOffset + CoopHold::kTableSize - 1] = 1;
     CHECK(CoopSites::ChangedSite(mod) ==
@@ -1143,14 +1158,14 @@ TEST_CASE("puppet planner: scene and cutscene rules, actor by age, animation pas
     REQUIRE(in.targets[0].anim);
     CHECK(in.targets[0].anim->name == "Wait");
     CHECK(in.targets[0].anim_serial == 7u);
-    CHECK(in.targets[1].show == CoopPuppet::Show::hold);  // their cutscene
+    CHECK(in.targets[1].show == CoopPuppet::Show::show);  // their cutscene hides nobody (ORM D-R12)
     CHECK(in.targets[1].actor == "CoopPuppet_Adult_Red");  // player 2: red
 
-    // Our cutscene: every puppet here kept but hidden.
+    // Our cutscene: every puppet here stays shown (ORM D-R12, one shared world).
     in = p.Plan(kBase, std::string("Kokiri"), std::nullopt, true, remotes, 10);
     REQUIRE(in.targets.size() == 2);
-    CHECK(in.targets[0].show == CoopPuppet::Show::hide);
-    CHECK(in.targets[1].show == CoopPuppet::Show::hide);
+    CHECK(in.targets[0].show == CoopPuppet::Show::show);
+    CHECK(in.targets[1].show == CoopPuppet::Show::show);
 
     // An actor named in the settings wins over age.
     CoopPuppet::PlannerSettings s;
@@ -1199,13 +1214,14 @@ TEST_CASE("puppet planner: riding shows (issue 199), the Ocarina plays through t
     in = p.Plan(kBase, std::string("HyruleField_Child"), std::nullopt, false, remotes, 10);
     CHECK(in.targets[0].show == CoopPuppet::Show::show);
 
-    // Our cutscene hides them all, with why.
+    // Our cutscene changes nothing: everyone here stays shown (ORM D-R12; the first got off the horse above).
     in = p.Plan(kBase, std::string("HyruleField_Child"), std::nullopt, true, remotes, 20);
     REQUIRE(in.targets.size() == 3);
     for (const auto& t : in.targets) {
-        CHECK(t.show == CoopPuppet::Show::hide);
-        CHECK(std::string(t.why) == "our cutscene");
+        CHECK(t.show == CoopPuppet::Show::show);
     }
+    CHECK(std::string(in.targets[0].why) == "");
+    CHECK(std::string(in.targets[1].why) == "ocarina");
 }
 
 TEST_CASE("puppet show changes are logged once each, with why") {

@@ -232,6 +232,10 @@ class ItemFlagStore final : public FlagStore {
   // The value as it is (no max, OR or mirror merging; per-player flags still
   // refused): the host's save decides (docs/flags.md, "Saves").
   bool write_exact(const protocol::FlagEntry& entry) override;
+  // ORM (CONTINUAR.md): a per player item flag of the right kind goes to the
+  // game as it is (a kept Continue's wallet and ammo); anything else is
+  // write_exact().
+  bool write_own(const protocol::FlagEntry& entry) override;
   // An item merged from 0 (or less, or false) to 1 or more (true) in the
   // game also raises its grants (item_grants) to their floor, per-player
   // flags included. An item the game holds already gets its capacity grants

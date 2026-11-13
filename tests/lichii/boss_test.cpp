@@ -68,7 +68,7 @@ TEST_CASE("boss: the eight rooms") {
         CHECK(CoopBoss::RoomByIndex(r.index) == &r);
         // The arrival point and every player's spot around it are in the room.
         CHECK(CoopBoss::Inside(r, r.arrive));
-        for (std::uint8_t n = 1; n <= 4; ++n) {
+        for (std::uint8_t n = 1; n <= proto::kMaxPlayers; ++n) {
             CHECK(CoopBoss::Inside(r, CoopBoss::ArrivalFor(r, n)));
         }
         CHECK_FALSE(r.parts.empty());

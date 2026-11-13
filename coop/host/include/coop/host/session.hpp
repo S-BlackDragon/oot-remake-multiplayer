@@ -39,6 +39,7 @@
 #include <functional>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <variant>
 #include <string>
 #include <vector>
@@ -194,6 +195,34 @@ class Session {
   // Emulator thread only: FlagWatcher::take_counts_guarded.
   std::vector<FlagWatcher::CountGuarded> take_counts_guarded() {
     return watcher_ ? watcher_->take_counts_guarded() : std::vector<FlagWatcher::CountGuarded>{};
+  }
+
+  // Emulator thread only, ORM "downed, not dead" (coop/host/downed.hpp): the
+  // dead bit of our PLAYER_STATUS (Sampler::set_downed), and the flags the
+  // watcher leaves alone while a revive fakes a bottle (FlagWatcher::set_quiet).
+  void set_downed(bool downed) { sampler_.set_downed(downed); }
+  // Emulator thread only, ORM the room's age (coop/host/age.hpp): the
+  // age_waits bit of our PLAYER_STATUS (Sampler::set_age_waits).
+  void set_age_waits(bool waits) { sampler_.set_age_waits(waits); }
+  // Emulator thread only: the flag bursts held and merged (for the log).
+  const FlagBurst& flag_burst() const { return burst_; }
+  // Emulator thread only, before frame(), ORM menus (coop/host/menus.hpp):
+  // the pause and title bits of our PLAYER_STATUS (Sampler::set_menu_status).
+  void set_menu_status(std::uint8_t bits) { sampler_.set_menu_status(bits); }
+  // Emulator thread only, ORM (coop/host/ride.hpp): the moving floor our Link
+  // stands on, for our samples (Sampler::set_ride).
+  void set_ride(std::optional<protocol::Ride> ride) { sampler_.set_ride(ride); }
+  void set_quiet_flags(std::set<FlagKey> keys) {
+    if (watcher_) watcher_->set_quiet(std::move(keys));
+  }
+  // Emulator thread only, ORM Continue (coop/host/continue_load.hpp): how the
+  // next load window is taken (FlagWatcher::set_continue_load), and the per
+  // player values a kept Continue keeps too (set_continue_keep_extra).
+  void set_continue_load(FlagWatcher::ContinueMode mode) {
+    if (watcher_) watcher_->set_continue_load(mode);
+  }
+  void set_continue_keep_extra(std::vector<FlagKey> keys) {
+    if (watcher_) watcher_->set_continue_keep_extra(std::move(keys));
   }
 
   // Emulator thread only (the parts frame() uses), for tests and the overlay.

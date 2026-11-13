@@ -118,7 +118,7 @@ const Room* RoomAt(std::string_view scene, const Vec& p) {
 
 Vec ArrivalFor(const Room& room, std::uint8_t number) {
     Vec v = room.arrive;
-    if (number >= 1 && number <= 4) {
+    if (number >= 1 && number <= proto::kMaxPlayers) {
         const float angle = static_cast<float>(number) * 1.5707963f;  // a quarter turn each
         v.x += kArrivalSpread * std::cos(angle);
         v.z += kArrivalSpread * std::sin(angle);
@@ -153,6 +153,10 @@ std::vector<std::string_view> StaleBossFlags::Check(const std::optional<std::str
     return out;
 }
 
+bool IsGameOverEvent(std::string_view event_name) {
+    return event_name.find("GameOver") != std::string_view::npos;
+}
+
 const char* PhaseName(Sync::Phase phase) {
     switch (phase) {
     case Sync::Phase::none: return "none";
@@ -184,6 +188,12 @@ void Sync::Reset() {
     last_now_ = 0;
     scene_.reset();
     defeated_.clear();
+    heard_defeated_.clear();
+    ignored_ = false;
+    over_seen_ = false;
+    over_last_ = false;
+    reload_ = false;
+    calm_since_.reset();
     pulls_ = 0;
     pulled_at_ = 0;
     gave_up_ = false;
@@ -227,9 +237,13 @@ void Sync::Take(const proto::BossRoom& m, std::uint64_t now_us) {
         r.in_room = false;
         r.fighting = false;
         r.committed = false;
-        if (scene_ && *scene_ == m.scene &&
-            std::find(defeated_.begin(), defeated_.end(), m.room) == defeated_.end()) {
-            defeated_.push_back(m.room);
+        if (scene_ && *scene_ == m.scene) {
+            if (std::find(defeated_.begin(), defeated_.end(), m.room) == defeated_.end()) {
+                defeated_.push_back(m.room);
+            }
+            if (std::find(heard_defeated_.begin(), heard_defeated_.end(), m.room) == heard_defeated_.end()) {
+                heard_defeated_.push_back(m.room);
+            }
         }
         break;
     }
@@ -273,6 +287,32 @@ bool Sync::FightActive(const Room& room, std::uint64_t now_us) const {
     return false;
 }
 
+// ORM: the scene loaded again after a game over (Continue). Whatever the room
+// was doing is gone with the load: back to before the fight, except a defeat
+// another game told us of. An event running right after the load is the
+// load's own (it ends with a wait event), not the intro.
+void Sync::Restart(Actions& out, const Local& local) {
+    if (here_ != nullptr) {
+        Say(out, *here_, proto::BossState::left);
+    }
+    here_ = nullptr;
+    phase_ = Phase::none;
+    entered_at_ = intro_at_ = skip_at_ = skip_since_ = 0;
+    skip_asked_ = false;
+    committed_ = false;
+    provisional_ = false;
+    defeated_ = heard_defeated_;
+    pulls_ = 0;
+    gave_up_ = false;
+    event_ = local.event;
+    ignored_ = local.event;
+    out.log.push_back("loaded again after the game over: the boss room starts over");
+}
+
+bool Sync::Beaten(std::string_view scene, std::uint8_t room) const {
+    return scene_ && *scene_ == scene && std::find(defeated_.begin(), defeated_.end(), room) != defeated_.end();
+}
+
 bool Sync::OtherFinishedIntro(const Room& room, std::uint64_t now_us) const {
     for (const auto& [number, r] : remotes_) {
         if (r.in_room && r.fighting && r.room == room.index && r.scene == room.scene &&
@@ -299,22 +339,73 @@ Actions Sync::Tick(const Local& local, std::uint64_t now_us) {
             Take(m, now_us);
         }
     }
+    // ORM: the game over (the downed state machine's, or its event by name).
+    // Taken when it starts: the state machine can still say game_over on the
+    // first frames after the reload.
+    const bool game_over_event = local.event && IsGameOverEvent(local.event_name);
+    const bool over = local.game_over || game_over_event;
+    if (over && !over_last_) {
+        if (!over_seen_) {
+            out.log.push_back("game over: the boss room starts over if the scene loads again");
+        }
+        over_seen_ = true;
+    }
+    if (over) {
+        calm_since_.reset();
+    }
+    over_last_ = over;
     // Nothing is decided while the game cannot be read (a load, a menu).
     if (!local.scene || !local.position) {
+        if (over_seen_) {
+            reload_ = true;
+        }
         return out;
     }
     if (!scene_ || *scene_ != *local.scene) {
         scene_ = local.scene;
         defeated_.clear();
+        heard_defeated_.clear();
         pulls_ = 0;
         gave_up_ = false;
+    }
+    if (reload_) {
+        reload_ = false;
+        over_seen_ = false;
+        calm_since_.reset();
+        Restart(out, local);
+    } else if (over_seen_ && !local.downed && !local.event) {
+        // Up again with no load: a fairy's revive.
+        if (!calm_since_) {
+            calm_since_ = now_us;
+        } else if (now_us - *calm_since_ >= kOverCalmUs) {
+            over_seen_ = false;
+            calm_since_.reset();
+        }
     }
     const auto beaten = [this](const Room& room) {
         return std::find(defeated_.begin(), defeated_.end(), room.index) != defeated_.end();
     };
-    const bool rose = local.event && !event_;
-    const bool fell = !local.event && event_;
+    bool rose = local.event && !event_;
+    bool fell = !local.event && event_;
     event_ = local.event;
+    // ORM: an event of a downed player (the revive, the game over) is not the
+    // boss's; it is ignored until it ends, even if Link is up before that.
+    const bool masked = local.downed || game_over_event;
+    if (rose && masked) {
+        ignored_ = true;
+        if (here_ != nullptr && (phase_ == Phase::waiting || phase_ == Phase::intro || phase_ == Phase::fight)) {
+            out.log.push_back(std::string("an event while ") + (local.downed ? "down" : "in the game over") +
+                              ": not the boss's");
+        }
+    }
+    if (ignored_) {
+        rose = false;
+        if (fell) {
+            fell = false;
+            ignored_ = false;
+        }
+    }
+    const bool event_now = local.event && !ignored_ && !masked;  // an event that may be the boss's
 
     // In or out of a boss room.
     const Room* room = RoomAt(*local.scene, *local.position);
@@ -345,7 +436,7 @@ Actions Sync::Tick(const Local& local, std::uint64_t now_us) {
                 sent_at_ = now_us;
                 out.log.push_back("in the boss room of " + std::string(here_->scene) + ": " +
                                   std::string(here_->boss));
-                if (local.event) {  // came in with an event running: that is the intro
+                if (event_now) {  // came in with an event running: that is the intro
                     phase_ = Phase::intro;
                     intro_at_ = now_us;
                     out.log.push_back("intro started (" + std::string(here_->intro) + ")");
@@ -466,7 +557,7 @@ Actions Sync::Tick(const Local& local, std::uint64_t now_us) {
     if (here_ != nullptr) {
         // Leave the intro with the others: skip ours once another player in
         // this room has finished theirs.
-        if (phase_ == Phase::intro && local.event && OtherFinishedIntro(*here_, now_us)) {
+        if (phase_ == Phase::intro && event_now && OtherFinishedIntro(*here_, now_us)) {
             if (!skip_asked_) {
                 skip_asked_ = true;
                 skip_since_ = now_us;
@@ -492,7 +583,15 @@ Actions Sync::Tick(const Local& local, std::uint64_t now_us) {
         return out;
     }
 
-    // Not in a boss room: follow a fight in this dungeon.
+    // Not in a boss room: follow a fight in this dungeon. ORM: not while our
+    // Link is down or in the game over (moving a body, or asking a scene
+    // change in the game over, is not done); once revived and that event is
+    // over, the next try does.
+    // ORM (D-R17): one lying down is moved as he lies when the hook says so.
+    const bool down_pull = local.pull_while_down && local.downed && !local.game_over && !game_over_event;
+    if ((masked && !down_pull) || ignored_) {
+        return out;
+    }
     const Room* dungeon = RoomOfScene(*local.scene);
     if (dungeon == nullptr || beaten(*dungeon) || !FightActive(*dungeon, now_us)) {
         pulls_ = 0;
@@ -510,9 +609,9 @@ Actions Sync::Tick(const Local& local, std::uint64_t now_us) {
     }
     ++pulls_;
     pulled_at_ = now_us;
-    out.pull = Pull{dungeon, ArrivalFor(*dungeon, local.self), local.event};
+    out.pull = Pull{dungeon, ArrivalFor(*dungeon, local.self), local.event && !local.downed};
     out.log.push_back("another player is in the boss room of " + std::string(dungeon->scene) +
-                      ": moving in (try " + std::to_string(pulls_) + ")");
+                      ": moving in (try " + std::to_string(pulls_) + ")" + (local.downed ? ", down as we lie" : ""));
     return out;
 }
 

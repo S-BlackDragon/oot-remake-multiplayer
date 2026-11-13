@@ -128,6 +128,7 @@ Result Overlay::build(const Camera& camera, std::string_view local_scene,
     if (s.fade_end > 0.0f && w > s.fade_start) {
       near_fade = std::max(0.0, (s.fade_end - w) / (double(s.fade_end) - s.fade_start));
     }
+    if (p.urgent) near_fade = 1.0;  // ORM: a downed mate is found at any distance
 
     const double nx = clip[0] / w;
     const double ny = clip[1] / w;
@@ -170,6 +171,8 @@ Result Overlay::build(const Camera& camera, std::string_view local_scene,
     }
 
     item.tag.text = p.name.empty() ? "P" + std::to_string(p.number) : p.name;
+    if (!p.note.empty()) item.tag.text += " (" + p.note + ")";
+    item.urgent = p.urgent;
     item.tag.x = float(x);
     double above = y - size / 2.0 - s.tag_gap;
     if (!off && p.head > 0.0f) {

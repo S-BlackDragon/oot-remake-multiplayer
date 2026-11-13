@@ -708,6 +708,16 @@ bool ItemFlagStore::is_one_way(FlagKey key) {
          (item->name.ends_with(".IsGetMap") || item->name.ends_with(".IsGetCompass"));
 }
 
+bool ItemFlagStore::write_own(const protocol::FlagEntry& entry) {
+  const FlagKey key = key_of(entry);
+  const ItemFlag* item =
+      key.kind == protocol::FlagKeyKind::named && key.index == 0 ? find_item(key.hash) : nullptr;
+  if (item != nullptr && item->rule == ItemRule::per_player && entry.kind == item->kind) {
+    return inner_.write_exact(entry);
+  }
+  return write_exact(entry);
+}
+
 bool ItemFlagStore::write_exact(const protocol::FlagEntry& entry) {
   if (entry.kind == protocol::FlagKind::count_delta) return write(entry);  // a change, never exact
   exact_ = true;

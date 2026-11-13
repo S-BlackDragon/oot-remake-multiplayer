@@ -105,6 +105,10 @@ std::vector<Outgoing> Sampler::frame(const std::optional<PlayerReading>& reading
         (flags & ~protocol::status::in_cutscene) |
         (*reading->event_running ? protocol::status::in_cutscene : 0));
   }
+  flags = static_cast<std::uint8_t>((flags & ~protocol::status::dead) |
+                                    (downed_ ? protocol::status::dead : 0));
+  flags = static_cast<std::uint8_t>((flags & ~protocol::orm_status::age_waits) |
+                                    (age_waits_ ? protocol::orm_status::age_waits : 0));
   if (!status_sent_ || flags != flags_) {
     flags_ = flags;
     status_sent_ = true;

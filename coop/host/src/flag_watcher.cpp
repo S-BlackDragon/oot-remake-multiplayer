@@ -267,6 +267,7 @@ std::vector<Outgoing> FlagWatcher::frame(FlagStore& store) {
   // game's change is newer, and the diff below sends it.
   const Table retry = unwritten_;
   for (const auto& [key, entry] : retry) {
+    if (quiet_.contains(key)) continue;  // held until the game has its real value back
     // A count total is written on top of the game's own change (write()),
     // so it is never dropped for one.
     if (const auto known = last_.find(key); known != last_.end() && !store.is_count(key)) {
@@ -291,10 +292,24 @@ std::vector<Outgoing> FlagWatcher::frame(FlagStore& store) {
   for (auto& message : queue) handle(store, message, answers);
 
   std::vector<Outgoing> resets;
+  if (continue_mode_ == ContinueMode::keep && !window_ && !settling() && !keep_extra_taken_) {
+    // ORM: CONTINUAR.md, keep: the per player values to keep, as they are at the game over (once: a
+    // Continue may move them before its load window opens, REVISION_NUEVAS).
+    keep_extra_taken_ = true;
+    keep_extra_.clear();
+    for (const FlagKey& key : keep_extra_keys_) {
+      if (shared_.contains(key)) continue;  // shared: kept with the others
+      if (std::optional<FlagEntry> now = store.read(key)) {
+        now->key = key;
+        keep_extra_[key] = *now;
+      }
+    }
+  }
   if (settling() && !window_) {
     window_ = true;
     window_from_save_ = in_save_;  // ORM: from a save (a door, a reload) or from the title screen
     moved_ = false;
+    keep_ = false;
     back_keys_.clear();
     no_scene_frames_ = 0;
   } else if (!settling() && window_) {
@@ -302,6 +317,14 @@ std::vector<Outgoing> FlagWatcher::frame(FlagStore& store) {
     end_window(store, resets);
   }
   if (window_ && loading_ && !scene_readable_) no_scene_frames_ += static_cast<int>(step);
+  // ORM: the title screen or file select (no scene for kTitleFrames): the game's flags are no save's now.
+  if (window_ && loading_ && no_scene_frames_ >= kTitleFrames) in_save_ = false;
+  if (window_ && loading_ && continue_mode_ != ContinueMode::off && !moved_) {  // ORM: CONTINUAR.md
+    moved_ = true;  // a Continue's reload: a save load
+    keep_ = continue_mode_ == ContinueMode::keep;
+    ++stats_.continue_loads;
+  }
+  if (window_ && keep_) keep_extra(store);
   see_save_load();
 
   Table changes;
@@ -320,6 +343,8 @@ std::vector<Outgoing> FlagWatcher::frame(FlagStore& store) {
     push_list<protocol::FlagSet>(out, changes, stats_.entries_unsent);
   } else {
     // Answers already updated last_, so the two never hold the same flag.
+    for (const auto& [key, total] : keep_totals_) answers[key] = total;  // ORM: keep_count_delta
+    keep_totals_.clear();
     answers.merge(changes);
     push_list<protocol::FlagState>(out, answers, stats_.entries_unsent);
     out.insert(out.end(), resets.begin(), resets.end());
@@ -467,6 +492,11 @@ void FlagWatcher::apply_reset(FlagStore& store, const std::vector<FlagEntry>& fl
     const FlagKey key = key_of(entry);
     if (!shared_.contains(key) || is_delta(entry)) continue;  // no one-way rule here
     pending_.erase(key);  // the host's save wins over a change of ours
+    if (quiet_.contains(key)) {  // ORM: faked for now (set_quiet): written once it is not
+      ++stats_.quiet_held;
+      unwritten_[key] = entry;
+      continue;
+    }
     note_for_others(store, entry);
     const auto seen = last_.find(key);
     const std::optional<FlagEntry> before =
@@ -497,8 +527,57 @@ void FlagWatcher::see_save_load() {
   seen_frames_ = no_scene_frames_;
 }
 
+// ORM: CONTINUAR.md, keep: one value the Continue's reload moved goes back to the snapshot. True when it is
+// written (or held to write once the game takes it).
+bool FlagWatcher::keep_back(FlagStore& store, const FlagKey& key, const FlagEntry& want, bool own) {
+  if (!own && store.holds(key)) {
+    // Our game takes it later (HoldFlagStore: a dungeon's flag while we are in its area), as a player's save
+    // load does in diff(): the game's value is the last seen, so the retry does not drop the write and the
+    // diff after the window does not send the reload's value as the game's own change (orm/continuar 60f613b).
+    unwritten_[key] = want;
+    if (shared_.contains(key)) {
+      if (std::optional<FlagEntry> now = store.read(key)) {
+        now->key = key;
+        last_[key] = *now;
+      }
+    }
+    return true;
+  }
+  if (!(own ? store.write_own(want) : store.write_exact(want))) {
+    ++stats_.write_failures;
+    return false;
+  }
+  ++stats_.continue_kept;
+  ++stats_.applied;
+  unwritten_.erase(key);
+  return true;
+}
+
+void FlagWatcher::keep_extra(FlagStore& store) {
+  for (const auto& [key, want] : keep_extra_) {
+    std::optional<FlagEntry> now = store.read(key);
+    if (!now) continue;
+    now->key = key;
+    if (*now != want) keep_back(store, key, want, true);
+  }
+}
+
 void FlagWatcher::end_window(FlagStore& store, std::vector<Outgoing>& out) {
   if (!moved_) return;  // a door: the next diff sends what changed, as always
+  if (keep_) {  // ORM: CONTINUAR.md, keep: the group's values from before the reload, for everyone
+    keep_ = false;
+    keep_extra(store);
+    keep_extra_.clear();
+    for (const FlagKey key : shared_.keys()) {
+      if (quiet_.contains(key) || one_way_.contains(key)) continue;
+      std::optional<FlagEntry> now = store.read(key);
+      if (!now) continue;
+      now->key = key;
+      const auto it = last_.find(key);
+      if (it != last_.end() && it->second != *now) keep_back(store, key, it->second);
+    }
+    return;
+  }
   Table changed;
   // ORM (SONDAS.md round 6): a player's save load from the title screen, before any group value came (the
   // host has no save in yet: it holds its table), has no group to go back to: what this game had "before" is
@@ -508,6 +587,7 @@ void FlagWatcher::end_window(FlagStore& store, std::vector<Outgoing>& out) {
   std::size_t kept = 0;
   std::size_t reverted = 0;
   for (const FlagKey key : shared_.keys()) {
+    if (quiet_.contains(key)) continue;  // ORM: a fake value is never sent nor reverted
     std::optional<FlagEntry> now = store.read(key);
     if (!now) continue;
     now->key = key;
@@ -566,6 +646,15 @@ void FlagWatcher::answer_set(FlagStore& store, const protocol::FlagSet& set, Tab
   for (const auto& entry : set.flags) {
     const FlagKey key = key_of(entry);
     if (!takes(entry)) continue;
+    if (const auto total = keep_count_delta(store, entry)) {
+      // ORM: our Continue reloads; the delta goes on the group's value (keep_count_delta).
+      ++stats_.applied;
+      ++stats_.deltas_added;
+      keep_totals_.erase(key);
+      answers[key] = *total;
+      ++stats_.answers_sent;
+      continue;
+    }
     note_for_others(store, entry);
     const bool written = store.write(entry);
     if (!written && is_delta(entry) && (store.holds(key) || store.busy(key))) {
@@ -634,6 +723,11 @@ void FlagWatcher::answer_set(FlagStore& store, const protocol::FlagSet& set, Tab
 
 bool FlagWatcher::write(FlagStore& store, const FlagEntry& entry) {
   const FlagKey key = key_of(entry);
+  if (quiet_.contains(key)) {  // faked for now (set_quiet): written once it is not
+    ++stats_.quiet_held;
+    unwritten_[key] = entry;
+    return false;
+  }
   const auto seen = last_.find(key);
   const std::optional<FlagEntry> before =
       seen != last_.end() ? std::optional<FlagEntry>(seen->second) : std::nullopt;
@@ -645,7 +739,7 @@ bool FlagWatcher::write(FlagStore& store, const FlagEntry& entry) {
     const auto known = last_.find(key);
     const std::optional<FlagEntry> now = store.read(key);
     if (known != last_.end() && now && known->second.kind == protocol::FlagKind::int32 &&
-        now->kind == protocol::FlagKind::int32) {
+        now->kind == protocol::FlagKind::int32 && !(window_ && keep_)) {
       to_write.value = as_bits(as_int(entry.value) + as_int(now->value) -
                                as_int(known->second.value));
     }
@@ -684,11 +778,36 @@ void FlagWatcher::note_received(const FlagKey& key, const FlagEntry& before, con
   received_.push_back(Received{key, before, after, from_, received_kind_});
 }
 
+std::optional<FlagEntry> FlagWatcher::keep_count_delta(FlagStore& store, const FlagEntry& delta) {
+  const FlagKey key = key_of(delta);
+  if (role_ != FlagRole::host || continue_mode_ != ContinueMode::keep || !is_delta(delta) ||
+      !store.is_count(key) || guards_.contains(key) || quiet_.contains(key)) {
+    return std::nullopt;
+  }
+  if (window_ && !keep_) return std::nullopt;  // a window that is no Continue's reload (a door)
+  const auto known = last_.find(key);
+  if (known == last_.end() || known->second.kind != protocol::FlagKind::int32) return std::nullopt;
+  FlagEntry total = known->second;
+  total.key = key;
+  total.value = as_bits(as_int(known->second.value) + as_int(delta.value));
+  if (!keep_back(store, key, total)) return std::nullopt;  // the usual path tries it again
+  note_received(key, known->second, total);
+  last_[key] = total;
+  keep_totals_[key] = total;
+  ++stats_.continue_counts;
+  return total;
+}
+
 void FlagWatcher::add(FlagStore& store, const FlagEntry& delta) {
   const FlagKey key = key_of(delta);
   if (!store.is_count(key)) {
     ++stats_.not_shared;
     return;
+  }
+  if (keep_count_delta(store, delta)) {
+    ++stats_.applied;
+    ++stats_.deltas_added;
+    return;  // answered with keep_totals_; the keep rule holds the total in our game
   }
   // The count before, for the chat notices ("the group has N").
   std::optional<FlagEntry> was = store.read(key);
@@ -719,6 +838,7 @@ void FlagWatcher::add(FlagStore& store, const FlagEntry& delta) {
 
 void FlagWatcher::diff(FlagStore& store, Table& changes) {
   for (const FlagKey key : shared_.keys()) {
+    if (quiet_.contains(key)) continue;  // a fake value is never sent
     std::optional<FlagEntry> now = store.read(key);
     if (!now) {
       ++stats_.read_failures;
@@ -728,6 +848,13 @@ void FlagWatcher::diff(FlagStore& store, Table& changes) {
     const auto [it, first] = last_.try_emplace(key, *now);
     if (first) continue;  // the first read is the baseline
     if (it->second == *now && !restate_.contains(key)) continue;
+    if (continue_mode_ != ContinueMode::off && !window_ && !restate_.contains(key) && !one_way_.contains(key)) {
+      // ORM: CONTINUAR.md (REVISION_NUEVAS): the game over runs and its reload's window is not open yet. A
+      // change of our own now is the Continue's (Link cannot play): held, not sent, last_ kept; the window
+      // writes it back (keep) or sends it as FLAG_RESET (save, host), or it goes out once the mode is off.
+      ++stats_.continue_held;
+      continue;
+    }
     if (window_ && loading_ && !moved_ && key.kind == FlagKeyKind::named && !one_way_.contains(key) &&
         went_back(it->second, *now)) {
       // The title screen (no scene) and saved progress going back: a save
@@ -736,6 +863,11 @@ void FlagWatcher::diff(FlagStore& store, Table& changes) {
       // Distinct flags: one held at 0 for many frames counts once.
       back_keys_.insert(key);
       see_save_load();
+    }
+    if (window_ && moved_ && keep_) {
+      // ORM: CONTINUAR.md, keep: back to the snapshot at once, either way, host or player; nothing sent.
+      if (!one_way_.contains(key)) keep_back(store, key, it->second);
+      continue;
     }
     if (window_ && moved_) {
       if (role_ == FlagRole::player && !store.is_count(key) && !one_way_.contains(key)) {
@@ -982,6 +1114,10 @@ void FlagWatcher::send_snapshot(FlagStore& store, std::vector<Outgoing>& out) {
   std::vector<FlagEntry> table;
   table.reserve(shared_.size());
   for (const FlagKey key : shared_.keys()) {
+    if (quiet_.contains(key)) {  // its last real value, not the fake
+      if (const auto known = last_.find(key); known != last_.end()) table.push_back(known->second);
+      continue;
+    }
     std::optional<FlagEntry> now = store.read(key);
     if (!now) {
       ++stats_.read_failures;
