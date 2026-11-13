@@ -6,6 +6,11 @@ target_sources(yuzu PRIVATE
     "${_coop_hook}/coop_window.cpp"
 )
 target_include_directories(yuzu PRIVATE "${_coop_hook}")
+# ORM partner map: coop_window.cpp includes coop_map.h, which needs coop/overlay (and
+# through it coop/presence and coop/protocol); core links them PRIVATE, so name them here.
+target_link_libraries(yuzu PRIVATE coop_overlay)
+# ORM: orm_chat_complete.cpp uses the commands engine (coop/host/orm_commands.hpp).
+target_link_libraries(yuzu PRIVATE coop_host)
 target_compile_definitions(yuzu PRIVATE LICHII_COOP)
 # GCC and Clang (the Linux build, issue 127): Fritchii's own src/yuzu/fritchii/fritchii_ui.cpp copies a
 # QString in two range loops, which its -Werror=all turns into an error with GCC 13. MSVC

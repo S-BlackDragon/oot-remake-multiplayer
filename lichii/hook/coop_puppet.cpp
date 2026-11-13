@@ -1384,9 +1384,9 @@ void Director::Status(Guest& guest, std::uint64_t now_ms) {
         if (!slot.anim_name.empty()) {
             const auto frame = slot.actor ? Frame(guest, Controller(guest, slot.actor))
                                           : std::nullopt;
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), " frame %.1f", frame.value_or(-1.0f));
-            line += " plays '" + slot.anim_name + "'" + buf;
+            char frame_text[32];
+            std::snprintf(frame_text, sizeof(frame_text), " frame %.1f", frame.value_or(-1.0f));
+            line += " plays '" + slot.anim_name + "'" + frame_text;
         }
         if (const Target* t = Wanted(slot.number)) {
             line += ", wanted at " + VecText(t->position);

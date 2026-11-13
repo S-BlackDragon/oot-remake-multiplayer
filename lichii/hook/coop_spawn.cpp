@@ -496,9 +496,9 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
         c.held = r.held;
         if (r.animation) {
             proto::Animation a = *r.animation;
-            const std::int64_t age = std::int64_t(now_us) - std::int64_t(r.animation_at) -
+            const std::int64_t anim_age = std::int64_t(now_us) - std::int64_t(r.animation_at) -
                                      (r.held ? std::int64_t(CoopProjectiles::kHeldBehindUs) : 0);
-            a.frame = CoopObjects::FrameAfter(a.frame, a.rate, age);
+            a.frame = CoopObjects::FrameAfter(a.frame, a.rate, anim_age);
             c.animation = std::move(a);
         }
         const auto live_it = copies_live.find(r.key);

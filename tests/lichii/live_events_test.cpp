@@ -2,6 +2,8 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <ostream>  // doctest prints std::string_view results
+
 #include <array>
 #include <cmath>
 #include <cstring>

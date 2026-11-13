@@ -1,6 +1,8 @@
 // Tests for the shared dungeon flags (lichii/hook/coop_dungeon.cpp).
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <map>
 #include <set>
 #include <string>

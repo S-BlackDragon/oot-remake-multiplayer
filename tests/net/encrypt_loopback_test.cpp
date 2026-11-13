@@ -152,6 +152,7 @@ struct World {
   static coop::server::ServerOptions options(const std::string& password) {
     coop::server::ServerOptions o;
     o.port = 0;
+    o.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
     o.session.join_password = password;
     return o;
   }

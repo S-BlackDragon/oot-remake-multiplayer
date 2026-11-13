@@ -132,6 +132,17 @@ bool IsShared(std::string_view name) {
     // Enemy shots (Enemy_MoblinClub_ShockWave is named like an enemy)
     // stay with the spawn sync: the game whose enemy fired one sends it.
     if (CoopEnemyShots::IsEnemyShot(name)) return false;
+    // ORM D-R19: each game's own horses (its Epona is its player's), Ingo's
+    // race and the horseback archery (coop/host/epona.hpp).
+    if (coop::host::epona::own_per_game(name)) return false;
+    // ORM (oot-remake docs/PELIGROS.md): the Haunted Wasteland's guide Poe leads its own game's Link.
+    if (coop::host::is_own_hazard_actor(name)) return false;
+    // ORM: the guards that catch Link on sight run in each game
+    // (coop/host/gerudo.hpp, oot-remake docs/GERUDO_ESPIRITU.md), except the
+    // ones test10's guard sync covers (IsGuard, issue 191: shared, the guard
+    // goes to the game whose Link it notices; D-R21, upstream's wins), so only
+    // the fortress's plain Npc_Gerudo_0xx stay each game's own.
+    if (coop::host::runs_in_each_game(name) && !IsGuard(name)) return false;
     if (name.starts_with("Npc_")) {
         // Each player's own: Navi (the fairy sync has her), the equipment
         // a player or NPC holds, and invisible helpers.
@@ -1622,6 +1633,15 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
         send.emplace_back(std::move(m));
         fish_sent_ = std::move(fish);
         fish_at_ = now_us;
+    }
+
+    // ORM golpes: what left the walk goes, and a line every kHitsLogUs.
+    const auto loaded = [this](std::uint64_t address) { return objects_.contains(address); };
+    hits_.Expire(now_us, loaded);
+    ledger_.Expire(now_us, loaded);
+    smooth_.Expire(loaded);
+    if (hits_on_ || smooth_on_) {
+        HitsNote(now_us);
     }
 }
 

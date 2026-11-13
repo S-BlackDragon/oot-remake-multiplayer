@@ -2129,14 +2129,14 @@ bool IsGimmick(std::string_view name) {
     if (!name.starts_with("Obj_")) {
         return false;
     }
-    constexpr std::string_view kParts[] = {
+    constexpr std::string_view kSwitchParts[] = {
         "StepSwitch_", "EyeSwitch_", "SwitchHit_", "SolarSwitch_", "SwitchCandleStick_",
         "WaterPlane", "SwitchShutter_", "CandleStick_", "ElevatorLift", "MoveFloor_",
         // world-objects: the push blocks and their base anchor (issue 147: which words a
         // real push steps), the Deku Tree ladder, its pillar and the trap floors (issue 129).
         "MovableBox_", "FallingLadder_", "Stopper_", "FallingFloor_",
     };
-    for (const std::string_view p : kParts) {
+    for (const std::string_view p : kSwitchParts) {
         if (name.find(p) != std::string_view::npos) {
             return true;
         }

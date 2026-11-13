@@ -2,6 +2,8 @@
 #include <doctest/doctest.h>
 
 #include <cstdlib>
+#include <ostream>  // doctest prints std::string_view results
+
 #include <variant>
 #include <vector>
 

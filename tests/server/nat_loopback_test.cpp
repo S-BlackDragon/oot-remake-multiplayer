@@ -131,6 +131,7 @@ struct World {
   World(const std::string& host_password, const std::string& guest_password, bool probe) {
     ServerOptions options;
     options.port = 0;
+    options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
     options.session.join_password = host_password;
     server = std::make_unique<EnetServer>(options);
     REQUIRE(server->start());

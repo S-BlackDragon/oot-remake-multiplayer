@@ -227,6 +227,7 @@ void Frame(const std::optional<std::string>& scene, const std::optional<coop::ho
     if (reading && scene && self != 0) {
         for (const auto& cut : swings) {
             for (auto& h : g.attacker.Swing(cut, reading->position, *scene, self, targets, now_us)) {
+                h.amount = OrmCommands::PvpAttackAmount(static_cast<proto::DamageCause>(h.cause), h.amount, reading);  // ORM: the real weapon
                 LOG_INFO(Core, "coop: pvp: our sword reached P{} at {:.2f} {:.2f} {:.2f}", h.victim, h.at[0],
                          h.at[1], h.at[2]);
                 send.emplace_back(h);
@@ -234,6 +235,7 @@ void Frame(const std::optional<std::string>& scene, const std::optional<coop::ho
         }
         for (const auto& s : shots) {
             for (auto& h : g.attacker.Shot(s.cause, s.at, reading->position, *scene, self, targets, now_us)) {
+                h.amount = OrmCommands::PvpAttackAmount(static_cast<proto::DamageCause>(h.cause), h.amount, reading);  // ORM: the real weapon
                 LOG_INFO(Core, "coop: pvp: our shot (cause {}) reached P{}", static_cast<int>(s.cause),
                          h.victim);
                 send.emplace_back(h);

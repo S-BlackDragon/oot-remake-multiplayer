@@ -113,9 +113,18 @@ TEST_CASE("game scan: every main offset is a pattern or placed by the caves rule
         CHECK(p.at2 < p.count);
         CHECK(p.at3 < p.count);
     }
-    CHECK(std::size(kPatterns) + 4 == kFields);
+    // ORM: our own offsets of build 1.1.1 (the carried object's stillness and the downed
+    // gate, coop_game_build.h) have no pattern: the scan only checks a known build and gives an
+    // unknown one partial co-op, which never reads them (coop_hook.cpp), and
+    // tools/game_scan/make_patterns.py leaves them out (ORM_UNSCANNED).
+    constexpr const char* kOrmUnscanned[] = {"set_linear_velocity", "set_angular_velocity", "downed_hook",
+                                             "start_event", "downed_cave", "downed_gate"};
+    CHECK(std::size(kPatterns) + 4 + std::size(kOrmUnscanned) == kFields);
     for (const char* derived : {"svc_cave", "cave_end", "hold_cave", "hold_table"}) {
         CHECK(names.count(derived) == 0);
+    }
+    for (const char* ours : kOrmUnscanned) {
+        CHECK(names.count(ours) == 0);
     }
 }
 

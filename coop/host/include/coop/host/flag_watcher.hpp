@@ -29,6 +29,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <string>
 #include <variant>
 #include <utility>
 #include <vector>
@@ -82,7 +83,19 @@ class FlagWatcher {
 
   // Host: send the whole table as FLAG_SNAPSHOT at the next frame (starting
   // a session, taking over as host).
+  // ORM (oot-remake docs/SONDAS.md, round 6): only once our game has a save
+  // in. On the title screen the game's flags are a new game's (3 hearts, no
+  // magic): a host there that sent them gave every joiner that table, the
+  // server keeps the first table it has, and a guest who loaded its save
+  // first had it written back over its save. The request waits until a Link
+  // is read; take_notes() says so.
   void request_snapshot() { snapshot_requested_ = true; }
+  // ORM: whether our game has a save in: a Link was read since the last title
+  // screen (a load window with no scene for kTitleFrames). Before the first
+  // frame, and from a first frame with no Link, it has not.
+  bool in_save() const { return in_save_; }
+  // ORM: lines for the log ("coop: flags: ..."), once per change of path.
+  std::vector<std::string> take_notes() { return std::exchange(notes_, {}); }
 
   // One emulated frame: writes what came in, then compares the shared flags
   // with last frame, and returns the messages to send, in order.
@@ -361,6 +374,12 @@ class FlagWatcher {
   std::set<FlagKey> restate_;  // host: counts a delta was added to this frame
   bool resend_pending_ = false;
   bool snapshot_requested_ = false;
+  // ORM (SONDAS.md round 6): request_snapshot, in_save(), end_window.
+  bool in_save_ = false;
+  bool window_from_save_ = false;  // in_save_ when this load window opened
+  bool group_known_ = false;       // a value from the group was written since the last reset()
+  bool said_held_ = false;
+  std::vector<std::string> notes_;
   bool holding_ = false;
   std::uint16_t snapshot_next_part_ = 0;
   std::uint16_t snapshot_part_count_ = 0;

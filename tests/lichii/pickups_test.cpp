@@ -1,6 +1,8 @@
 // Tests for the one-time pickups the object walk notes (lichii/hook/coop_pickups.cpp).
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <cstdint>
 #include <vector>
 

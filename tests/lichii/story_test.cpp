@@ -1,6 +1,8 @@
 // Tests for the shared story flags (lichii/hook/coop_story.cpp, issue 173).
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <map>
 #include <set>
 #include <string>

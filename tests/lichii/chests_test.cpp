@@ -2,6 +2,8 @@
 // and the keys the flag watcher writes for other players (docs/items.md, "Chests").
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <map>
 #include <optional>
 #include <set>

@@ -2,6 +2,8 @@
 // No emulator code: each walk is a list of actors.
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <cstring>
 #include <array>
 #include <optional>

@@ -37,6 +37,7 @@ constexpr const char* kTestPassword = "test-pass";
 
 ServerOptions server_options() {
   ServerOptions options;
+  options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
   options.port = 0;  // any free port
   options.session.join_password = kTestPassword;
   return options;

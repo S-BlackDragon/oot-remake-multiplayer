@@ -3,6 +3,8 @@
 // memory is a set of fake pages.
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -1173,7 +1175,7 @@ TEST_CASE("puppet planner: riding shows (issue 199), the Ocarina plays through t
     remotes[2].number = 3;
     remotes[2].scene = "HyruleField_Child";
     remotes[2].status = coop::protocol::status::in_cutscene;
-    remotes[2].anim = CoopPuppet::Anim{"DemoOcarinaMelodyGet", 0.0f, 1.0f};  // a song taught
+    remotes[2].anim = CoopPuppet::Anim{"DemoOcarina", 0.0f, 1.0f};  // the remake's free play
 
     auto in = p.Plan(kBase, std::string("HyruleField_Child"), std::nullopt, false, remotes, 0);
     REQUIRE(in.targets.size() == 3);
@@ -1181,8 +1183,16 @@ TEST_CASE("puppet planner: riding shows (issue 199), the Ocarina plays through t
     CHECK(std::string(in.targets[0].why) == "riding");
     CHECK(in.targets[1].show == CoopPuppet::Show::show);
     CHECK(std::string(in.targets[1].why) == "ocarina");
-    CHECK(in.targets[2].show == CoopPuppet::Show::hold);
-    CHECK(std::string(in.targets[2].why) == "their cutscene");
+    CHECK(in.targets[2].show == CoopPuppet::Show::show);  // their cutscene: shown (ORM D-R12)
+    // DemoOcarina is the remake's free play (ocarina-mano, 2026-11-12): the Ocarina's reason.
+    CHECK(std::string(in.targets[2].why) == "ocarina");
+    // A song taught (upstream's prefix rule: a cutscene, not the Ocarina): shown all the same
+    // (ORM D-R12), with no reason.
+    remotes[2].anim = CoopPuppet::Anim{"DemoOcarinaMelodyGet", 0.0f, 1.0f};
+    in = p.Plan(kBase, std::string("HyruleField_Child"), std::nullopt, false, remotes, 5);
+    CHECK(in.targets[2].show == CoopPuppet::Show::show);
+    CHECK(std::string(in.targets[2].why).empty());
+    remotes[2].anim = CoopPuppet::Anim{"DemoOcarina", 0.0f, 1.0f};
 
     // Getting off: shown again.
     remotes[0].anim = CoopPuppet::Anim{"DismountHorse", 0.0f, 1.0f};
@@ -1767,7 +1777,8 @@ TEST_CASE("puppet planner: the Ocarina played freely (DemoOcarina) shows through
     remotes[0].anim = CoopPuppet::Anim{"EvtWait", 0.0f, 1.0f};  // taking it out: any event
     auto in = p.Plan(kBase, std::string("Graveyard_Child"), std::nullopt, false, remotes, 0);
     REQUIRE(in.targets.size() == 1);
-    CHECK(in.targets[0].show == CoopPuppet::Show::hold);
+    // ORM D-R12 (PIN_TEST10.md, Escena): their event freezes nobody (upstream holds here).
+    CHECK(in.targets[0].show == CoopPuppet::Show::show);
     remotes[0].anim = CoopPuppet::Anim{"DemoOcarina", 0.0f, 1.0f};  // playing
     in = p.Plan(kBase, std::string("Graveyard_Child"), std::nullopt, false, remotes, 10);
     REQUIRE(in.targets.size() == 1);

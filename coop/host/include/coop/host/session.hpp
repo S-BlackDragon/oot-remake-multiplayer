@@ -40,6 +40,7 @@
 #include <mutex>
 #include <optional>
 #include <variant>
+#include <string>
 #include <vector>
 
 #include "coop/host/flag_watcher.hpp"
@@ -93,6 +94,8 @@ struct FrameReport {
   // flags gone back, frames with no scene. 0 when not.
   int save_load_flags = 0;
   int save_load_frames = 0;
+  // ORM (SONDAS.md round 6): the watcher's lines for the log (FlagWatcher::take_notes).
+  std::vector<std::string> flag_notes;
 };
 
 class Session {

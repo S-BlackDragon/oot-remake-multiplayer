@@ -2,6 +2,8 @@
 // (lichii/hook/coop_camera.cpp). No emulator code.
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <array>
 
 #include "coop_camera.h"

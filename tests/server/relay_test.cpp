@@ -348,11 +348,13 @@ TEST_CASE("relay loopback: a guest joins the host's server through the relay wit
   EnetLife enet;
   ServerOptions options;
   options.port = 0;
+  options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
   options.session.join_password = "relay-pass";  // every session has one
   EnetServer server(options);
   REQUIRE(server.start());
 
-  RelayServer relay_server(0, std::nullopt, RelayConfig{});
+  RelayServer relay_server(0, 0x7F000001u,  // ORM: 127.0.0.1 only
+                             RelayConfig{});
   REQUIRE(relay_server.start());
   const std::uint16_t relay_port = relay_server.port();
   REQUIRE(relay_port != 0);
@@ -390,7 +392,7 @@ TEST_CASE("relay loopback: a guest joins the host's server through the relay wit
   ENetSocket lookup_socket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
   REQUIRE(lookup_socket != ENET_SOCKET_NULL);
   ENetAddress any{};
-  any.host = ENET_HOST_ANY;
+  enet_address_set_host_ip(&any, "127.0.0.1");  // ORM: 127.0.0.1 only: no firewall prompt
   REQUIRE(enet_socket_bind(lookup_socket, &any) == 0);
   enet_socket_set_option(lookup_socket, ENET_SOCKOPT_NONBLOCK, 1);
 
@@ -440,10 +442,12 @@ TEST_CASE("relay loopback: a game without the code never reaches the host") {
   EnetLife enet;
   ServerOptions options;
   options.port = 0;
+  options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
   options.session.join_password = "relay-pass";
   EnetServer server(options);
   REQUIRE(server.start());
-  RelayServer relay_server(0, std::nullopt, RelayConfig{});
+  RelayServer relay_server(0, 0x7F000001u,  // ORM: 127.0.0.1 only
+                             RelayConfig{});
   REQUIRE(relay_server.start());
   RelayLinkConfig link_config;
   link_config.relay_host = "127.0.0.1";

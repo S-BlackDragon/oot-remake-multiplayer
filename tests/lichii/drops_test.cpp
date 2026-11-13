@@ -3,6 +3,8 @@
 // director letting go of a copy.
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <array>
 #include <cstring>
 #include <map>

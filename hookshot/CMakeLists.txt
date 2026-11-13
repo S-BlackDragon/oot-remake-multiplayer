@@ -17,10 +17,12 @@ set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(fmt)
 
 set(_coop_hook "${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook")
-file(STRINGS "${_coop_hook}/core.cmake" _coop_lines REGEX "coop_[a-z0-9_]+\\.cpp")
+# ORM (oot-remake docs/PIN_TEST10.md): our files too, orm_*.cpp and the platform layer's
+# platform_emulator.cpp (built against compat/ like the rest; the pad comes from the bridge).
+file(STRINGS "${_coop_hook}/core.cmake" _coop_lines REGEX "(coop|orm|platform)_[a-z0-9_]+\\.cpp")
 set(_coop_sources)
 foreach(line IN LISTS _coop_lines)
-  string(REGEX MATCH "coop_[a-z0-9_]+\\.cpp" name "${line}")
+  string(REGEX MATCH "(coop|orm|platform)_[a-z0-9_]+\\.cpp" name "${line}")
   if(name AND NOT name STREQUAL "coop_svc.cpp")
     list(APPEND _coop_sources "${_coop_hook}/${name}")
   endif()

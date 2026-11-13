@@ -1,6 +1,8 @@
 // Tests for the event hold (lichii/hook/coop_guard.h, issue 144).
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <cmath>
 #include <cstdint>
 #include <map>

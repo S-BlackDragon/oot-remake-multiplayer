@@ -1,6 +1,8 @@
 // Tests for the hook's steady-clock periods (lichii/hook/coop_every.h).
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include "coop_every.h"
 
 using CoopEvery::Every;

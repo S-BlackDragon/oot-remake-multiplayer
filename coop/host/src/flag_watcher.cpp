@@ -209,6 +209,9 @@ void FlagWatcher::set_role(FlagRole role) {
     // The host's game is the truth now: nothing waits for an answer.
     pending_.clear();
     resend_pending_ = false;
+  } else {
+    snapshot_requested_ = false;  // ORM: a table held while hosting is no player's to send
+    said_held_ = false;
   }
 }
 
@@ -237,6 +240,7 @@ void FlagWatcher::reset() {
   // comes again with the next snapshot.
   group_.clear();
   group_before_.clear();
+  group_known_ = false;  // ORM: SONDAS.md round 6
   holding_ = false;
   snapshot_.clear();
   held_states_.clear();
@@ -256,6 +260,7 @@ std::vector<Outgoing> FlagWatcher::frame(FlagStore& store) {
   std::vector<Outgoing> out;
   const unsigned step = ticks_.step();  // 1/60 s that passed (issue 106)
   frames_ += step;
+  if (!loading_) in_save_ = true;  // ORM: a Link is read: our game has a save in
 
   // Writes that failed before go first, so newer incoming values win. One
   // whose flag the game has changed by itself since is dropped instead: the
@@ -288,6 +293,7 @@ std::vector<Outgoing> FlagWatcher::frame(FlagStore& store) {
   std::vector<Outgoing> resets;
   if (settling() && !window_) {
     window_ = true;
+    window_from_save_ = in_save_;  // ORM: from a save (a door, a reload) or from the title screen
     moved_ = false;
     back_keys_.clear();
     no_scene_frames_ = 0;
@@ -318,8 +324,20 @@ std::vector<Outgoing> FlagWatcher::frame(FlagStore& store) {
     push_list<protocol::FlagState>(out, answers, stats_.entries_unsent);
     out.insert(out.end(), resets.begin(), resets.end());
     if (snapshot_requested_) {
-      send_snapshot(store, out);
-      snapshot_requested_ = false;
+      if (in_save_ && !loading_) {
+        send_snapshot(store, out);
+        snapshot_requested_ = false;
+        if (std::exchange(said_held_, false)) {
+          notes_.emplace_back("our table sent: our save is in now (held while our game had none)");
+        }
+      } else if (!said_held_) {
+        // ORM (SONDAS.md round 6): a new game's flags are no group's; sent once a Link is read.
+        said_held_ = true;
+        ++stats_.snapshots_held;
+        notes_.emplace_back(
+            "we host with no save in (the title screen): our table is held until our save is in, so no "
+            "joiner gets a new game's flags (3 hearts, no magic)");
+      }
     }
   }
   return out;
@@ -463,6 +481,7 @@ void FlagWatcher::apply_reset(FlagStore& store, const std::vector<FlagEntry>& fl
     }
     ++stats_.applied;
     ++stats_.reset_applied;
+    group_known_ = true;  // ORM: SONDAS.md round 6
     unwritten_.erase(key);
     if (!store.is_count(key)) note_group(entry, nullptr);
     last_[key] = entry;
@@ -481,6 +500,13 @@ void FlagWatcher::see_save_load() {
 void FlagWatcher::end_window(FlagStore& store, std::vector<Outgoing>& out) {
   if (!moved_) return;  // a door: the next diff sends what changed, as always
   Table changed;
+  // ORM (SONDAS.md round 6): a player's save load from the title screen, before any group value came (the
+  // host has no save in yet: it holds its table), has no group to go back to: what this game had "before" is
+  // a new game's flags (3 hearts, no magic), so the save's own values are kept. With a group value come, or a
+  // reload from a save, the values go back as before.
+  const bool keep_own = role_ == FlagRole::player && !window_from_save_ && !group_known_;
+  std::size_t kept = 0;
+  std::size_t reverted = 0;
   for (const FlagKey key : shared_.keys()) {
     std::optional<FlagEntry> now = store.read(key);
     if (!now) continue;
@@ -494,10 +520,23 @@ void FlagWatcher::end_window(FlagStore& store, std::vector<Outgoing>& out) {
       changed[key] = *now;  // the save's value goes to everyone
       last_[key] = *now;
       if (!store.is_count(key)) note_group(*now, nullptr);
+    } else if (keep_own) {
+      last_[key] = *now;  // ours: not sent (a guest's load never changes the group), not put back
+      ++stats_.load_kept_own;
+      ++kept;
     } else if (store.write_exact(it->second)) {
       ++stats_.load_reverts;  // back to the group's value from before the load
       ++stats_.applied;
+      ++reverted;
     }
+  }
+  if (kept != 0) {
+    notes_.emplace_back("our save load from the title screen: " + std::to_string(kept) +
+                        " values of our save kept (no group value had come: the host has no save in yet)");
+  } else if (reverted != 0) {
+    notes_.emplace_back("our save load: " + std::to_string(reverted) + " values back to the group's (" +
+                        (window_from_save_ ? "a reload from a save" : "from the title screen, the group known") +
+                        ")");
   }
   if (role_ == FlagRole::host && !changed.empty()) {
     ++stats_.host_resets;
@@ -628,6 +667,7 @@ bool FlagWatcher::write(FlagStore& store, const FlagEntry& entry) {
   }
   ++stats_.applied;
   unwritten_.erase(key);
+  group_known_ = true;  // ORM: SONDAS.md round 6
   if (!is_delta(entry) && !store.is_count(key)) {
     const auto known = last_.find(key);
     note_group(entry, known != last_.end() ? &known->second : nullptr);

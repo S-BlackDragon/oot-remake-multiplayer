@@ -397,7 +397,11 @@ Actions Sync::Tick(const Local& local, std::uint64_t now_us) {
             }
             break;
         case Phase::fight:
-            if (rose && !committed_ && local.boss_alive.value_or(true)) {
+            // ORM: an event the game names as this room's outro is the boss's
+            // death, whatever was committed (after a game over's reload the
+            // fight starts with no intro and nobody past the door).
+            if (rose && !committed_ && local.boss_alive.value_or(true) &&
+                !(!local.event_name.empty() && local.event_name == here_->outro)) {
                 // The fight began here with no intro and nobody past the door
                 // (no event yet, or one that was not the intro): this event
                 // may be the real intro, not the boss's death (review of

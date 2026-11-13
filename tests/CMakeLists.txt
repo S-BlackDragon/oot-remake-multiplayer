@@ -66,6 +66,44 @@ add_executable(coop_tests
   lichii/pickups_test.cpp
   lichii/testinput_test.cpp
   lichii/time_test.cpp
+  orm/story_events_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/orm_story_events.cpp
+  orm/switch_test.cpp
+  orm/wallet_test.cpp
+  host/flag_probe_test.cpp
+  host/shoulder_test.cpp
+  orm/quick_chat_test.cpp  # ORM quick messages (docs/COMUNICACION.md)
+  orm/group_settings_test.cpp
+  orm/group_settings_codec_test.cpp
+  orm/group_settings_server_test.cpp
+  orm/link_watch_test.cpp
+  orm/host_choice_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_host_choice.cpp  # ORM one host
+  orm/commands_test.cpp  # ORM orm/pvp (oot-remake docs/COMANDOS.md)
+  orm/pvp_test.cpp
+  orm/bodies_test.cpp  # ORM orm/cuerpos-continuar
+  orm/stats_test.cpp
+  orm/pvp_codec_test.cpp
+  orm/pvp_server_test.cpp
+  orm/app_channel_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/orm_app_channel.cpp
+  # ORM cases once added to upstream's test files (oot-remake D-R65, ADOPTAR_UPSTREAM.md rule 2)
+  orm/host_flag_watcher_test.cpp
+  orm/host_flags_test.cpp
+  orm/host_game_flags_test.cpp
+  orm/host_reader_test.cpp
+  orm/host_sampler_test.cpp
+  orm/host_session_test.cpp
+  orm/lichii_boss_test.cpp
+  orm/lichii_dungeon_test.cpp
+  orm/lichii_objects_test.cpp
+  orm/lichii_ocarina_test.cpp
+  orm/lichii_pose_test.cpp
+  orm/lichii_puppet_test.cpp
+  orm/lichii_settings_test.cpp
+  orm/lichii_spawn_test.cpp
+  orm/lichii_testinput_test.cpp
+  orm/net_client_test.cpp
+  orm/overlay_test.cpp
+  orm/presence_test.cpp
+  orm/protocol_codec_test.cpp
   lichii/every_test.cpp
   lichii/hud_test.cpp
   lichii/game_build_test.cpp

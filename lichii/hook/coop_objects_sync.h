@@ -114,7 +114,10 @@ struct LifeWrite {
 
 // Shared: enemies, animals (a cucco is Animal_Cucco), townspeople (Npc_, but
 // not Navi, held equipment or invisible helpers) and the breakable world
-// objects (coop_world.h). Not the order-puzzle actors (IsOwnPuzzle).
+// objects (coop_world.h). Not the order-puzzle actors (IsOwnPuzzle), nor (ORM)
+// the guards that catch Link on sight (coop::host::runs_in_each_game) that
+// IsGuard's sync (issue 191) does not cover, and the desert's guide Poe
+// (coop::host::is_own_hazard_actor).
 bool IsShared(std::string_view name);
 
 // A puzzle or minigame each game runs on its own (issues 149, 151): the Scrub Brothers

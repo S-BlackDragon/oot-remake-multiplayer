@@ -2,6 +2,8 @@
 // messages and copies, and the director's calls at the cave.
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <algorithm>
 #include <array>
 #include <cmath>

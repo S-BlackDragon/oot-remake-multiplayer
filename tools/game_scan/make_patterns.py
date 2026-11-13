@@ -32,6 +32,10 @@ MAX_WORDS = 24
 PATCHED = ('svc_hook_rare', 'svc_hook_frame', 'hold_hook')
 # Placed by rule from where rodata starts, not by a pattern.
 DERIVED = ('svc_cave', 'cave_end', 'hold_cave', 'hold_table')
+# ORM (oot-remake): our 1.1.1-only offsets (carried object's stillness, the downed gate and its
+# caves): no pattern; the scan never feeds them (tests/lichii/game_scan_test.cpp).
+ORM_UNSCANNED = ('set_linear_velocity', 'set_angular_velocity', 'downed_hook', 'start_event',
+                 'downed_cave', 'downed_gate')
 FUNCTIONS = ('create_actor', 'malloc', 'request_delete', 'take_created', 'drop_create', 'play_as',
              'set_as_frame', 'sync_as_slot', 'equip', 'equip_change_state', 'unequip_armor',
              'set_matrix', 'set_time', 'cut_foliage', 'frame_step')
@@ -304,7 +308,7 @@ def main():
     pats = {}
     bad = []
     for name in fields:
-        if name in DERIVED:
+        if name in DERIVED or name in ORM_UNSCANNED:
             continue
         p = make(name, table[name], text, patched_words, relative)
         got = scan(p, text, relative)[0] if p else None

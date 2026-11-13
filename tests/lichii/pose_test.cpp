@@ -1,6 +1,8 @@
 // Tests for the pose copy's math and its track (lichii/hook/coop_pose.cpp).
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <cmath>
 #include <cstring>
 #include <map>

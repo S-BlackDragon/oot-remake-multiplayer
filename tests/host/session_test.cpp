@@ -4,6 +4,8 @@
 
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <atomic>
 #include <chrono>
 #include <functional>

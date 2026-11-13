@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <algorithm>
 #include <initializer_list>
 #include <string>

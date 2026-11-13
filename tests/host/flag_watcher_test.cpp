@@ -1,9 +1,12 @@
 #include <doctest/doctest.h>
+
+#include <ostream>  // doctest prints std::string_view results
 #include <algorithm>
 #include <cstddef>
 
 #include <map>
 #include <set>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -601,6 +604,100 @@ TEST_CASE("flag watcher: a guest's save load takes the group's values and sends 
   // After it the game's own changes go out as before.
   store.set(kDoor, 0);
   CHECK(only<proto::FlagSet>(w.frame(store)) == std::vector{entry(kDoor, 0)});
+}
+
+TEST_CASE("flag watcher, host: on the title screen the table waits until the save is in (SONDAS round 6)") {
+  // B hosts from the title screen and A joins: B's table then was a new game's (3 hearts, no magic), the
+  // server kept it, and A's save load was put back to it.
+  FakeStore store = game();
+  FlagWatcher w(shared(), FlagRole::host);
+  w.set_loading(true);  // no Link: the title screen
+  w.set_scene(false);
+  w.request_snapshot();
+  for (int i = 0; i < FlagWatcher::kTitleFrames + 5; ++i) CHECK(w.frame(store).empty());
+  CHECK_FALSE(w.in_save());
+  CHECK(w.stats().snapshots_held == 1);
+  auto notes = w.take_notes();
+  REQUIRE(notes.size() == 1);
+  CHECK(notes[0].find("our table is held") != std::string::npos);
+  // The save loads and Link is read: the table goes, with the save's values.
+  store.set(kDoor, 1);
+  w.set_scene(true);
+  w.set_loading(false);
+  bool sent = false;
+  for (const auto& m : decode(w.frame(store))) {
+    if (const auto* part = std::get_if<proto::FlagSnapshot>(&m)) {
+      sent = true;
+      CHECK(std::find(part->flags.begin(), part->flags.end(), entry(kDoor, 1)) != part->flags.end());
+    }
+  }
+  CHECK(sent);
+  CHECK(w.in_save());
+  notes = w.take_notes();
+  REQUIRE(notes.size() == 1);
+  CHECK(notes[0].find("our table sent") != std::string::npos);
+  CHECK(w.frame(store).empty());  // once only
+}
+
+TEST_CASE("flag watcher: a guest's first save load with no group value yet keeps its save (SONDAS round 6)") {
+  FakeStore store = game();
+  store.set(kDoor, 1);  // a new game's 1 that the save has at 0 (Mido's blocker)
+  store.set(kKey0, 1);
+  FlagWatcher w(shared(), FlagRole::player);
+  w.set_loading(true);  // boot and the title screen: nothing came from the group (its host has no save in)
+  w.set_scene(false);
+  for (int i = 0; i < FlagWatcher::kTitleFrames; ++i) w.frame(store);
+  // The save loads: two flags back (the sign of a save load), its own progress in.
+  store.set(kDoor, 0);
+  store.set(kKey0, 0);
+  store.set(kChest, 1);
+  store.set(kKey1, 1);
+  CHECK(w.frame(store).empty());
+  w.set_scene(true);
+  w.set_loading(false);
+  for (int i = 0; i <= FlagWatcher::kSettleFrames; ++i) CHECK(w.frame(store).empty());
+  CHECK_FALSE(w.settling());
+  // Kept: none goes back to the title screen's values, and none is sent (a guest's load is not the group's).
+  CHECK(store.get(kChest) == 1);
+  CHECK(store.get(kKey1) == 1);
+  CHECK(store.get(kDoor) == 0);
+  CHECK(store.get(kKey0) == 0);
+  CHECK(w.stats().load_reverts == 0);
+  CHECK(w.stats().load_kept_own == 4);
+  const auto notes = w.take_notes();
+  REQUIRE(notes.size() == 1);
+  CHECK(notes[0].find("values of our save kept") != std::string::npos);
+  // After it the game's own changes go out as before.
+  store.set(kKey1, 0);
+  CHECK(only<proto::FlagSet>(w.frame(store)) == std::vector{entry(kKey1, 0)});
+}
+
+TEST_CASE("flag watcher: a guest's reload from a save goes back to what its game had, group value or not") {
+  FakeStore store = game();
+  FlagWatcher w(shared(), FlagRole::player);
+  w.frame(store);  // Link read: in a save
+  store.set(kChest, 1);
+  store.set(kKey1, 1);
+  w.frame(store);  // its own changes, sent
+  CHECK(w.in_save());
+  // To the title screen and an older save: two flags back (a save load), one forward.
+  w.set_loading(true);
+  w.set_scene(false);
+  for (int i = 0; i < FlagWatcher::kTitleFrames; ++i) w.frame(store);
+  store.set(kChest, 0);
+  store.set(kKey1, 0);
+  store.set(kDoor, 1);
+  w.frame(store);
+  w.set_scene(true);
+  w.set_loading(false);
+  for (int i = 0; i <= FlagWatcher::kSettleFrames; ++i) w.frame(store);
+  CHECK(store.get(kChest) == 1);  // back: the load came from a save, as before round 6
+  CHECK(store.get(kKey1) == 1);
+  CHECK(store.get(kDoor) == 0);
+  CHECK(w.stats().load_kept_own == 0);
+  const auto notes = w.take_notes();
+  REQUIRE(notes.size() == 1);
+  CHECK(notes[0].find("a reload from a save") != std::string::npos);
 }
 
 TEST_CASE("flag watcher: one flag back with no Link is no save load: the old rules hold for a guest") {

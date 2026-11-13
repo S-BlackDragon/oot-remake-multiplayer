@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "coop_callers.h"
 
+#include "coop_perf.h"  // ORM: LICHII_ORM_PERF, each caller's time
+
 #include <algorithm>
 #include <mutex>
 #include <utility>
@@ -44,7 +46,13 @@ std::optional<CoopPuppet::Call> Next(CoopPuppet::Guest& guest, bool after_call,
             return c.first ? c.first(guest, after, r, now_ms)
                            : CoopPuppet::TheDirector().Step(guest, after, r, now_ms);
         }
-        return c.list[i - 1].second(guest, after, r, now_ms);
+        // ORM (LICHII_ORM_PERF, oot-remake docs/RENDIMIENTO.md): each caller's time by its order.
+        const std::uint64_t perf_start = CoopPerf::The().On() ? CoopPerf::NowNs() : 0;
+        auto call = c.list[i - 1].second(guest, after, r, now_ms);
+        if (perf_start != 0) {
+            CoopPerf::The().AddCaller(c.list[i - 1].first, CoopPerf::NowNs() - perf_start);
+        }
+        return call;
     };
     const std::size_t count = c.list.size() + 1;
     std::optional<CoopPuppet::Call> call;

@@ -15,6 +15,12 @@
 
 #include "coop/protocol/join_password.hpp"
 #include "coop/protocol/traffic_crypto.hpp"
+#include "coop/protocol/orm_types.hpp"  // ORM: our numbers (oot-remake docs/TIPOS_MENSAJE.md)
+
+// ORM: Qt's `slots` keyword macro (our Qt files, lichii/hook/coop_window.cpp, include this
+// header) would eat upstream's ObjectComponent::slots and ObjectSample::slots.
+#pragma push_macro("slots")
+#undef slots
 
 namespace coop::protocol {
 
@@ -1384,3 +1390,5 @@ enum class Sender : std::uint8_t {
 bool may_send(Sender from, MessageType type);
 
 }  // namespace coop::protocol
+
+#pragma pop_macro("slots")

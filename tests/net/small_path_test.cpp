@@ -169,6 +169,7 @@ TEST_CASE("small path: games behind 1200-, 576- and 900-byte paths stay connecte
   EnetLife enet;
   coop::server::ServerOptions options;
   options.port = 0;
+  options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
   options.session.join_password = "test-pass";
   coop::server::EnetServer server(options);
   REQUIRE(server.start());
@@ -294,6 +295,7 @@ TEST_CASE("small path: the server tells a remembered address again when it conne
   EnetLife enet;
   coop::server::ServerOptions options;
   options.port = 0;
+  options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
   options.session.join_password = "test-pass";
   coop::server::EnetServer server(options);
   server.remember_loopback_small_paths(true);  // every game here is on 127.0.0.1
@@ -355,6 +357,7 @@ TEST_CASE("small path: a loopback game sent away is not remembered (relay guests
   EnetLife enet;
   coop::server::ServerOptions options;
   options.port = 0;
+  options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
   options.session.join_password = "test-pass";
   coop::server::EnetServer server(options);
   REQUIRE(server.start());
@@ -403,6 +406,7 @@ TEST_CASE("small path: plain loss and short outages on a line that carries full 
   EnetLife enet;
   coop::server::ServerOptions options;
   options.port = 0;
+  options.bind = 0x7F000001u;  // ORM: 127.0.0.1 only: no firewall prompt
   options.session.join_password = "test-pass";
   coop::server::EnetServer server(options);
   REQUIRE(server.start());

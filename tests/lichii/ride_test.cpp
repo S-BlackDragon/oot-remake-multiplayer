@@ -178,10 +178,13 @@ TEST_CASE("ride: the others draw the horse under the riding puppet, turned with 
     REQUIRE(again.size() == 1);
     CHECK(again[0].key == c.key);
 
-    // No horse while: their puppet is not live, they are elsewhere, our cutscene runs.
+    // ORM D-R12: our cutscene hides no rider, so its horse stays under it (upstream: none).
+    const auto in_ours = rides.Plan(scene, true, {Rider(puppet, turn)}, kP2Live, 5'155'000);
+    REQUIRE(in_ours.size() == 1);
+    CHECK(in_ours[0].key == c.key);
+    // No horse while: their puppet is not live, they are elsewhere.
     CHECK(rides.Plan(scene, false, {Rider(puppet, turn)}, 0, 5'160'000).empty());
     CHECK(rides.Plan(std::string("LonLonRanch"), false, {Rider(puppet, turn)}, kP2Live, 5'170'000).empty());
-    CHECK(rides.Plan(scene, true, {Rider(puppet, turn)}, kP2Live, 5'180'000).empty());
     // Getting off: their command says so before riding off comes.
     CHECK(rides.Plan(scene, false, {Rider(puppet, turn, "DismountHorse")}, kP2Live, 5'190'000).empty());
     CHECK(rides.Changes().size() == 1);  // "P2 off the horse" once, not per frame

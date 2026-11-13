@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <functional>
 #include <string>
 #include <vector>

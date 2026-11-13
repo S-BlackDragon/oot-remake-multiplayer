@@ -1,4 +1,6 @@
 #include <doctest/doctest.h>
+
+#include <ostream>  // doctest prints std::string_view results
 #include <enet/enet.h>
 
 #include "coop/version.hpp"

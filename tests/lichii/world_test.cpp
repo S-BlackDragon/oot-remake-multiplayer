@@ -3,6 +3,8 @@
 // (coop_objects_sync.cpp, Flush). No emulator code.
 #include <doctest/doctest.h>
 
+#include <ostream>  // doctest prints std::string_view results
+
 #include <algorithm>
 #include <array>
 #include <cmath>
