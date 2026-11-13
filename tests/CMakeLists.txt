@@ -46,11 +46,14 @@ add_executable(coop_tests
   lichii/fairy_test.cpp
   lichii/rooms_test.cpp
   lichii/objects_test.cpp
+  lichii/hits_test.cpp
+  lichii/carry_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_carry.cpp
   lichii/spawn_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_spawn.cpp
   lichii/ride_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_ride.cpp
   lichii/projectiles_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_projectiles.cpp
   lichii/enemy_shots_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_enemy_shots.cpp
   lichii/drops_test.cpp
+  lichii/enemies_test.cpp
   lichii/guard_test.cpp
   lichii/snap_test.cpp
   lichii/scrub_talk_test.cpp
@@ -138,6 +141,8 @@ add_executable(coop_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_fairy.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_rooms.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_objects_sync.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_hits.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_copy_smooth.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_pose.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_puppet.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_puppet_config.cpp

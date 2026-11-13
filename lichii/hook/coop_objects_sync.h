@@ -37,8 +37,11 @@
 #include <utility>
 #include <vector>
 
+#include "coop/host/boss_rules.hpp"  // ORM boss families: FamilyWatch
 #include "coop/protocol/messages.hpp"
+#include "coop_copy_smooth.h"
 #include "coop_guard.h"
+#include "coop_hits.h"
 
 namespace CoopObjects {
 
@@ -334,6 +337,26 @@ public:
     // Hurt through the game's damage field (LifeWrite::hurt); off: write life.
     void SetHurt(bool on) { hurt_ = on; }
 
+    // ORM golpes (coop_hits.h, oot-remake docs/GOLPES_LATENCIA.md; LICHII_COOP_HITS, on in
+    // the hook, off here so the tests above keep the first cut's behaviour). On the hitter:
+    // our hit on a copy is shown at once and held until the owner's answer is on screen (no
+    // pull back to the owner's place, no owner animation from before the hit, no second
+    // flinch, a kill dies here at once); a sample the owner took before our DAMAGE could reach
+    // it never heals the copy (the dedupe window, from the measured latency, never shorter than
+    // kHitHoldUs); the first drop after a quiet kDamageSumUs goes out at once, later ones are
+    // summed as before. On the owner: a drop next to another player's DAMAGE with our Link
+    // away is logged as a possible same hit twice, and taken back with SetHitDedupe
+    // (LICHII_COOP_HITS_DEDUPE=1).
+    void SetHits(bool on) { hits_on_ = on; }
+    void SetHitDedupe(bool on) { ledger_.SetPutBack(on); }
+    // ORM golpes (coop_copy_smooth.h; LICHII_COOP_COPY_SMOOTH, on in the hook): copies are
+    // placed by the puppets' smoother instead of PlaceAt.
+    void SetCopySmooth(bool on) { smooth_on_ = on; }
+    // For tests and logs.
+    const CoopHits::Feedback& Hits() const { return hits_; }
+    CoopHits::Feedback& Hits() { return hits_; }  // TakeStats empties its counts
+    static constexpr std::uint64_t kHitsLogUs = 5'000'000;
+
     // Projectiles (coop_projectiles.h): true for a life drop at a place and
     // server time that a projectile copy's blast here may have made. A copy
     // bomb is the game's own bomb, so the owner's real bomb and our copy both
@@ -610,9 +633,12 @@ private:
         bool sent_once = false;
         std::optional<coop::protocol::ObjectLife> sent_life;
         coop::protocol::Vec3 sent_position{};
+        bool sent_moving = false;  // the last sample's velocity carried it on (StoppedSince)
         std::optional<coop::protocol::Quat> sent_rotation;
         std::string sent_animation;
         std::string sent_slots;  // issue 150: the slot names last sent
+        std::uint8_t sent_keep = 0;  // ORM endgame: the owner_keeps bits last sent
+        std::optional<coop::protocol::ObjectCarry> sent_carry;  // ORM "Levantar"
         std::uint32_t sequence = 0;
         // Copy side.
         std::int32_t hit_sum = 0;
@@ -838,6 +864,15 @@ private:
     std::size_t hurt_missed_ = 0;  // hurts written directly after the wait
     BlastNear blast_near_;
     std::size_t blast_drops_ = 0;
+    // ORM golpes. Mutable: Poses and Plays (present thread, const) step their phases.
+    bool hits_on_ = false;
+    bool smooth_on_ = false;
+    mutable CoopHits::Feedback hits_;
+    CoopHits::OwnerLedger ledger_;
+    mutable CoopCopySmooth::Streams smooth_;
+    std::uint64_t hits_log_at_ = 0;
+    // The 5 s line of hits_ and smooth_ (a note), when there was something.
+    void HitsNote(std::uint64_t now_us);
 
     mutable std::mutex inbox_mutex_;
     std::vector<coop::protocol::Message> inbox_;

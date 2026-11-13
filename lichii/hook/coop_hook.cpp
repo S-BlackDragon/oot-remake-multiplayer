@@ -42,6 +42,8 @@
 
 #include "coop/host/game_items.hpp"
 #include "coop/host/game_memory.hpp"
+#include "coop/host/hearts.hpp"
+#include "coop/host/hazards.hpp"  // ORM hazards (docs/PELIGROS.md)
 #include "coop/host/notify.hpp"
 #include "coop/host/orm_link_watch.hpp"  // ORM: a link that cannot keep up is told (RIESGOS_RESUELTOS.md)
 #include "coop/host/player_reader.hpp"
@@ -150,6 +152,13 @@ bool EnvFlag(const char* name) {
     const char* value = std::getenv(name);
     return value != nullptr && value[0] != '\0' && std::string_view(value) != "0";
 #endif
+}
+
+// ORM hazards (coop/host/hazards.hpp, oot-remake docs/PELIGROS.md): on unless
+// LICHII_COOP_HAZARDS=0.
+bool HazardsOn() {
+    const char* value = std::getenv("LICHII_COOP_HAZARDS");
+    return value == nullptr || std::string_view(value) != "0";
 }
 
 // An environment variable's text, or "" when it is not set.
@@ -278,6 +287,19 @@ public:
         if (flag_error.empty()) CoopChests::AddShared(session.shared);  // docs/items.md, "Chests"
         if (!flag_error.empty()) {
             LOG_ERROR(Core, "coop: {}; flags are not shared", flag_error);
+        }
+        // ORM hazards (coop/host/hazards.hpp): the flags each player keeps (the Lens on,
+        // the guide Poe's and the storm's, the void-out's) never go out, whatever list has them.
+        if (hazards_on_) {
+            const auto taken = coop::host::unshare_hazard_flags(session.shared);
+            std::string names;
+            for (const std::string_view n : taken) {
+                names += names.empty() ? ": " : ", ";
+                names += n;
+            }
+            LOG_INFO(Core, "coop: hazards: on (LICHII_COOP_HAZARDS): {} per-player flags kept out of sharing "
+                     "({} were shared{}); a Link down where no mate can reach him is sent at his last firm "
+                     "ground", coop::host::hazard_flags().size(), taken.size(), names);
         }
         sharing_ = session.shared.has_value();
         // One-time pickups (docs/items.md): keys the object walk notes are
@@ -838,6 +860,45 @@ public:
                              static_cast<std::int32_t>(now->value), static_cast<std::int32_t>(back.value),
                              ok ? "" : ": the write failed");
                 }
+            }
+        }
+        // ORM: the group's heart capacity (coop/host/hearts.hpp; issue 88, oot-64
+        // "comparte capacidad"): one way up, into our Link's Life component the
+        // hearts are drawn from. Only with LICHII_ORM_HEARTS=1: by default the
+        // object walk's own raise (LICHII_COOP_HEARTS_TO_LINK, upstream's) is the
+        // one upload (oot-remake docs/ADOPTAR_UPSTREAM.md); this stays for an
+        // in-game test of the race it guards against (the game writing its lower
+        // copy back over MaxLife). With both on, this runs first and the walk's
+        // raise then finds nothing left to do.
+        if (!report.connected) {
+            hearts_connected_ = false;
+        } else if (hearts_on_ && game_store && memory) {
+            coop::host::HeartsInput hin;
+            hin.relearn = !hearts_connected_ || report.host_reset || report.save_load_flags != 0;
+            hearts_connected_ = true;
+            hin.received = coop::host::max_life_received(report.received);
+            if (const auto f = game_store->read(coop::protocol::FlagKey{coop::host::kMaxLifeFlag, 0});
+                f && f->kind == coop::protocol::FlagKind::int32) {
+                hin.flag = static_cast<std::int32_t>(f->value);
+            }
+            std::optional<coop::host::LifeWords> words;
+            if (reading) {
+                if (const auto actor = coop::host::PlayerReader(*memory).find_player_actor()) {
+                    hin.link_max = coop::host::read_vitals(*memory, *actor).max_life;
+                    words = coop::host::find_life_words(*memory, *actor);
+                    if (words) {  // raw: a life above the max is brought down to it
+                        if (const auto life = coop::host::read_u32(*memory, words->life)) {
+                            hin.link_life = static_cast<std::int32_t>(*life);
+                        }
+                    }
+                }
+            }
+            auto act = hearts_.update(hin);
+            for (const auto& line : act.log) {
+                LOG_INFO(Core, "coop: {}", line);
+            }
+            if ((act.max || act.life) && words && !coop::host::apply_hearts(*memory, *words, act)) {
+                LOG_WARNING(Core, "coop: hearts: our Link's life words could not be written");
             }
         }
         if (game_store) {  // issue 88: what the session left in MaxLife (docs/items.md)
@@ -2003,6 +2064,14 @@ private:
     // client and locks it, so neither is touched directly after that.
     std::unique_ptr<coop::net::Client> client_;
     std::unique_ptr<coop::host::Session> session_;
+    std::uint64_t downed_now_us_ = 0;  // last frame's server time, 0 when not connected
+    // ORM hazards (coop/host/hazards.hpp), present thread.
+    const bool hazards_on_ = HazardsOn();
+    coop::host::DownedReach hazards_reach_{[] {
+        coop::host::ReachSettings s;
+        s.on = HazardsOn();
+        return s;
+    }()};
     // Debug item cheats (coop_cheats.h, LICHII_COOP_CHEATS).
     const bool cheats_ = CoopCheats::On();
     std::atomic<bool> stop_ = false;

@@ -2377,7 +2377,9 @@ TEST_CASE("a hand-over is called off when the player it was for leaves the scene
 }
 
 TEST_CASE("a fight keeps an enemy with its owner for 12 s after the last sign of it") {
-  OwnerHarness h;
+  SessionConfig config = quiet_config();
+  config.fight_near_hold_us = 0;  // ORM enemigos: the near-player rule is in enemies_test.cpp
+  OwnerHarness h(config);
   h.stand(1, 50);
   h.stand(2, 5);
   SUBCASE("its life changed") {
@@ -2857,7 +2859,10 @@ TEST_CASE("a kill by the old owner that crossed the hand-over still counts, for 
 }
 
 TEST_CASE("an owner that is loading, paused 6 s or dead 10 s gives it up, even in a fight") {
-  OwnerHarness h;
+  SessionConfig config = quiet_config();
+  config.owner_downed_us = 0;  // ORM enemigos: daurosk's 10 s; the downed 1 s is in enemies_test.cpp
+  config.owner_paused_us = 6'000'000;  // ORM menus: daurosk's 6 s; the paused 1 s is in menus_test.cpp
+  OwnerHarness h(config);
   h.receive(1, ObjectSample{0, placed(7), 0, state_at(0, 11)}, kChannelObjectSamples);  // a fight
   SUBCASE("loading") {
     h.receive(1, PlayerStatus{0, status::loading}, kChannelSession);

@@ -404,6 +404,19 @@ Trip::Actions Trip::Left(std::uint8_t number) {
     return a;
 }
 
+Trip::Actions Trip::Stop(std::string line) {
+    Actions a;
+    if (phase_ == Phase::idle) {
+        return a;
+    }
+    a.cancel_scene = phase_ == Phase::travelling;
+    a.restore_start = a.cancel_scene && !loaded_;  // as Left (test9's scene trip)
+    a.lines.push_back(std::move(line));
+    phase_ = Phase::idle;
+    resume_ = false;
+    return a;
+}
+
 Trip::Actions Trip::Tick(const Local& local, std::uint64_t now_us) {
     Actions a;
     // A trip that ended (settle given up, left) in the middle of a load with

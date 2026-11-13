@@ -1046,6 +1046,41 @@ std::atomic<bool>& TheLocalEvent() {
     return in_event;
 }
 
+// ORM c3: the running event's name, from the emulator thread to the present thread's talk (SetLocalEventName).
+struct LocalEventName {
+    std::mutex mutex;
+    std::optional<std::string> name;
+};
+LocalEventName& TheLocalEventName() {
+    static LocalEventName n;
+    return n;
+}
+std::optional<std::string> LocalEventNameNow() {
+    auto& n = TheLocalEventName();
+    std::lock_guard lock(n.mutex);
+    return n.name;
+}
+
+// ORM endgame (SetKeep): bit 0 up, bit 1 frozen, bit 2 charging, bit 3 held (ORM boss
+// families), bits 8 to 15 the charge + 1 (0: not read).
+std::atomic<std::uint32_t>& TheKeep() {
+    static std::atomic<std::uint32_t> keep{1};
+    return keep;
+}
+
+Sync::Keep KeepNow() {
+    const std::uint32_t word = TheKeep().load();
+    Sync::Keep keep;
+    keep.up = (word & 1u) != 0;
+    keep.frozen = (word & 2u) != 0;
+    keep.charging = (word & 4u) != 0;
+    keep.held = (word & 8u) != 0;
+    if (const std::uint32_t charge = (word >> 8) & 0xffu; charge != 0) {
+        keep.charge = charge - 1;
+    }
+    return keep;
+}
+
 // The MaxLife flag as the session left it (SetMaxLife); -1: not known.
 std::atomic<unsigned>& TheChestsOpenedTwice() {
     static std::atomic<unsigned> count{0};
@@ -1152,6 +1187,17 @@ public:
             return;
         }
         NoteBosses(seen);
+        // ORM moving floors (orm_ride.h): the floors and our Link of this walk; and (ORM boss
+        // families, docs/JEFES.md section 9) the grabbing parts and what holds our Link, from the
+        // last Tick in this scene (one walk old).
+        {
+            OrmRide::Grabs grabs;
+            if (families_ && sync_.FamilyScene() == *scene) {
+                grabs.parts = sync_.FamilyParts();
+                grabs.ours = sync_.FamilyRide();
+            }
+            OrmRide::Walked(*scene, player_, ride_platforms_, grabs);
+        }
         const u8 self =
             session->with_client([](coop::net::Client& c) { return c.player_number(); });
         if (self == 0) {
@@ -1289,6 +1335,9 @@ public:
         }
         for (const auto& note : sync_.TakeNotes()) {
             LOG_INFO(Core, "coop: objects: share {}", note);
+        }
+        for (const auto& line : sync_.TakeFamilyLines()) {  // ORM boss families
+            LOG_INFO(Core, "coop: {}", line);
         }
         // Breaks and moves of placed world objects (docs/world.md).
         {
@@ -1729,6 +1778,10 @@ public:
     std::vector<CoopWorld::WorldSync::Out::Word> sign_words_;  // SIGN_CUT words to write
     std::vector<CoopWorld::WorldSync::Out::BlockFix> block_fixes_;  // issue 147: blocks to fix
     std::optional<coop::protocol::Vec3> player_;  // our Link in the last walk
+    std::vector<coop::host::RidePlatform> ride_platforms_;  // ORM: the moving floors of the last walk
+    // ORM boss families (LICHII_ORM_BOSS_FAMILIES, on): the walk's unshared actors of the table.
+    bool families_ = true;
+    std::vector<std::pair<std::string, coop::protocol::Vec3>> family_extras_;
     // Issue 144: shared changes to actors near our Link wait while it is in an
     // event (coop_guard.h). Where each actor of the last walk was, kills and
     // hurts held back, and what was said about it.
@@ -2932,6 +2985,20 @@ std::optional<LinkHearts> OurLife() {
         return std::nullopt;
     }
     return LinkHearts{TheLife().life.load(), TheLife().max.load()};
+}
+
+void SetLocalEventName(std::optional<std::string> name) {
+    auto& n = TheLocalEventName();
+    std::lock_guard lock(n.mutex);
+    n.name = std::move(name);
+}
+
+void SetKeep(bool up, bool frozen, bool charging, std::optional<unsigned> charge, bool held) {
+    std::uint32_t word = (up ? 1u : 0u) | (frozen ? 2u : 0u) | (charging ? 4u : 0u) | (held ? 8u : 0u);
+    if (charge && *charge < 0xffu) {
+        word |= (*charge + 1u) << 8;
+    }
+    TheKeep().store(word);
 }
 
 void SetMaxLife(std::optional<std::int32_t> quarters) {

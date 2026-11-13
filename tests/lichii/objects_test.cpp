@@ -136,7 +136,7 @@ TEST_CASE("objects: OBJECT_PRESENT on a change and every 2 s, and a new scene st
     CHECK(sync.Count() == 0);
 }
 
-TEST_CASE("objects: the owner sends samples at most 20 a second, once a second when still") {
+TEST_CASE("objects: the owner sends samples at most 20 a second, once on a stop, once a second when still") {
     Sync sync;
     Tick(sync, 0, {Enemy(0x100, 0x11, 2)});
     const proto::ObjectId id = *sync.IdOf(0x100);
@@ -156,9 +156,15 @@ TEST_CASE("objects: the owner sends samples at most 20 a second, once a second w
     REQUIRE(samples.size() == 1);
     CHECK((*samples[0].state.position)[0] == doctest::Approx(2.0f));
     CHECK(samples[0].state.time.sequence == 2);
-    // Still: nothing until a second has passed.
-    CHECK(All<proto::ObjectSample>(Tick(sync, 500 * kMs, {Enemy(0x100, 0x11, 2, 2.0f)})).empty());
-    CHECK(All<proto::ObjectSample>(Tick(sync, 1070 * kMs, {Enemy(0x100, 0x11, 2, 2.0f)})).size() == 1);
+    // Stopped: one sample saying so (its velocity would carry the copies on), then
+    // nothing until a second has passed.
+    samples = All<proto::ObjectSample>(Tick(sync, 500 * kMs, {Enemy(0x100, 0x11, 2, 2.0f)}));
+    REQUIRE(samples.size() == 1);
+    REQUIRE(samples[0].state.velocity);
+    CHECK((*samples[0].state.velocity)[0] == doctest::Approx(0.0f));
+    CHECK(All<proto::ObjectSample>(Tick(sync, 520 * kMs, {Enemy(0x100, 0x11, 2, 2.0f)})).empty());
+    CHECK(All<proto::ObjectSample>(Tick(sync, 1070 * kMs, {Enemy(0x100, 0x11, 2, 2.0f)})).empty());
+    CHECK(All<proto::ObjectSample>(Tick(sync, 1500 * kMs, {Enemy(0x100, 0x11, 2, 2.0f)})).size() == 1);
 }
 
 TEST_CASE("objects: a hit on a copy goes to the owner as DAMAGE, summed over 100 ms") {

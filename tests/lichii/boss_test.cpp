@@ -55,9 +55,9 @@ proto::BossRoom From(std::uint8_t player, const CoopBoss::Room& room, proto::Bos
 
 } // namespace
 
-TEST_CASE("boss: the eight rooms") {
+TEST_CASE("boss: the eight rooms, and Ganondorf's and Ganon's (ORM)") {
     const auto rooms = CoopBoss::Rooms();
-    REQUIRE(rooms.size() == 8);
+    REQUIRE(rooms.size() == 10);
     std::set<std::string_view> scenes;
     for (std::size_t i = 0; i < rooms.size(); ++i) {
         const auto& r = rooms[i];
@@ -76,11 +76,13 @@ TEST_CASE("boss: the eight rooms") {
         CHECK(r.intro.ends_with("_BossIn"));
         CHECK(r.outro.ends_with("_BossOut"));
     }
-    CHECK(scenes.size() == 8);
+    CHECK(scenes.size() == 10);
     CHECK(rooms[0].era == CoopBoss::Era::child);
     CHECK(rooms[2].era == CoopBoss::Era::child);
     CHECK(rooms[3].era == CoopBoss::Era::adult);
-    CHECK(CoopBoss::RoomByIndex(8) == nullptr);
+    CHECK(rooms[8].era == CoopBoss::Era::adult);
+    CHECK(rooms[9].era == CoopBoss::Era::adult);
+    CHECK(CoopBoss::RoomByIndex(10) == nullptr);
     CHECK(CoopBoss::RoomOfScene("KokiriForest_Child") == nullptr);
 }
 
@@ -472,6 +474,12 @@ TEST_CASE("boss: the boss's bodies are the boss actor, and Koume and Kotake for 
     REQUIRE(twinrova != nullptr);
     CHECK(CoopBoss::Bodies(*twinrova).size() == 3);
     CHECK(CoopBoss::Bodies(Forest()).size() == 1);
+    // ORM: Ganon's two halves are two actors; the first going is not his death.
+    const auto* ganon = CoopBoss::RoomOfScene("FinalBattleField");
+    REQUIRE(ganon != nullptr);
+    REQUIRE(CoopBoss::Bodies(*ganon).size() == 2);
+    CHECK(CoopBoss::Bodies(*ganon)[1] == "Enemy_DungeonBoss_Ganon_SecondHalfBattle");
+    CHECK(CoopBoss::Bodies(*CoopBoss::RoomOfScene("InsideGanonCastle")).size() == 1);
 }
 
 // Issue 148: the move-in waits until the leader is really in the boss room.

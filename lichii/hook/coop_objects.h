@@ -67,6 +67,17 @@ void HurtOurLink(std::int32_t quarters, const std::array<float, 3>& at,
 // cutscene). While it is, shared changes to actors near it wait (coop_guard.h,
 // issue 144).
 void SetLocalEvent(bool in_event);
+// ORM c3 (oot-remake docs/SONDAS.md round 7): our running event's name (nothing: none runs, or it is not
+// readable). The townsperson we talk to is taken by reach only in a talk's event (coop::host::talk_event_name).
+void SetLocalEventName(std::optional<std::string> name);
+
+// ORM endgame (oot-remake docs/FINAL.md, ZMP D-231; Sync::SetKeep): our Link now, for the
+// owner_keeps bits of our samples of Twinrova: up (not downed), frozen by Kotake's ice,
+// charging the mirror shield with a witch's blast, the mirror shield's charge (nothing: not
+// read). And (ORM boss families, oot-remake docs/JEFES.md section 9) whether our Link's main AS
+// command is a held one (coop::host::held_animation): the walk then looks for what holds it.
+// Any thread; the next walk uses it.
+void SetKeep(bool up, bool frozen, bool charging, std::optional<unsigned> charge, bool held = false);
 
 // Network thread, from the session's on_event: takes the object messages.
 void OnEvent(const coop::net::Event& event);

@@ -114,7 +114,8 @@ std::span<const std::string_view> Bodies(const Room& room);
 // it was shared); for the other rooms the end of the intro stands for it.
 std::string_view ShutInFlag(const Room& room);
 
-// The eight boss rooms, by index: 0 to 2 child, 3 to 7 adult.
+// The boss rooms, by index: 0 to 2 child, 3 to 7 adult; ORM: 8 Ganondorf, 9 Ganon
+// (oot-remake docs/FINAL.md).
 std::span<const Room> Rooms();
 const Room* RoomByIndex(std::uint8_t index);
 // The boss room of a dungeon scene, or null.

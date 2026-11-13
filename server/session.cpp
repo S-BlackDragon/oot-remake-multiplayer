@@ -796,7 +796,10 @@ bool Session::set_scene(ConnectionId id, Connection& c, const std::string& scene
   // any more, so coming back with the enemy on its list is a respawn.
   if (auto ds = dead_.find(left); ds != dead_.end()) {
     for (auto& [oid, d] : ds->second) {
-      if (auto w = d.witnesses.find(id); w != d.witnesses.end()) w->second = false;
+      if (auto w = d.witnesses.find(id); w != d.witnesses.end()) {
+        w->second = false;
+        d.went_away.insert(id);  // ORM enemigos: back here is a reload of the scene
+      }
     }
   }
   forget_empty_grass(left);
@@ -1004,6 +1007,17 @@ void Session::on_object_message(ConnectionId id, Connection& c, std::uint8_t cha
         (o.hit_at == 0 || now_us - o.hit_at > config_.hit_window_us)) {
       o.owner_hit_at = stamp(now_us);
     }
+    // ORM endgame (docs/FINAL.md): the owner's game keeps the boss a while.
+    const std::uint8_t keep =
+        sample->state.state ? static_cast<std::uint8_t>(*sample->state.state &
+                                                        (object_state::owner_keeps | object_state::owner_keeps_near))
+                            : std::uint8_t{0};
+    if (keep == 0) {
+      o.keep_since = 0;
+    } else if (o.keep == 0) {
+      o.keep_since = stamp(now_us);
+    }
+    o.keep = keep;
     o.last_state = sample->state;
   } else {
     auto& remove = std::get<ObjectRemove>(message);
@@ -1109,8 +1123,12 @@ void Session::on_damage(ConnectionId id, Connection& c, Damage& d, std::uint64_t
         has_loaded(id, *root) &&
         (root->changed_at == 0 || now_us - root->changed_at >= config_.boss_hitter_cooldown_us) &&
         !owner_hit_lately(*root, now_us) && !owner_hit_lately(o, now_us)) {
-      ask_handover(root_id, *root, id, now_us);
-      ++stats_.boss_to_hitter;
+      if (owner_keeps(*root, true, now_us) || owner_keeps(o, true, now_us)) {
+        ++stats_.owner_kept;  // ORM endgame: Twinrova's ice holds the owner's Link
+      } else {
+        ask_handover(root_id, *root, id, now_us);
+        ++stats_.boss_to_hitter;
+      }
     }
     return;  // a boss is not moved by the distance rule below
   }
@@ -1133,6 +1151,12 @@ void Session::on_damage(ConnectionId id, Connection& c, Damage& d, std::uint64_t
   const auto theirs = distance_to(owner->second, o, now_us);
   if (mine && theirs && *mine <= config_.handover_near_m &&
       *mine + config_.handover_margin_m <= *theirs) {
+    // ORM boss families (oot-remake docs/JEFES.md section 9): a Like Like or a Wallmaster that
+    // holds its owner's Link stays with it; the hit itself went to the owner above.
+    if (owner_keeps(o, true, now_us)) {
+      ++stats_.owner_kept;
+      return;
+    }
     ask_handover(d.id, o, id, now_us);
   }
 }
@@ -1255,6 +1279,22 @@ bool Session::dead_for(ConnectionId id, Connection& c, const std::string& scene,
     return true;
   }
   if (w->second) return true;
+  // ORM enemigos: its game loaded the room again while another player stayed
+  // in it. In oot-64 the room stays loaded then and its kills stay dead.
+  std::string why;
+  if (kill_held_inside(id, scene, d->second, loaded_with, now_us, &why)) {
+    w->second = true;
+    d->second.went_away.erase(id);
+    send(id, kChannelOwnership,
+         ObjectRemove{d->second.by, oid, 0, RemoveReason::dead, d->second.position});
+    ++stats_.dead_kept_inside;
+    log("enemies: told player " + std::to_string(c.number) +
+        " a kill again: another player stayed in its room (" + why + ")");
+    return true;
+  }
+  if (!why.empty()) {
+    log("enemies: player " + std::to_string(c.number) + " loaded a kill's room again: it lives (" + why + ")");
+  }
   ds->second.erase(d);
   ++stats_.dead_respawned;
   return false;
@@ -1329,7 +1369,7 @@ void Session::drop_presence(ConnectionId id, std::uint8_t number, const ObjectId
     // A made enemy goes on with a player who has its copy. A projectile, or
     // an enemy nobody else has, is gone on every screen.
     std::optional<ConnectionId> next;
-    if (!o.projectile) next = best_other(o, id, false, now_us);
+    if (!o.projectile) next = next_owner(o, id, now_us);  // ORM enemigos: standing first
     if (next) {
       change_owner(oid, o, next, number, now_us);
       return;
@@ -1345,7 +1385,7 @@ void Session::drop_presence(ConnectionId id, std::uint8_t number, const ObjectId
     forget(it);  // nobody has it loaded: forgotten
     return;
   }
-  if (o.owner == id) change_owner(oid, o, best_other(o, id, false, now_us), number, now_us);
+  if (o.owner == id) change_owner(oid, o, next_owner(o, id, now_us), number, now_us);
 }
 
 bool Session::has_loaded(ConnectionId id, const Object& o) const {
@@ -1366,7 +1406,7 @@ std::optional<double> Session::distance_to(const Connection& c, const Object& o,
 bool Session::unfit_owner(const Connection& c, std::uint64_t now_us) const {
   if (c.status & status::loading) return true;
   if (c.paused_since != 0 && now_us - c.paused_since >= config_.owner_paused_us) return true;
-  return c.dead_since != 0 && now_us - c.dead_since >= config_.owner_dead_us;
+  return c.dead_since != 0 && now_us - c.dead_since >= dead_owner_after();  // ORM enemigos
 }
 
 std::optional<ConnectionId> Session::best_other(const Object& o,
@@ -1401,6 +1441,13 @@ std::optional<ConnectionId> Session::best_other(const Object& o,
 
 bool Session::owner_hit_lately(const Object& o, std::uint64_t now_us) const {
   return o.owner_hit_at != 0 && now_us - o.owner_hit_at < config_.boss_owner_hit_hold_us;
+}
+
+bool Session::owner_keeps(const Object& o, bool hit, std::uint64_t now_us) const {
+  if (o.keep == 0 || o.keep_since == 0 || config_.owner_keep_max_us == 0) return false;
+  if (now_us >= o.keep_since && now_us - o.keep_since >= config_.owner_keep_max_us) return false;
+  if (o.keep & object_state::owner_keeps) return true;
+  return !hit && (o.keep & object_state::owner_keeps_near) != 0;
 }
 
 void Session::mark_fight(Object& o, std::uint64_t now_us) {
@@ -1477,6 +1524,8 @@ void Session::change_owner(const ObjectId& oid, Object& o, std::optional<Connect
   ++o.epoch;
   o.changed_at = stamp(now_us);
   o.owner_hit_at = 0;  // the new owner has not hit it yet
+  o.keep = 0;          // ORM endgame: the new owner's samples say their own
+  o.keep_since = 0;
   o.candidate.reset();
   o.ask.reset();
   o.orphan_since = 0;
@@ -1627,6 +1676,7 @@ void Session::run_ownership(std::uint64_t now_us) {
       if (o.fish) {
         fish_owner(oid, o, owner, true, now_us);  // a hooked fish waits for it
       } else if (auto next = best_other(o, owner, true, now_us)) {
+        if (oc.dead_since != 0) ++stats_.downed_handed;  // ORM enemigos
         ask_handover(oid, o, *next, now_us);
       }
       continue;
@@ -1671,16 +1721,23 @@ void Session::run_ownership(std::uint64_t now_us) {
           o.candidate_since = now_us;
         }
         if (now_us - o.candidate_since >= config_.boss_near_hold_us) {
-          ++stats_.boss_to_near;
-          ask_handover(oid, o, *want, now_us);
+          if (owner_keeps(o, false, now_us)) {
+            ++stats_.owner_kept;  // ORM endgame: asked again once the owner's game lets it go
+          } else {
+            ++stats_.boss_to_near;
+            ask_handover(oid, o, *want, now_us);
+          }
         }
       }
       continue;
     }
 
+    // ORM enemigos: an enemy in a fight goes to the player clearly nearer it.
+    if (fight_near_rule(oid, o, owner, oc, now_us)) continue;
+
     const bool settled =
         o.changed_at == 0 || now_us - o.changed_at >= config_.handover_cooldown_us;
-    if (!settled || in_fight(o, now_us)) {
+    if (!settled || in_fight(o, now_us) || owner_keeps(o, false, now_us)) {
       o.candidate.reset();
       continue;
     }

@@ -185,6 +185,11 @@ struct SessionConfig {
   float boss_near_m = 15.0f;
   float boss_near_margin_m = 4.0f;
   std::uint64_t boss_near_hold_us = 0;
+  // ORM endgame (oot-remake docs/FINAL.md, ZMP D-231): a boss whose owner's samples say
+  // object_state::owner_keeps (or owner_keeps_near) is not handed to a hitter (or to a nearer
+  // player) for at most this long in a row, so a game that keeps saying it never holds a boss
+  // for ever. 0: the bits are not read.
+  std::uint64_t owner_keep_max_us = 30'000'000;
   // An owner paused or dead this long (or loading at all) loses its objects
   // to another player who has them, fight or not.
   // ORM menus (oot-remake docs/MENUS_PAUSA.md M3): paused 1 s, not daurosk's
@@ -193,6 +198,51 @@ struct SessionConfig {
   // nothing.
   std::uint64_t owner_paused_us = 1'000'000;
   std::uint64_t owner_dead_us = 10'000'000;
+  // ORM enemigos (oot-remake docs/ENEMIGOS.md, server/enemies.cpp), oot-64's
+  // rules for enemies with up to six players:
+  // - a downed player (PLAYER_STATUS dead: in ORM that bit is the downed
+  //   state) is no target, so it gives up its enemies after owner_downed_us
+  //   instead of owner_dead_us (0: owner_dead_us);
+  // - an owner that leaves or unloads hands its enemies to the nearest player
+  //   standing (not loading, paused or downed), any player only when none is;
+  // - an enemy in a fight (not a boss: the boss rule has its own numbers)
+  //   goes to the player within fight_near_m of it and fight_near_margin_m
+  //   nearer than its owner, held fight_near_hold_us, not within
+  //   fight_near_cooldown_us of the last change nor while the owner hits it
+  //   (fight_near_hold_us 0: off): its AI chases only its owner's Link;
+  // - a killed enemy that a game lists again after it went away (left the
+  //   scene, or unloaded it farther than dead_left_m from where it died)
+  //   stays dead for that game while another player stands within
+  //   dead_room_m of that place: the room stayed loaded, as in oot-64.
+  std::uint64_t owner_downed_us = 1'000'000;
+  float fight_near_m = 10.0f;
+  float fight_near_margin_m = 6.0f;
+  std::uint64_t fight_near_hold_us = 3'000'000;
+  std::uint64_t fight_near_cooldown_us = 8'000'000;
+  float dead_room_m = 40.0f;
+  float dead_left_m = 15.0f;
+  // The fallback radius counts only a player within this height of the place
+  // (stacked rooms of a dungeon: another floor is another room). 0: any height.
+  float dead_room_up_m = 10.0f;
+  // ORM "downed, not dead": every player of two or more dead this long, all
+  // at once, and everyone gets GROUP_DEFEAT (0: never).
+  std::uint64_t group_defeat_us = 2'000'000;
+  // ORM D-R66: a dead player a mate is holding A beside (a REVIVE relayed to
+  // it, progress or request, within this long) counts as up for the group
+  // defeat; once the hold stops, its 2 s start over from then. 0: never.
+  std::uint64_t revive_hold_us = 1'000'000;
+  // ORM orm/pvp (oot-remake docs/COMANDOS.md, "Derrota y PvP"): a player who
+  // goes down within pvp_down_window_us of a PLAYER_HIT relayed to it fell
+  // to PvP: it counts as up for the group defeat for pvp_down_hold_us (a
+  // friend's hit never ends the whole room's game; if nobody can get anyone
+  // up, the defeat comes after that hold). 0: PvP falls count as any other.
+  std::uint64_t pvp_down_window_us = 3'000'000;
+  std::uint64_t pvp_down_hold_us = 15'000'000;
+  // ORM orm/pvp: PLAYER_HIT per attacker at most this many a second (bursts
+  // of the same), PLAYER_CALL and PLAYER_RENAME at most one per
+  // call_gap_us; the rest dropped and counted.
+  std::uint32_t hits_per_second = 8;
+  std::uint64_t call_gap_us = 1'000'000;
   // A player position older than this is not used for distances.
   std::uint64_t position_stale_us = 5'000'000;
   // How often tick runs the ownership rules.
@@ -324,6 +374,7 @@ struct Stats {
   std::uint64_t damage_relayed = 0;     // DAMAGE passed on to an owner
   std::uint64_t boss_to_hitter = 0;     // a boss asked over to the player who hurt it (issue 150)
   std::uint64_t boss_to_near = 0;       // a boss asked over to the player near it (issue 150)
+  std::uint64_t owner_kept = 0;        // ORM endgame: a boss hand-over due that the owner's game kept back (each check)
   std::uint64_t damage_dropped = 0;     // DAMAGE with no owner, or from it
   // Field grass (docs/world.md). Relayed ones count in relayed too.
   std::uint64_t grass_relayed = 0;   // GRASS_CUT kept and passed on to its scene
@@ -535,6 +586,10 @@ class Session {
     std::int64_t hit_sum = 0;
     std::uint64_t hit_at = 0;
     std::uint64_t owner_hit_at = 0;  // the owner's own hit (its samples' life fell); 0: none
+    // ORM endgame: the owner_keeps bits of the owner's last sample, and since when they are set
+    // (both 0 after a change of owner).
+    std::uint8_t keep = 0;
+    std::uint64_t keep_since = 0;
     std::uint64_t orphan_since = 0;  // a made enemy its owner stopped listing
   };
   using Objects = std::map<protocol::ObjectId, Object>;
@@ -678,6 +733,8 @@ class Session {
   bool in_fight(const Object& o, std::uint64_t now_us) const;
   // The owner hit it itself within boss_owner_hit_hold_us (issue 150).
   bool owner_hit_lately(const Object& o, std::uint64_t now_us) const;
+  // ORM endgame: the owner's game keeps `o` now against a hitter (`hit`) or a nearer player.
+  bool owner_keeps(const Object& o, bool hit, std::uint64_t now_us) const;
   // The game that has said longest (at least handover_chased_us) that its
   // copy of `o`, or of one of its members, chases its Link; not the owner.
   std::optional<ConnectionId> chased_by(const Object& o, ConnectionId owner,
@@ -748,9 +805,39 @@ class Session {
     std::map<ConnectionId, bool> witnesses;  // true: still lists it
     protocol::Vec3 position{};
     std::uint8_t by = 1;  // the player whose game said it died (the sender field)
+    // ORM enemigos: witnesses whose game unloaded it away from here (left
+    // the scene, or far from the place): their listing it again is a reload.
+    std::set<ConnectionId> went_away;
   };
   std::map<std::string, std::map<protocol::ObjectId, Dead>> dead_;
   static constexpr std::size_t kMaxDeadPerScene = 1024;
+
+  // ORM enemigos (oot-remake docs/ENEMIGOS.md), defined in server/enemies.cpp.
+  // How long a dead (downed) owner keeps its objects.
+  std::uint64_t dead_owner_after() const;
+  // Who takes what `leaving` owned: the nearest standing player that has it,
+  // else the nearest of any (best_other).
+  std::optional<ConnectionId> next_owner(const Object& o, ConnectionId leaving,
+                                         std::uint64_t now_us) const;
+  // An enemy (not a boss, not a part) in a fight goes to the player clearly
+  // nearer it. True when the rule ran (the caller goes on to the next object).
+  bool fight_near_rule(const protocol::ObjectId& oid, Object& o, ConnectionId owner,
+                       const Connection& oc, std::uint64_t now_us);
+  // Each kill in `scene` that game `id` saw and no longer lists is marked
+  // gone away when its Link stands farther than dead_left_m from where it
+  // died (it left that room, which its game unloads).
+  void note_far_kills(ConnectionId id, const Connection& c, const std::string& scene,
+                      std::uint64_t now_us);
+  // A witness that went away lists the kill again: true when its room stayed
+  // loaded in another game. First by the room itself: another game in the
+  // scene lists one of the objects `loaded_with` (the other shared objects
+  // that game just loaded with the kill); when there are such objects and no
+  // other game lists any, false. With none to tell by, the fallback: another
+  // player stands within dead_room_m of the place and dead_room_up_m of its
+  // height. `why` (when given) says which way decided.
+  bool kill_held_inside(ConnectionId id, const std::string& scene, const Dead& d,
+                        const std::set<protocol::ObjectId>& loaded_with, std::uint64_t now_us,
+                        std::string* why = nullptr) const;
   WorldStore world_;
   std::vector<Action> actions_;
   Stats stats_;

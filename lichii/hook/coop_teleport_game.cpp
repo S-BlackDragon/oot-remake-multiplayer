@@ -11,9 +11,12 @@
 // game takes the request when an event ends, as after a loading zone's event.
 // LICHII_COOP_TELEPORT=0 turns it off: the command says so and requests from
 // the others are refused (declined).
+// ORM: the escape from Ganon's castle goes with the group through the same
+// trip (coop_escape.h; LICHII_ORM_GROUP_EXIT=0 turns it off, on its own).
 
 #include "coop_teleport_game.h"
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <mutex>
@@ -33,6 +36,11 @@
 #include "coop_flags.h"
 #include "coop_live_events.h"
 #include "coop_svc.h"
+#include "coop_downed_game.h"
+#include "coop_escape.h"
+#include "coop_notices.h"      // ORM resume: its notice on the HUD
+#include "coop_resume_game.h"  // ORM resume: back to our own last place after the load
+#include "coop_switch.h"
 
 namespace CoopTeleport {
 namespace {
@@ -127,6 +135,12 @@ struct Glue {
     std::mutex mutex;
     // Present thread -> network thread: what we would answer now.
     Answer answer;
+    // ORM escape (coop_escape.h): what we would answer a mate still in the
+    // escape (as if our boss fight did not run), whether we are where the
+    // escape goes, and who is escaping (by player number).
+    Answer group_answer;
+    bool at_exit_end = false;
+    std::array<bool, coop::protocol::kMaxPlayers + 1> escapers{};
     // Chat / network threads -> present thread.
     std::optional<std::pair<std::uint8_t, std::string>> want;
     std::vector<Answered> answers;
@@ -166,6 +180,9 @@ struct Glue {
             });
         }
         LOG_INFO(Core, "coop: teleport {}", on ? "on (/teleport <player> in chat)" : "off (LICHII_COOP_TELEPORT=0)");
+        LOG_INFO(Core, "coop: escape: {}",
+                 escape.On() ? "on (a game still in the collapsing castle follows the mate at Ganon)"
+                             : "off (LICHII_ORM_GROUP_EXIT)");
     }
 
     static constexpr int kEventCallerOrder = 61;  // after the live events (60)
@@ -243,12 +260,22 @@ void OnEvent(const coop::net::Event& event, coop::net::Client& client) {
                 name = p.nickname;
             }
         }
+        Answer normal = g.answer;
         if (!g.on) {
+            normal = Answer{};
+            normal.reason = coop::protocol::JoinRefuseReason::declined;
+        }
+        const bool escaper = event.player < g.escapers.size() && g.escapers[event.player];
+        const Answer a = CoopEscape::AnswerTo(normal, g.group_answer, escaper, g.at_exit_end);
+        if (a.accept && !normal.accept) {
+            LOG_INFO(Core, "coop: escape: {} asks from the escape: let in although {}", name,
+                     g.on ? "our boss fight runs" : "/teleport is off (LICHII_COOP_TELEPORT=0)");
+        }
+        if (!a.accept && !g.on) {
             client.refuse_join(event.player, event.request_id, coop::protocol::JoinRefuseReason::declined);
             LOG_INFO(Core, "coop: teleport: {} asked to come here: refused (off)", name);
             break;
         }
-        const Answer a = g.answer;
         if (a.accept) {
             const bool sent = client.accept_join(event.player, event.request_id, a.target);
             LOG_INFO(Core, "coop: teleport: {} asked to come here: {} at {:.1f} {:.1f} {:.1f}{}", name,
@@ -303,11 +330,38 @@ void Frame(Core::System& system, std::uint64_t main_base, const std::optional<co
     }
     g.grounded.Add(local, now);
 
+    // ORM escape: the mates' scenes from the presence (its own lock, not
+    // nested in ours).
+    CoopEscape::Input escape_in;
+    escape_in.now_us = now;
+    escape_in.scene = local.scene;
+    escape_in.downed = CoopDowned::State();
+    escape_in.event = local.event;
+    if (session == nullptr) {
+        g.escape.Reset();
+    } else if (g.escape.On()) {
+        escape_in.mates = session->with_presence([](coop::presence::Presence& p) {
+            std::vector<CoopEscape::Mate> mates;
+            for (const std::uint8_t n : p.players()) {
+                const auto* player = p.player(n);
+                mates.push_back({n, player ? player->scene() : std::optional<std::string>{}, !CoopDowned::MateDown(player)});
+            }
+            return mates;
+        });
+    }
+    Local unfought = local;
+    unfought.fighting = false;
+
     std::optional<std::pair<std::uint8_t, std::string>> want;
     std::vector<Answered> answers;
     {
         std::lock_guard lock(g.mutex);
         g.answer = AnswerFor(local, g.grounded);
+        g.at_exit_end = g.escape.ExitEnd(local.scene);
+        g.group_answer = g.at_exit_end ? AnswerFor(unfought, g.grounded) : Answer{};
+        for (std::uint8_t n = 0; n < g.escapers.size(); ++n) {
+            g.escapers[n] = g.escape.Escaping(n, now);
+        }
         want = std::exchange(g.want, std::nullopt);
         answers = std::exchange(g.answers, {});
     }
@@ -330,6 +384,22 @@ void Frame(Core::System& system, std::uint64_t main_base, const std::optional<co
         case Answered::Kind::left:
             all.push_back(g.trip.Left(a.player));
             break;
+        }
+    }
+    if (session != nullptr) {
+        escape_in.trip = g.trip.phase();
+        escape_in.trip_player = g.trip.player();
+        auto esc = g.escape.Frame(escape_in);
+        for (const auto& line : esc.log) {
+            LOG_INFO(Core, "coop: {}", line);
+        }
+        if (esc.stop) {
+            all.push_back(g.trip.Stop("escape: you are down; the trip to the group waits until you are up"));
+        }
+        if (esc.follow) {
+            const std::uint8_t to = *esc.follow;
+            LOG_INFO(Core, "coop: escape: going with the group: trip to P{}", to);
+            all.push_back(g.trip.Start(to, "P" + std::to_string(to), local, now));
         }
     }
     all.push_back(g.trip.Tick(local, now));

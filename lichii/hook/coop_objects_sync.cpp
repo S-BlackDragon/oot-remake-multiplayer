@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "coop_objects_sync.h"
 #include "coop_enemy_shots.h"
+#include "coop_carry.h"
+#include "coop_enemies.h"
+#include "coop/host/gerudo.hpp"
 #include "coop_guard.h"
 #include "coop_world.h"
 
@@ -10,6 +13,8 @@
 #include <tuple>
 #include <type_traits>
 #include <variant>
+
+#include "coop/host/hazards.hpp"  // ORM: the guide Poe is each game's own
 
 namespace CoopObjects {
 
@@ -22,6 +27,17 @@ constexpr std::uint64_t kNoHash = ~std::uint64_t{0};
 bool Moved(const proto::Vec3& a, const proto::Vec3& b) {
     for (std::size_t i = 0; i < 3; ++i) {
         if (std::fabs(a[i] - b[i]) > 0.01f) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A velocity a copy would carry the enemy on by (PlaceAt extrapolates with
+// it); below 0.1 m/s on every axis it stands.
+bool Moving(const proto::Vec3& velocity) {
+    for (std::size_t i = 0; i < 3; ++i) {
+        if (std::fabs(velocity[i]) > 0.1f) {
             return true;
         }
     }
@@ -302,6 +318,7 @@ bool IsBoss(std::string_view name) {
     if (name.starts_with("Enemy_DungeonBoss_") || name.starts_with("Enemy_MiddleBoss_")) {
         return true;
     }
+    if (CoopEnemies::IsMiniBoss(name)) return true;  // ORM enemigos: Stalfos, Iron Knuckle...
     for (const PartRule& rule : PartRules()) {
         if (rule.part.boss && rule.part.roots.front() == name) return true;
     }
@@ -609,6 +626,17 @@ void Sync::Reset() {
     eggs_.clear();
     bound_.clear();
     refused_.clear();
+    talk_claims_.clear();
+    talk_freed_.clear();
+    rejoin_.clear();
+    hits_.Clear();  // ORM golpes: the new scene's copies, and its owners' latency, afresh
+    ledger_.Clear();
+    smooth_.Clear();
+    carry_claims_.clear();
+    carry_ours_.clear();
+    families_.reset();  // ORM boss families: the new scene holds nothing yet
+    family_ride_.reset();
+    family_parts_.clear();
     decider_ = 0;
     // next_key_ and made_counter_ go on: the director never makes a key
     // twice, and the server keeps made ids until they are removed.
@@ -736,7 +764,77 @@ proto::ObjectState Sync::StateOf(Object& o, std::uint64_t now_us) {
     if (o.life) {
         state.life = proto::ObjectLife{*o.life, o.max};
     }
+    if (const std::uint8_t keep = KeepBits(o.name, o.position); keep != 0) {
+        state.state = keep;  // ORM endgame (docs/FINAL.md): no other state bit is sent from here
+    }
+    if (const auto carry = carry_ours_.find(o.address); carry != carry_ours_.end()) {
+        state.carry = carry->second;  // ORM "Levantar": in our Link's hands
+    }
     return state;
+}
+
+std::uint8_t Sync::KeepBits(std::string_view name, const std::optional<proto::Vec3>& at) const {
+    coop::host::HandOverInput in;
+    in.body = name;
+    in.owner_up = keep_.up;
+    in.owner_frozen = keep_.frozen;
+    in.owner_charging = keep_.charging;
+    in.owner_charge = keep_.charge;
+    if (families_on_) {
+        in.family = families_.hold();  // ORM boss families: a grab, a volley (docs/JEFES.md section 9)
+        in.body_at = at;
+    }
+    const coop::host::OwnerKeep keep = coop::host::owner_keep(in);
+    if (keep.hit) {
+        return proto::object_state::owner_keeps;
+    }
+    return keep.nearest ? proto::object_state::owner_keeps_near : std::uint8_t{0};
+}
+
+// ORM boss families (oot-remake docs/JEFES.md section 9, coop/host/boss_rules.hpp): the walk's
+// objects of the table, ours and copies, with their owners, and the shots that are no shared
+// object (SetFamilyExtras), through the watcher. Its hold is what KeepBits keeps.
+void Sync::FamilyWalk(std::uint8_t self, std::uint64_t now_us) {
+    family_ride_.reset();
+    family_parts_.clear();
+    if (!families_on_) {
+        family_extras_.clear();
+        return;
+    }
+    coop::host::FamilyWalkIn in;
+    in.now_us = now_us;
+    in.self = self;
+    in.up = keep_.up;
+    in.held = keep_.held;
+    in.link = player_;
+    for (const auto& [address, o] : objects_) {
+        if (o.missed != 0 || coop::host::family_actor(o.name) == nullptr) {
+            continue;  // not in this walk, or not of the table
+        }
+        coop::host::FamilySeen seen;
+        seen.name = o.name;
+        seen.id = o.id;
+        seen.position = o.position;
+        if (const auto owner = owners_.find(o.id); owner != owners_.end()) {
+            seen.owner = owner->second.player;
+        }
+        in.seen.push_back(seen);
+    }
+    for (const auto& [name, position] : family_extras_) {
+        if (coop::host::family_actor(name) != nullptr) {
+            coop::host::FamilySeen seen;
+            seen.name = name;
+            seen.position = position;
+            in.seen.push_back(seen);
+        }
+    }
+    coop::host::FamilyWalkOut out = families_.walk(in);
+    family_extras_.clear();  // this walk's: the next one sets its own
+    family_ride_ = out.ride;
+    family_parts_ = std::move(out.parts);
+    for (auto& line : out.log) {
+        family_lines_.push_back(std::move(line));
+    }
 }
 
 void Sync::ChaseStep(Object& o, std::uint64_t now_us) {
@@ -1142,6 +1240,33 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                 // Another game's, or nobody's yet (kept until the owner is
                 // known: an enemy hit the moment it loaded, issue 133).
                 const bool ours = owner != owners_.end() && owner->second.player == self;
+                if (drop > 0 && ours && hits_on_) {
+                    // ORM golpes: another player's hit here (its puppet's weapon?) beside
+                    // its DAMAGE for the same hit (CoopHits::OwnerLedger).
+                    std::vector<std::pair<std::uint8_t, proto::Vec3>> others;
+                    {
+                        std::lock_guard lock(inbox_mutex_);
+                        for (const auto& [player, place] : places_) {
+                            const auto in = scenes_.find(player);
+                            const std::uint64_t at = place.second;
+                            if (player != self && in != scenes_.end() && in->second.first == scene_ &&
+                                (at <= now_us ? now_us - at : at - now_us) < kPlaceStaleUs) {
+                                others.emplace_back(player, place.first);
+                            }
+                        }
+                    }
+                    if (const auto near = CoopHits::OwnerLedger::Near(s.position, player_, others)) {
+                        const std::int32_t back = ledger_.Drop(o.address, now_us, drop, *near);
+                        if (back > 0) {
+                            life->life += back;
+                            drop -= back;
+                            writes.push_back({o.address, life->life, 0, {}});
+                            notes_.emplace_back("hits: " + o.name + ": a drop of " + std::to_string(back) +
+                                                " beside P" + std::to_string(*near) +
+                                                "'s DAMAGE for it, our Link away: the same hit, taken back");
+                        }
+                    }
+                }
                 if (drop > 0 && !ours) {
                     if (o.hit_sum == 0) {
                         o.hit_since = now_us;
@@ -1156,6 +1281,14 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                     o.react_over = !o.received.empty() && o.received.back().animation
                                        ? o.received.back().animation->name
                                        : std::string{};
+                    if (hits_on_ && o.reacts) {
+                        // ORM golpes: shown here at once, held until the owner's answer.
+                        std::optional<proto::Quat> facing;
+                        if (o.rotation) {
+                            facing = QuatOf(*o.rotation);
+                        }
+                        hits_.OurHit(o.address, now_us, life->life, s.position, facing, o.react_over);
+                    }
                 }
             }
             o.life = life->life;
@@ -1356,12 +1489,16 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
         } else {
             o.id = {proto::ObjectKind::placed, 0, SceneSpawnId(scene_, s->name, order_[s->name]++)};
         }
+        hits_.Forget(s->address);  // ORM golpes: another actor at that address
+        ledger_.Forget(s->address);
+        smooth_.Forget(s->address);
         objects_.emplace(s->address, o);
     }
     refused_ = std::move(refused);
 
     self_ = self;
     Apply(self, now_us, send, writes);
+    FamilyWalk(self, now_us);  // ORM boss families: before the samples, which carry its keep
     // Copies their owner saw die that are still here after the grace.
     dead_.clear();
     for (const auto& [address, o] : objects_) {
@@ -1395,8 +1532,11 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
         }
         const auto owner = owners_.find(o.id);
         const bool known = owner != owners_.end() && owner->second.player != 0;
-        // Our hits on a copy, summed over 100 ms, go to the owner.
-        if (o.hit_sum > 0 && now_us - o.hit_since >= kDamageSumUs &&
+        // Our hits on a copy, summed over 100 ms, go to the owner. ORM golpes: the first one
+        // after a quiet kDamageSumUs goes at once (a round trip is already 200 ms over the
+        // tunnel); one that comes within kDamageSumUs of the last DAMAGE waits and is summed.
+        const bool at_once = hits_on_ && known && (o.hit_at == 0 || now_us - o.hit_at >= kDamageSumUs);
+        if (o.hit_sum > 0 && (now_us - o.hit_since >= kDamageSumUs || at_once) &&
             (known || now_us - o.hit_since >= kHitKeepUs)) {
             if (known && owner->second.player != self) {
                 proto::Damage d;
@@ -1407,6 +1547,7 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                 d.position = o.position;
                 send.emplace_back(d);
                 o.hit_at = now_us;
+                hits_.Sent(o.address, now_us);
             }
             o.hit_sum = 0;
         }
@@ -1449,6 +1590,14 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
             for (const proto::SlotAnimation& s : o.slots) {
                 slots += std::to_string(s.slot) + ":" + s.animation.name + ";";
             }
+            // A stop is a change too: the last sample's velocity would carry the copies on
+            // (up to kExtrapolateUs past it) until the next one, which an enemy standing
+            // still where its last moving sample put it might not send for a long time.
+            const bool moving = Moving(o.velocity);
+            const std::uint8_t keep = KeepBits(o.name, o.position);  // ORM endgame: a change goes out at once
+            const auto held = carry_ours_.find(o.address);
+            const std::optional<proto::ObjectCarry> carry =
+                held != carry_ours_.end() ? std::optional(held->second) : std::nullopt;
             const bool changed = life != o.sent_life || Moved(o.position, o.sent_position) ||
                                  Turned(rotation, o.sent_rotation) ||
                                  animation != o.sent_animation || slots != o.sent_slots;
@@ -1462,9 +1611,12 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                 o.sent_once = true;
                 o.sent_life = life;
                 o.sent_position = o.position;
+                o.sent_moving = moving;
                 o.sent_rotation = rotation;
                 o.sent_animation = animation;
                 o.sent_slots = std::move(slots);
+                o.sent_keep = keep;
+                o.sent_carry = carry;
             }
         }
     }
@@ -1528,7 +1680,8 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                        now_seen.contains(address) && Distance(o.position, *player_) <= wake_m &&
                        !o.received.empty() && now_us >= o.received.back().time &&
                        now_us - o.received.back().time <= kPoseStaleUs &&
-                       !(o.react_at != 0 && now_us < o.react_at + kReactHoldUs)) {
+                       !(o.react_at != 0 && now_us < o.react_at + kReactHoldUs) &&
+                       !(hits_on_ && hits_.Active(address, now_us))) {
                 // A copy near our Link whose own AI plays something else than
                 // the owner's enemy (issue 132): it wants to act on our Link.
                 const auto& wanted = o.received.back().animation;
@@ -1684,6 +1837,51 @@ proto::FishLureEntry Sync::FishClaim(const Object& o, std::uint8_t self,
         e.flags |= proto::fish_lure::drawn;
     }
     return e;
+}
+
+void Sync::HitsNote(std::uint64_t now_us) {
+    if (hits_log_at_ == 0 || now_us < hits_log_at_) {
+        hits_log_at_ = now_us;
+        return;
+    }
+    if (now_us - hits_log_at_ < kHitsLogUs) {
+        return;
+    }
+    const double seconds = static_cast<double>(now_us - hits_log_at_) / 1e6;
+    hits_log_at_ = now_us;
+    const CoopHits::Feedback::Stats h = hits_.TakeStats();
+    const std::uint32_t pairs = ledger_.TakePairs();
+    const std::uint32_t back = ledger_.TakeTakenBack();
+    const auto sm = smooth_.TakeStats();
+    char line[512];
+    if (h.hits + h.answered + h.rejected + pairs > 0) {
+        std::snprintf(line, sizeof line,
+                      "hits: %.1f s: %u of ours on copies (%u kills shown here at once), %u answered by "
+                      "the owner %.0f ms after on average, %u held to the timeout, %u written back, "
+                      "%u owner plays kept off; one-way %.0f ms%s; owner side: %u same-hit pairs, %u "
+                      "life taken back",
+                      seconds, static_cast<unsigned>(h.hits), static_cast<unsigned>(h.kills),
+                      static_cast<unsigned>(h.answered),
+                      h.answered ? static_cast<double>(h.answer_sum_us) / h.answered / 1e3 : 0.0,
+                      static_cast<unsigned>(h.timed_out), static_cast<unsigned>(h.rejected),
+                      static_cast<unsigned>(h.plays_skipped),
+                      static_cast<double>(hits_.latency().OneWayUs()) / 1e3,
+                      hits_.latency().Known() ? "" : " (none measured yet)", static_cast<unsigned>(pairs),
+                      static_cast<unsigned>(back));
+        notes_.emplace_back(line);
+    }
+    if (smooth_on_ && sm.frames > 0) {
+        std::snprintf(line, sizeof line,
+                      "copy smooth: %.1f s: %u samples (%u late, %u reordered, %u dropped), %u frames "
+                      "(%u carried on, %u held), %u eased, %u snapped, at most %.0f ms past a sample",
+                      seconds, static_cast<unsigned>(sm.buffered), static_cast<unsigned>(sm.late),
+                      static_cast<unsigned>(sm.reordered),
+                      static_cast<unsigned>(sm.duplicate + sm.too_old + sm.invalid),
+                      static_cast<unsigned>(sm.frames), static_cast<unsigned>(sm.extrapolated),
+                      static_cast<unsigned>(sm.held), static_cast<unsigned>(sm.corrections),
+                      static_cast<unsigned>(sm.snaps), static_cast<double>(sm.max_ahead_us) / 1e3);
+        notes_.emplace_back(line);
+    }
 }
 
 // Objects that left our walk. A break read just before it went (a pot's life
@@ -1969,6 +2167,7 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
                 o->hit_at = 0;
                 o->react_at = 0;
                 o->sent_once = false;
+                hits_.Forget(o->address);  // ORM golpes: our game moves it now anyway
                 if (before != 0 && (o->reacts || o->guard) && ours_now_.size() < 64) {
                     ours_now_.push_back(o->address);  // was a copy: its hold ends
                 }
@@ -1986,6 +2185,7 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
             if (own != owners_.end() && sample->epoch < own->second.epoch) {
                 continue;  // from an owner before the last change
             }
+            hits_.latency().Note(sample->state.time.server_time_us, now_us);  // ORM golpes
             if (sample->state.position && Finite(*sample->state.position)) {
                 const std::uint64_t t = sample->state.time.server_time_us;
                 // ORM: the new owner's first sample ends the hand-over hold.
@@ -1993,6 +2193,10 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
                     o->received.pop_back();
                 }
                 if (o->received.empty() || t > o->received.back().time) {
+                    if (smooth_on_) {
+                        smooth_.Push(o->address, sample->state.time, *sample->state.position,
+                                     sample->state.velocity, sample->state.rotation);
+                    }
                     o->received.push_back({t, *sample->state.position, sample->state.rotation,
                                            sample->state.velocity, sample->state.animation,
                                            sample->state.slots.value_or(
@@ -2007,7 +2211,14 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
             }
             const std::int32_t life = sample->state.life->life;
             const std::int32_t have = o->hurt_until != 0 ? o->hurt_target : *o->life;
-            const bool holding = o->hit_sum > 0 || now_us - o->hit_at < kHitHoldUs;
+            // ORM golpes: and the dedupe window, a sample taken before our DAMAGE could have
+            // reached the owner (from the measured latency; never shorter than before).
+            const std::uint64_t taken = sample->state.time.server_time_us;
+            const bool holding = o->hit_sum > 0 || now_us - o->hit_at < kHitHoldUs ||
+                                 (hits_on_ && hits_.Before(o->address, taken, now_us));
+            if (hits_on_) {
+                hits_.OwnerLife(o->address, taken, life);
+            }
             if (life < have) {
                 // Who hit it is not sent: its owner is the best guess.
                 Lower(*o, life, now_us, writes, sample->player_number);
@@ -2027,6 +2238,9 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
             } else if (life > have && !holding && o->dead_at == 0) {
                 write(*o, life);
                 o->fight_until = now_us + kFightUs;
+                if (hits_on_) {
+                    hits_.Rejected(o->address, now_us);  // ORM golpes: back onto the owner's stream
+                }
             }
         } else if (const auto* damage = std::get_if<proto::Damage>(&m)) {
             // The server sends DAMAGE only to the owner: that is us.
@@ -2043,6 +2257,20 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
                 const std::int32_t taken = std::min(o->blast_credit, amount);
                 o->blast_credit -= taken;
                 amount -= taken;
+                if (amount <= 0) {
+                    continue;
+                }
+            }
+            if (hits_on_) {
+                // ORM golpes: the same hit as a drop here beside that player (OwnerLedger).
+                const std::int32_t apply = ledger_.Damage(o->address, now_us, amount, damage->player_number);
+                if (apply < amount) {
+                    notes_.emplace_back("hits: " + o->name + ": P" + std::to_string(damage->player_number) +
+                                        "'s DAMAGE of " + std::to_string(amount) + " beside a drop here " +
+                                        "from it, our Link away: " + std::to_string(amount - apply) +
+                                        " not given again");
+                }
+                amount = apply;
                 if (amount <= 0) {
                     continue;
                 }
@@ -2154,33 +2382,39 @@ void Sync::Poses(std::uint64_t now_us, std::vector<PoseWrite>& out) const {
         w.address = address;
         const Received& last = o.received.back();
         std::optional<proto::Quat> rotation;
-        if (t >= last.time) {
-            const float ahead =
-                static_cast<float>(std::min(t - last.time, kExtrapolateUs)) / 1e6f;
-            w.position = last.position;
-            if (last.velocity && Finite(*last.velocity)) {
-                for (std::size_t i = 0; i < 3; ++i) {
-                    w.position[i] += (*last.velocity)[i] * ahead;
-                }
+        bool smoothed = false;
+        if (smooth_on_ && !o.received.back().bridge) {
+            // ORM golpes: the puppets' smoother (coop_copy_smooth.h); the hand-over hold
+            // (a bridge) is still placed by PlaceAt.
+            if (const auto p = smooth_.At(address, now_us)) {
+                w.position = p->position;
+                rotation = p->rotation;
+                smoothed = true;
             }
-            rotation = last.rotation;
-        } else if (t <= o.received.front().time) {
-            w.position = o.received.front().position;
-            rotation = o.received.front().rotation;
-        } else {
-            std::size_t i = 1;
-            while (o.received[i].time <= t) {
-                ++i;
+        }
+        if (!smoothed) {
+            PlaceAt(o.received, t, w.position, rotation);
+        }
+        // Just let go by our talk: from where our game left it to the owner's.
+        if (const auto f = RejoinWeight(address, now_us)) {
+            const Rejoin& r = rejoin_.at(address);
+            w.position = Lerp(r.position, w.position, *f);
+            if (rotation && r.rotation) {
+                rotation = Nlerp(*r.rotation, *rotation, *f);
             }
-            const Received& a = o.received[i - 1];
-            const Received& b = o.received[i];
-            const float f = static_cast<float>(t - a.time) / static_cast<float>(b.time - a.time);
-            w.position = Lerp(a.position, b.position, f);
-            if (a.rotation && b.rotation) {
-                rotation = Nlerp(*a.rotation, *b.rotation, f);
-            } else {
-                rotation = b.rotation ? b.rotation : a.rotation;
+        }
+        if (hits_on_) {
+            // ORM golpes: just hit here, our game's reaction shows first (coop_hits.h).
+            std::optional<proto::Quat> here;
+            if (o.rotation) {
+                here = QuatOf(*o.rotation);
             }
+            const CoopHits::PoseOut f = hits_.Pose(address, now_us, w.position, rotation, o.position, here);
+            if (!f.write) {
+                continue;
+            }
+            w.position = f.position;
+            rotation = f.rotation;
         }
         if (rotation) {
             w.rotation = MatOf(*rotation);
@@ -2235,6 +2469,11 @@ void Sync::Plays(std::uint64_t now_us, std::vector<PlayWish>& out) const {
         // reaction to our DAMAGE) is played as usual.
         if (o.react_at != 0 && now_us < o.react_at + kReactHoldUs &&
             wanted->name == o.react_over) {
+            continue;
+        }
+        // ORM golpes: nor anything from before the owner knew, nor its own reaction to our
+        // hit (ours showed already), nor anything over a kill of ours (coop_hits.h).
+        if (hits_on_ && hits_.SkipPlay(address, now_us, wanted->name, last.time)) {
             continue;
         }
         const float rate = std::isfinite(wanted->rate) && wanted->rate > 0.0f ? wanted->rate : 1.0f;

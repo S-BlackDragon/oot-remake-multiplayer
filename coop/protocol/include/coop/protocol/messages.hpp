@@ -774,6 +774,13 @@ namespace object_state {
 inline constexpr std::uint8_t in_fight = 1u << 0;
 inline constexpr std::uint8_t held = 1u << 1;
 inline constexpr std::uint8_t asleep = 1u << 2;
+// ORM (oot-remake docs/FINAL.md, ZMP D-231), in the owner's OBJECT_SAMPLE of a boss: its game
+// needs it a while longer (Twinrova's ice holds the owner's Link, the mirror shield's part
+// charge). owner_keeps: no hand-over to a hitter nor to a nearer player; owner_keeps_near: none
+// to a nearer player. An unfit owner (loading, paused, downed) still gives it up. Old readers
+// ignore the bits. The numbers are orm_types.hpp's (bits 7 and 6: ours count down from 7).
+inline constexpr std::uint8_t owner_keeps = orm::kObjectStateOwnerKeeps;
+inline constexpr std::uint8_t owner_keeps_near = orm::kObjectStateOwnerKeepsNear;
 }  // namespace object_state
 
 // Issue 150 (protocol 10): one more AS slot of the owner's actor than slot 0

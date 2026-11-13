@@ -40,6 +40,15 @@ constexpr std::array<std::string_view, 3> kBongoBongo{
     "Enemy_DungeonBoss_BongoBongo_RightHand"};
 constexpr std::array<std::string_view, 3> kTwinrova{
     "Enemy_DungeonBoss_Twinrova", "Enemy_DungeonBoss_Koume", "Enemy_DungeonBoss_Kotake"};
+// ORM (oot-remake docs/FINAL.md, PLAN_100 E3): Ganondorf at the top of the tower and Ganon
+// on the field of the castle's ruins. "Ganondrof" is the game's own spelling of the shots.
+constexpr std::array<std::string_view, 5> kGanondorf{
+    "Enemy_DungeonBoss_Ganondorf", "DungeonBossGanondrof_Bullet_LightBall",
+    "DungeonBossGanondrof_Bullet_ChargeLightBall", "DungeonBossGanondrof_Bullet_ShockWave",
+    "DungeonBossGanondrof_Bullet_StrongShockWave"};
+constexpr std::array<std::string_view, 6> kGanon{
+    "Enemy_DungeonBoss_Ganon", "Enemy_DungeonBoss_Ganon_SecondHalfBattle", "Enemy_DungeonBoss_Ganon_Attention",
+    "Enemy_DungeonBoss_Ganon_LegAttention", "Enemy_DungeonBoss_Ganon_Crystal", "DungeonBossGanon_Bullet_ShockWave"};
 
 // From the RomFS (checked 2026-11-09, docs/dungeons-boss.md): the room is
 // the boss's DefaultDungeonRoomIndex; centre, radius and height band cover
@@ -47,7 +56,16 @@ constexpr std::array<std::string_view, 3> kTwinrova{
 // props); `arrive` is the boss rush's StartPos for that boss in DreamWorld
 // (`<Boss>Stage`), the place the game itself starts that fight from; `start`
 // a StartPos of the dungeon's own Banc in that room.
-const std::array<Room, 8> kRooms{{
+//
+// ORM, rooms 8 and 9 (oot-remake docs/FINAL.md, read from the RomFS on 2026-11-11 with
+// oot-remake/tools/romfs): Ganondorf's is room 63 of InsideGanonCastle, its top floor (the
+// broken-floor tiles at y 171, x -15..15, z -39.6..-9.6; the door at z -7.0; the floor under
+// it, y 156.6, is the stair room 62 and stays out of the band); `arrive` is GanondorfStage's
+// StartPos, `start` the castle's StartPos_Defeat_Ganon in that room. Ganon's is the field
+// of the ruins (FinalBattleField, not a dungeon: no room index), the circle around Ganon's
+// place and the fire ring (-1.4, -1.0) out to the outer fire walls and Zelda with the
+// Master Sword; `arrive` and `start` are GanonStage's and the field's StartPos in the fight.
+const std::array<Room, 10> kRooms{{
     {0, "InsideTheDekuTree", "Enemy_DungeonBoss_Gohma", Era::child, 10, 7.5f, 67.2f, 37.0f, 43.0f, 63.0f,
      {6.7f, 47.0f, 67.6f}, "StartPos_Get_StoneOfForest", "Dm_Deku_BossIn", "Dm_Deku_BossOut", kGohma},
     {1, "DodongoCavern", "Enemy_DungeonBoss_Dodongo", Era::child, 22, 24.0f, -63.0f, 22.0f, 69.0f, 90.0f,
@@ -68,6 +86,12 @@ const std::array<Room, 8> kRooms{{
      kBongoBongo},
     {7, "SpiritTemple", "Enemy_DungeonBoss_Twinrova", Era::adult, 33, 0.0f, -157.8f, 38.0f, 139.0f, 165.0f,
      {-0.7f, 142.2f, -158.6f}, "", "Dm_SpiritTemple_BossIn", "Dm_SpiritTemple_BossOut", kTwinrova},
+    {8, "InsideGanonCastle", "Enemy_DungeonBoss_Ganondorf", Era::adult, 63, 0.1f, -24.6f, 21.5f, 168.0f, 190.0f,
+     {0.0f, 171.0f, -11.3f}, "StartPos_Defeat_Ganon", "Dm_InsideGanonCastle_BossIn", "Dm_InsideGanonCastle_BossOut",
+     kGanondorf},
+    {9, "FinalBattleField", "Enemy_DungeonBoss_Ganon", Era::adult, 0, -1.4f, -1.0f, 75.0f, 95.0f, 130.0f,
+     {11.8f, 100.1f, -1.1f}, "StartPos_Defeat_Ganon_InBattle", "Dm_FinalBattle_BossIn", "Dm_FinalBattle_BossOut",
+     kGanon},
 }};
 
 constexpr float kArrivalSpread = 1.5f;
@@ -85,7 +109,11 @@ const Room* RoomByIndex(std::uint8_t index) {
 std::span<const std::string_view> Bodies(const Room& room) {
     static constexpr std::array<std::string_view, 3> kTwinrovaBodies{
         "Enemy_DungeonBoss_Twinrova", "Enemy_DungeonBoss_Koume", "Enemy_DungeonBoss_Kotake"};
+    // ORM: Ganon's second half is another actor; the first one goes when it comes (not a death).
+    static constexpr std::array<std::string_view, 2> kGanonBodies{
+        "Enemy_DungeonBoss_Ganon", "Enemy_DungeonBoss_Ganon_SecondHalfBattle"};
     if (room.boss == kTwinrovaBodies[0]) return kTwinrovaBodies;
+    if (room.boss == kGanonBodies[0]) return kGanonBodies;
     return {&room.boss, 1};
 }
 

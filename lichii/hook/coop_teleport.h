@@ -211,6 +211,9 @@ public:
     Actions TimedOut(std::uint8_t number);
     // That player left, or we lost the connection.
     Actions Left(std::uint8_t number);
+    // Ends ours whatever its phase (the escape's: our Link went down on the
+    // way, coop_escape.h), with this chat line; nothing when idle.
+    Actions Stop(std::string line);
     // Each frame (a few times a second is enough).
     Actions Tick(const Local& local, std::uint64_t now_us);
 
