@@ -398,6 +398,13 @@ public:
     // still on the actor list with the same vtable and is none of ours.
     void SetDoomed(std::vector<Doomed> doomed);
     std::size_t Deleted() const;  // enemy shots deleted so far
+    // Present thread (ORM cofre, coop_chest_open.h): the finds held over the
+    // others' puppets. Keys have bit 61 set (kFindKeyBit).
+    void SetFinds(std::uint64_t main_base, std::vector<Copy> copies);
+    static constexpr std::uint64_t kFindKeyBit = 1ULL << 61;
+    // Present thread, ORM efectos2: the status stand-ins on the puppets
+    // (coop_effects.h, CoopFx_*). Keys have bit 60 set (CoopEffects::FxKey).
+    void SetEffects(std::uint64_t main_base, std::vector<Copy> copies);
     std::map<std::uint64_t, std::uint64_t> Live() const;  // key to actor
     // Present thread: the stand-ins the installed puppet pack has
     // (StandInsIn). None (the default): every copy is the game's own actor.
@@ -450,6 +457,10 @@ private:
     std::vector<Copy> next_drops_;       // guarded
     std::uint64_t next_ride_base_ = 0;   // guarded
     std::vector<Copy> next_rides_;       // guarded
+    std::uint64_t next_find_base_ = 0;   // guarded
+    std::vector<Copy> next_finds_;       // guarded
+    std::uint64_t next_fx_base_ = 0;     // guarded (ORM efectos2)
+    std::vector<Copy> next_fx_;          // guarded
     std::map<std::uint64_t, std::uint64_t> live_;  // guarded
 
     std::uint64_t base_ = 0;

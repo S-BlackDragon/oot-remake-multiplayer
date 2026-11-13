@@ -34,6 +34,41 @@ add_executable(coop_tests
   host/save_transfer_test.cpp
   host/session_test.cpp
   host/scene_test.cpp
+  host/npc_talk_test.cpp
+  host/downed_test.cpp
+  host/mate_down_sound_test.cpp
+  host/age_test.cpp
+  host/continue_load_test.cpp
+  host/countdown_search_test.cpp
+  host/story_test.cpp
+  host/time_temple_test.cpp
+  host/dungeon_lists_test.cpp
+  host/kit_lists_test.cpp
+  host/group_exit_test.cpp
+  host/hearts_test.cpp
+  host/hazards_test.cpp
+  host/gerudo_test.cpp
+  host/ride_test.cpp
+  host/flag_defer_test.cpp
+  host/item_rules_test.cpp
+  host/final_rules_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_final.cpp
+  host/clock_test.cpp
+  host/pose_smooth_test.cpp
+  host/water_test.cpp
+  host/held_switch_test.cpp
+  host/epona_test.cpp
+  host/songs_test.cpp
+  host/live_check_test.cpp
+  host/pause_detect_test.cpp
+  host/trades_test.cpp
+  host/beans_test.cpp
+  host/prizes_test.cpp
+  host/flag_burst_test.cpp
+  host/passages_test.cpp
+  host/doors_test.cpp
+  host/chest_open_test.cpp
+  host/menus_test.cpp
+  host/worn_armor_test.cpp
   overlay/overlay_test.cpp
   lichii/camera_test.cpp
   lichii/camera_aim_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_camera_aim.cpp
@@ -65,10 +100,18 @@ add_executable(coop_tests
   lichii/quest_test.cpp
   lichii/story_test.cpp
   lichii/quests_test.cpp
+  lichii/adult_list_test.cpp
+  lichii/minigame_list_test.cpp
+  lichii/town_list_test.cpp
+  lichii/montana_list_test.cpp
+  lichii/collectible_list_test.cpp
+  lichii/trade_list_test.cpp
   lichii/pose_test.cpp
   lichii/interest_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_interest.cpp
   lichii/npc_pose_test.cpp
   lichii/world_test.cpp
+  lichii/doors_test.cpp
+  lichii/chest_open_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_chest_open.cpp
   lichii/ocarina_test.cpp
   lichii/ocarina_sound_test.cpp
   lichii/pickups_test.cpp
@@ -123,6 +166,9 @@ add_executable(coop_tests
   lichii/live_events_test.cpp
   lichii/shared_scenes_test.cpp
   lichii/scrubs_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_scrubs.cpp
+  lichii/held_switch_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_held_switch.cpp
+  lichii/ride_hook_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/orm_ride.cpp  # ORM moving floors
+  lichii/temples_list_test.cpp
   lichii/cheat_items_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_cheat_items.cpp
   # These hook files have no emulator code, so they are tested on their own.
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_boss.cpp
@@ -146,11 +192,14 @@ add_executable(coop_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_pose.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_puppet.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_puppet_config.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_doors.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_detalles.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_settings.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_world.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_ocarina.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_ocarina_sound.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_puppet_sound.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/orm_ocarina_sound.cpp  # ORM
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_pickups.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_testinput.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_teleport.cpp

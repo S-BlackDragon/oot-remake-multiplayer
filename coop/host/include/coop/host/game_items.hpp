@@ -56,6 +56,42 @@ const ItemFlag* find_item(std::uint32_t hash);
 // `with_off`, also the shared ones not on yet (for tests and trials).
 SharedFlags item_shared_flags(bool with_off = false);
 
+// ORM (oot-remake docs/INVENTARIO.md): the rules of the table can be changed
+// for the whole build before a session starts (coop/host/item_rules.hpp, the
+// kit's shared_items.txt, LICHII_ORM_ITEM_RULES). item_flags(), find_item()
+// and item_shared_flags() give the changed rules, so the shared list, the
+// store's merges and the watcher's counts all follow them. Not thread safe:
+// change them before the session runs.
+//
+// The rule of `hash` becomes `rule`. False when `hash` is not an item flag,
+// or for count on a flag that is not an Int.
+bool set_item_rule(std::uint32_t hash, ItemRule rule);
+// The rule docs/items.md gives `hash`, whatever was changed; nothing when it
+// is not an item flag.
+std::optional<ItemRule> built_in_item_rule(std::uint32_t hash);
+
+// A count held to at most another flag's value when another player's gain is
+// added to it (ZMP's common wallet: PlayerStatus.CurrentRupee and the Rupee
+// capacity; not in the kit's list since 2026-11-11, each player has their
+// own). The cap counts only when it reads 1 or more.
+struct ItemCap {
+  std::uint32_t count;  // the count's hash (ItemRule::count)
+  std::uint32_t cap;    // the hash of the Int that holds its maximum
+};
+// A max Int that, raised by another player's value, fills another Int to the
+// new value (ZMP D-035: the shared magic meter grows, everyone's is filled).
+struct ItemFill {
+  std::uint32_t from;  // the raised flag (ItemRule::max), e.g. PlayerStatus.MPMax
+  std::uint32_t to;    // the filled flag (per player), e.g. PlayerStatus.MP
+};
+void set_item_caps(std::vector<ItemCap> caps);
+void set_item_fills(std::vector<ItemFill> fills);
+// The cap of the count `count`, or of the raised flag `from`; nothing for none.
+std::optional<std::uint32_t> item_cap(std::uint32_t count);
+std::optional<std::uint32_t> item_fill(std::uint32_t from);
+// Back to docs/items.md: every rule as built, no caps, no fills.
+void reset_item_rules();
+
 // What the game should hold after `incoming` arrives for a flag of `rule`
 // and `kind` when it holds `local`. Values are raw FlagEntry bits. `base` is,
 // for count, the value the sender's change started from (its change is
@@ -221,6 +257,10 @@ class ItemFlagStore final : public FlagStore {
   // A count delta (FlagKind::count_delta) on a count item is added to the
   // game's value, held to 0 and up; it is refused on anything else, or when
   // the game's value cannot be read.
+  // ORM: a gain on a count with a cap (item_cap) stops at the cap (a full
+  // wallet, as in the game), never below what the game holds; a max Int with
+  // a fill (item_fill) raised by the write, outside an exact write and only
+  // with Link in the game, fills its flag to the new value.
   bool write(const protocol::FlagEntry& entry) override;
   // A named count item (ItemRule::count).
   bool is_count(FlagKey key) override;
@@ -248,6 +288,8 @@ class ItemFlagStore final : public FlagStore {
     std::uint64_t refused = 0;  // item writes with the wrong kind, or per player
     std::uint64_t added = 0;    // count deltas added to the game's value
     std::uint64_t granted = 0;  // grant flags raised (ammo, capacity) with a new item
+    std::uint64_t capped = 0;   // count deltas held to their cap (ItemCap: a full wallet)
+    std::uint64_t filled = 0;   // flags filled by a raised one (ItemFill: the magic meter)
   };
   const Stats& stats() const { return stats_; }
 
@@ -260,6 +302,7 @@ class ItemFlagStore final : public FlagStore {
 
  private:
   void grant(std::uint32_t item, bool new_item);
+  void fill(std::uint32_t from, std::uint32_t value);
 
   bool exact_ = false;  // write_exact: take the value as it is
   FlagStore& inner_;

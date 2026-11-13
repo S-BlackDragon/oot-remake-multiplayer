@@ -488,6 +488,26 @@ void Frame(Core::System& system, std::uint64_t main_base, const std::optional<co
     }
 }
 
+void Follow(std::uint8_t number, std::string name) {
+    Glue& g = TheGlue();
+    std::lock_guard lock(g.mutex);
+    if (!g.on) {
+        g.Line("teleport: off in this game (LICHII_COOP_TELEPORT=0)");
+        return;
+    }
+    g.want = std::make_pair(number, std::move(name));
+}
+
+bool StartSceneEvent() {
+    Glue& g = TheGlue();
+    if (!g.on) {
+        return false;  // no svc caller runs the requester
+    }
+    std::lock_guard lock(g.event_mutex);
+    g.events.Want(Trip::kSceneEvent);
+    return true;
+}
+
 std::vector<std::string> TakeLines() {
     Glue& g = TheGlue();
     std::lock_guard lock(g.mutex);

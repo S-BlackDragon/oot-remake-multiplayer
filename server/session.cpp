@@ -887,10 +887,17 @@ void Session::on_object_present(ConnectionId id, Connection& c, const ObjectPres
     }
     drop_presence(id, c.number, oid, now_us);
   }
+  note_far_kills(id, c, p.scene, now_us);  // ORM enemigos: kills it saw, now far from them
+  // ORM enemigos: what this game loaded since its last list (a room it just
+  // loaded), to tell whether a kill's room stayed loaded elsewhere.
+  std::set<ObjectId> loaded_with;
+  for (const ObjectId& oid : listed) {
+    if (!before.count(oid)) loaded_with.insert(oid);
+  }
 
   for (const ObjectPresence& e : p.objects) {
     const ObjectId& oid = e.id;
-    if (oid.kind == ObjectKind::placed && dead_for(id, c, p.scene, oid)) {
+    if (oid.kind == ObjectKind::placed && dead_for(id, c, p.scene, oid, loaded_with, now_us)) {
       c.present.insert(oid);  // so its leaving the list is seen
       continue;
     }
@@ -1264,7 +1271,8 @@ void Session::forget_empty_dead(const std::string& scene) {
 // is left alone; a witness that lists it again after it left its walk has
 // respawned it (its room loaded again), so it is alive again for everyone.
 bool Session::dead_for(ConnectionId id, Connection& c, const std::string& scene,
-                       const ObjectId& oid) {
+                       const ObjectId& oid, const std::set<ObjectId>& loaded_with,
+                       std::uint64_t now_us) {
   auto ds = dead_.find(scene);
   if (ds == dead_.end()) return false;
   auto d = ds->second.find(oid);

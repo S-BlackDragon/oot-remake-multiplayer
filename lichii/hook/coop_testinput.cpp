@@ -283,12 +283,28 @@ std::optional<Script> Parse(std::string_view text, std::string& error) {
                 return fail("unknown key " + bad);
             }
         } else if (cmd == "WARP") {
-            if (w.size() < 2 || w.size() > 3) {
-                return fail("want: warp SCENE [START]");
+            // ORM: a last word "adult" or "child" (any case) asks that age, for a
+            // scene with no era in its name (a dungeon): warp WaterTemple
+            // WaterTemple_FromLakeHylia adult. A scene named X_Adult or X_Child
+            // already says it.
+            auto words = w.size();
+            std::optional<bool> child;
+            if (words >= 3) {
+                std::string last(w[words - 1]);
+                std::transform(last.begin(), last.end(), last.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (last == "adult" || last == "child") {
+                    child = last == "child";
+                    --words;
+                }
+            }
+            if (words < 2 || words > 3) {
+                return fail("want: warp SCENE [START] [adult|child]");
             }
             step.kind = Kind::warp;
             step.mark = std::string(w[1]);
-            if (w.size() == 3) {
+            step.child = child;
+            if (words == 3) {
                 step.start = std::string(w[2]);
             }
         } else if (cmd == "PLACE") {
@@ -594,6 +610,7 @@ void Runner::Steer(const Step& step, double now_s, std::optional<std::array<floa
 #include "coop_flags.h"
 #include "coop_hook.h"
 #include "coop_objects.h"
+#include "coop_teleport_game.h"
 #include "core/arm/debug.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_process.h"
@@ -645,6 +662,13 @@ struct State {
         double since = 0.0;
         double asked = 0.0;
         std::optional<std::array<float, 2>> from;  // Link before the warp
+        std::optional<bool> child;                  // ORM: the age asked (warp ... adult|child)
+        // ORM, a warp in free play (WarpStartsEvent): the scene events started for it, when the
+        // last one was, whether an event of the game ran since, and the "off" line said once.
+        int events = 0;
+        double event_at = -1.0;
+        bool event_seen = false;
+        bool told_off = false;
     };
     std::optional<PendingWarp> warp;
 } g_state;  // only touched on the present thread
@@ -749,7 +773,8 @@ std::optional<Runner::Camera> CameraXZ() {
 // changes scene when Sequence_ReservedNextBanc is set (and clears it);
 // ChangeBancOnEvent also reads Sequence_ReservedNextStartPosName. The start
 // name is written first, so it is there when the scene is read.
-void Warp(Core::System& system, const std::string& scene, const std::string& start) {
+void Warp(Core::System& system, const std::string& scene, const std::string& start,
+          std::optional<bool> age_child = std::nullopt) {
     CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
     coop::host::GameFlags flags(memory);
     const auto banc = coop::host::flag_hash("Sequence_ReservedNextBanc");
@@ -770,6 +795,9 @@ void Warp(Core::System& system, const std::string& scene, const std::string& sta
         child = false;
     } else if (name.size() > 6 && name.substr(name.size() - 6) == "_Child") {
         child = true;
+    }
+    if (age_child) {  // ORM: warp SCENE [START] adult|child
+        child = age_child;
     }
     const bool era_ok = child && coop::host::GameFlags::set_bool(memory, childhood, *child);
     const bool banc_ok = coop::host::GameFlags::set_string64_now(memory, banc, scene);
@@ -1019,8 +1047,8 @@ void OnFrame(Core::System& system) {
     }
     for (const auto& request : r.runner->TakeRequests()) {
         if (request.kind == Kind::warp) {
-            Warp(system, request.name, request.start);
-            g_state.warp = State::PendingWarp{request.name, request.start, now, now, player};
+            Warp(system, request.name, request.start, request.child);
+            g_state.warp = State::PendingWarp{request.name, request.start, now, now, player, request.child};
         } else if (request.kind == Kind::wear) {
             Wear(system, request.start, request.name);
         } else if (request.kind == Kind::assign) {
@@ -1045,23 +1073,53 @@ void OnFrame(Core::System& system) {
     }
     // A warp is asked again every 0.5 s until Link is in that scene: the game
     // takes the request only while an event runs (the one after a save is
-    // loaded, a talk), so a warp is best asked before the save is loaded.
+    // loaded, a talk), so a warp is best asked before the save is loaded. ORM: one
+    // asked in the world starts a scene event of ours (WarpStartsEvent).
     if (g_state.warp) {
         State::PendingWarp& w = *g_state.warp;
         CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
         coop::host::PlayerReader reader(memory);
         const auto scene = reader.read_scene();
+        const bool event_running = reader.read_event_running().value_or(false);
+        if (event_running) {
+            w.event_seen = true;
+        }
         if (scene && *scene == w.scene) {
-            LOG_INFO(Core, "coop: test warp done after {:.1f} s, Link at {:.2f} {:.2f}", now - w.since,
-                     player ? (*player)[0] : 0.0f, player ? (*player)[1] : 0.0f);
+            // Which path took it (docs/RIESGOS_RESUELTOS.md "Mundo e historia").
+            const char* path = w.events > 0  ? "taken after our scene event, in free play"
+                               : w.event_seen ? "taken when an event of the game ended"
+                                              : "taken";
+            LOG_INFO(Core, "coop: test warp done after {:.1f} s, Link at {:.2f} {:.2f} ({})", now - w.since,
+                     player ? (*player)[0] : 0.0f, player ? (*player)[1] : 0.0f, path);
             g_state.warp.reset();
         } else if (now - w.since > kWarpGiveUpS) {
-            LOG_ERROR(Core, "coop: test warp to {} did not happen in {} s (scene {})", w.scene,
-                      kWarpGiveUpS, scene.value_or("?"));
+            LOG_ERROR(Core, "coop: test warp to {} did not happen in {} s (scene {}; {} scene event(s) started)",
+                      w.scene, kWarpGiveUpS, scene.value_or("?"), w.events);
             g_state.warp.reset();
-        } else if (now - w.asked >= 0.5) {
-            Warp(system, w.scene, w.start);
-            w.asked = now;
+        } else {
+            if (now - w.asked >= 0.5) {
+                Warp(system, w.scene, w.start, w.child);
+                w.asked = now;
+            }
+            // Asked with Link in the world (not at the title, where the save's own event takes
+            // it): no event comes by itself, so one of ours.
+            if (w.from &&
+                WarpStartsEvent(now, w.since, w.event_at, w.events, scene.has_value(), event_running)) {
+                if (CoopTeleport::StartSceneEvent()) {
+                    ++w.events;
+                    w.event_at = now;
+                    LOG_INFO(Core,
+                             "coop: test warp to {}: no event runs in free play: started the game's event {} "
+                             "so it takes the scene change ({} of {})",
+                             w.scene, CoopTeleport::Trip::kSceneEvent, w.events, kWarpEvents);
+                } else if (!w.told_off) {
+                    w.told_off = true;
+                    LOG_WARNING(Core,
+                                "coop: test warp to {}: no event runs and the scene event is off "
+                                "(LICHII_COOP_TELEPORT=0): waiting for one of the game's",
+                                w.scene);
+                }
+            }
         }
     }
     Output out = r.runner->Current();

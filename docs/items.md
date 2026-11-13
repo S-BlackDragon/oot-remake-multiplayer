@@ -50,6 +50,8 @@ Choices made here:
 - **Ammo**: the bag, quiver and wallet tiers are shared (max); the count in them is per player.
 - **Magic**: `MPMax` and the spells are shared (max); `MP` is per player.
 - `FairyBless_*` items are per player for now: they are temporary blessings, not owned items (inferred).
+- **ORM rule list** (`LICHII_ORM_ITEM_RULES=<file>`, the kit's `tools/release/kit/shared_items.txt`, `coop/host/item_rules.hpp`; oot-remake `docs/INVENTARIO.md`): changes rules of this table for the whole build before the session starts (`item_flags()`, `find_item()` and the shared list follow it). The kit's list is ZMP's inventory, but with each player's own wallet (2026-11-11): a `PlayerStatus.MPMax` raised by another player fills `PlayerStatus.MP` to it (not on an exact write, not without Link). A list can still make `PlayerStatus.CurrentRupee` a count (`count` and `cap PlayerStatus.CurrentRupee 0xe0010a50`: ZMP's one wallet for the group, another player's gain stopping at the Rupee capacity); the kit's does not. A list can never share what is in a bottle (`BottleItem`): the fairy revive puts one there.
+- **Everyone's rupees on screen** (ORM, oot-remake `docs/INVENTARIO.md` "Cartera de cada uno"): each game sends its own `PlayerStatus.CurrentRupee` in PLAYER_EQUIP's `rupees` component (29, a u32; `coop/host/wallets.hpp`), sent on change and to each joiner like the rest of the equipment, and never written into another game. With `LICHII_COOP_HUD=1` the panel (F9) lists every connected player: name in the player's colour, a rupee, the count. Each change is logged as `coop: wallet: P2 'Ana' has 87 rupees (was 82)`.
 
 ## Ammo capacity and what comes with an item (issue 128)
 

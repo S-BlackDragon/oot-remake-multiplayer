@@ -15,6 +15,8 @@
 #include <string_view>
 #include <vector>
 
+#include "coop/host/flag_defer.hpp"
+
 namespace Core {
 class System;
 }
@@ -31,9 +33,12 @@ namespace CoopObjects {
 void OnFrame(Core::System& system);
 
 // LICHII_COOP_OBJECTS=1: shares the enemies. Present thread, once per frame
-// after the session's frame; `session` is null when not connected.
+// after the session's frame; `session` is null when not connected. `event`:
+// our own event runs (a talk or a cutscene, not the Ocarina; scene.hpp
+// local_event_hides), for the townspeople we talk to (LICHII_COOP_NPC=1).
 void Share(Core::System& system, coop::host::Session* session,
-           const std::optional<std::string>& scene, std::uint64_t server_now_us);
+           const std::optional<std::string>& scene, std::uint64_t server_now_us,
+           bool event = false);
 
 // Issue 88 (docs/items.md, "Heart containers"): the game's PlayerStatus.MaxLife
 // flag as the session left it this frame (quarter hearts; nothing when not
@@ -116,5 +121,18 @@ void QueueTestKill(std::string name);
 // Present thread: the actors of the shared things this game owns now (for
 // coop_drops: a drop beside one of them is its owner's to decide).
 std::vector<std::uint64_t> OwnedActors();
+
+// Present thread (ORM D-R12, coop/host/flag_defer.hpp): every actor of the
+// last walk in `scene`, with the place of the shared and movable ones and
+// whether another game owns it (our copy follows that owner). Nothing when no
+// walk ran in that scene (objects not shared, not connected).
+std::optional<std::vector<coop::host::SeenActor>> WalkActors(const std::optional<std::string>& scene);
+
+// Present thread (ORM held switches, coop_held_switch.h): the actor of a
+// placement hash in the last walk, when that walk was in `scene`. Nothing when
+// objects are not shared, the walk was elsewhere or no actor has that hash,
+// and nothing when the actor at that address no longer has that placement
+// hash (read again on each call: the walk can be a few frames old).
+std::optional<std::uint64_t> LoadedActor(std::uint64_t hash, const std::optional<std::string>& scene);
 
 } // namespace CoopObjects

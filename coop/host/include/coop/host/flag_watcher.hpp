@@ -203,6 +203,35 @@ class FlagWatcher {
   static constexpr std::uint64_t kDoubledGainFrames = 5 * 60;
   static constexpr std::int32_t kMaxDoubledGains = 4;
 
+  // ORM riesgos-visual (oot-remake docs/RIESGOS_RESUELTOS.md): a chest our game
+  // opens second (another player's CHEST_OPEN came first) gives its counted
+  // find here too (a small key, a heart piece, rupees of a shared wallet), and
+  // our gain would go out on top of the first opener's: a key twice. Armed
+  // for `count`, our next own gain of it within `frames` is put back in our
+  // game and not sent; an own gain already sent within the last `frames` is
+  // taken back the same way at the next frame (put back, and the player sends
+  // it negative once; the host restates its total). The first opener's find
+  // reaches us as usual, so the group counts it once. Not a shared count:
+  // false, nothing armed (a unique item twice is the same item; a wallet of
+  // each player is each player's).
+  bool expect_double_find(FlagKey count, std::uint64_t frames = kDoubleFindFrames);
+  static constexpr std::uint64_t kDoubleFindFrames = 10 * 60;
+  struct DoubleUndone {
+    FlagKey count;
+    std::int32_t amount = 0;
+    bool after_sent = false;  // it had gone out: taken back with a negative delta (or the host's total)
+  };
+  // The finds expect_double_find undid since the last call, for the log.
+  std::vector<DoubleUndone> take_doubles_undone() { return std::exchange(doubles_undone_, {}); }
+  // ORM "downed, not dead" (coop/host/downed.hpp): flags this game fakes for a
+  // while (a revive's bottle: IsValid and StockNum are shared). While a flag
+  // is quiet it is not read, so a fake value is never sent; an incoming value
+  // for it is held and written once it is no longer quiet; a host's snapshot
+  // gives its last value. Put the real value back before ending the quiet:
+  // the watcher then sees no change. An empty set ends it.
+  void set_quiet(std::set<FlagKey> keys) { quiet_ = std::move(keys); }
+  const std::set<FlagKey>& quiet() const { return quiet_; }
+
   // The host left and this player takes over, or the other way round. Keeps
   // what is known of the game; drops a snapshot being held.
   void set_role(FlagRole role);
@@ -276,6 +305,15 @@ class FlagWatcher {
   // What was received since the last call (at most kMaxReceived kept).
   std::vector<Received> take_received() { return std::exchange(received_, {}); }
   static constexpr std::size_t kMaxReceived = 4096;
+  // ORM one-time prizes (coop/host/prizes.hpp): another game's value of a flag our
+  // game held at that value already (so no Received: nothing changed here), live
+  // messages only. That game set it itself too: two winners of one prize. Kept only
+  // while record_agreed(true); at most kMaxReceived.
+  void record_agreed(bool on) {
+    record_agreed_ = on;
+    if (!on) agreed_.clear();
+  }
+  std::vector<Received> take_agreed() { return std::exchange(agreed_, {}); }
   // A FLAG_ORIGIN names its asker for this many frames.
   static constexpr std::uint64_t kOriginFrames = 600;
   // Whether a scene (Banc) is loaded this frame. None for kTitleFrames in a
@@ -376,6 +414,16 @@ class FlagWatcher {
   std::vector<CountGuarded> counts_guarded_;  // take_counts_guarded
   std::int32_t doubled_ = 0;                  // expect_doubled_gain: gains still to drop
   std::uint64_t doubled_until_ = 0;           // the frame they lapse
+  // ORM riesgos-visual (expect_double_find).
+  struct OwnGain {
+    std::int32_t amount = 0;
+    std::uint64_t frame = 0;
+  };
+  std::map<FlagKey, std::uint64_t> doubles_;   // count: armed until this frame
+  std::map<FlagKey, OwnGain> own_gains_;       // each count's last own gain that went out
+  std::map<FlagKey, std::int32_t> take_back_;  // own gains to take back at the next diff
+  std::vector<DoubleUndone> doubles_undone_;
+  void undo_doubles(FlagStore& store, Table& changes);
   void settle_guards(FlagStore& store, Table& changes);
   // Notes a 64-bit key about to be written to 1 when the game has it at 0.
   void note_for_others(FlagStore& store, const protocol::FlagEntry& entry);
@@ -389,6 +437,8 @@ class FlagWatcher {
   ReceivedKind received_kind_ = ReceivedKind::live;
   bool recording_ = false;  // applying another game's message
   std::vector<Received> received_;
+  bool record_agreed_ = false;    // ORM prizes: take_agreed
+  std::vector<Received> agreed_;
   std::map<FlagKey, std::pair<std::uint8_t, std::uint64_t>> origin_;  // asker, frame
   // from_ becomes the asker FLAG_ORIGIN named for key (if fresh); used once.
   void take_origin(const FlagKey& key);

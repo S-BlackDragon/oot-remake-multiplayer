@@ -374,7 +374,7 @@ public:
     // HANDOVER_STATE, DAMAGE. Others are ignored. Applied on the next Tick.
     void Receive(const coop::protocol::Message& message);
 
-    // Present thread, once per walk. `self` is our player number (1 to 4),
+    // Present thread, once per walk. `self` is our player number (1 to kMaxPlayers),
     // `now_us` the server time. A new scene forgets every object.
     void Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_us,
               const std::vector<Seen>& seen, std::vector<coop::protocol::Message>& send,
@@ -411,6 +411,15 @@ public:
     std::size_t EventNpcsOurs(std::uint64_t now_us) const;
     static constexpr float kEventNpcM = 30.0f;
     static constexpr std::uint64_t kEventNpcKeepUs = 2'000'000;
+
+    // ORM cofre (coop/host/chest_open.hpp), present thread, before Tick: the
+    // chests whose lid our door mirror opened for another player's CHEST_OPEN
+    // (CoopDoors::LidsShown, by actor). When such a chest's key or opened flag
+    // comes (Take), it already shows open here: it stays, as one whose own AI
+    // showed it open (issue 87), and is never removed, beside our Link or not.
+    void SetLidsShown(std::vector<std::uint64_t> actors) {
+        lids_shown_ = std::set<std::uint64_t>(actors.begin(), actors.end());
+    }
 
     // Issue 151. Present thread, before Tick: where our own cast lures are
     // (CoopProjectiles::TheLures). Each Tick sends FISH_LURE (fishing-3):
@@ -852,12 +861,35 @@ private:
     };
     unsigned chests_opened_twice_ = 0;
     std::map<std::uint64_t, ChestShow> chest_shown_;
+    std::set<std::uint64_t> lids_shown_;  // SetLidsShown
     std::uint64_t last_tick_us_ = 0;
     bool ticked_ = false;  // a Tick has run (last_tick_us_ is set)
     std::map<std::uint64_t, Taking> taken_;
     std::vector<std::uint64_t> takes_in_;  // guarded by inbox_mutex_
     std::set<std::uint64_t> hidden_;  // loaded actors whose pickup was taken
     std::set<std::uint64_t> dead_;    // copies whose owner said dead kDeadGraceUs ago
+    std::set<std::uint64_t> talk_claims_;  // SetTalk: flagged targeting
+    std::set<std::uint64_t> talk_freed_;   // SetTalk: copies left to our game
+    // SetTalk: copies let go by our talk, blending back to their owner's pose.
+    struct Rejoin {
+        std::uint64_t since_us = 0;
+        coop::protocol::Vec3 position{};       // where our own game left it
+        std::optional<coop::protocol::Quat> rotation;
+    };
+    std::map<std::uint64_t, Rejoin> rejoin_;
+    // SetCarry (ORM "Levantar"): our lift's claims, and the carries of ours.
+    std::set<std::uint64_t> carry_claims_;
+    std::map<std::uint64_t, coop::protocol::ObjectCarry> carry_ours_;
+    bool npc_pose_ = false;      // SetNpcPose
+    bool hold_enemies_ = true;   // SetHoldEnemies
+    Keep keep_;                  // SetKeep (ORM endgame)
+    // ORM boss families (SetFamilies; coop/host/boss_rules.hpp).
+    bool families_on_ = true;
+    coop::host::FamilyWatch families_;
+    std::vector<std::pair<std::string, coop::protocol::Vec3>> family_extras_;
+    std::optional<coop::protocol::Ride> family_ride_;
+    std::vector<coop::host::RidePlatform> family_parts_;
+    std::vector<std::string> family_lines_;
     bool wake_ = true;
     std::size_t hurt_taken_ = 0;   // hurts the game took as asked
     std::size_t hurt_late_ = 0;    // late falls put back

@@ -542,7 +542,7 @@ std::optional<Call> Director::Next(Slot& slot, Guest& guest, std::uint64_t now_m
     }
     switch (slot.phase) {
     case Phase::no_block:
-        if (t != nullptr && now_ms >= slot.retry_ms) {
+        if (t != nullptr && !t->keep_only && now_ms >= slot.retry_ms) {
             Call c;
             c.function = input_.main_base + addr::kMalloc;
             c.x[0] = block::kSize;
@@ -554,7 +554,7 @@ std::optional<Call> Director::Next(Slot& slot, Guest& guest, std::uint64_t now_m
     case Phase::idle:
         // A failed create waits 5 s before the same actor is tried again; a
         // different one (the player's age was read wrong while loading) at once.
-        if (t != nullptr && slot.block != 0 && !input_.scene.empty() &&
+        if (t != nullptr && !t->keep_only && slot.block != 0 && !input_.scene.empty() &&
             (now_ms >= slot.retry_ms || t->actor != slot.actor_name)) {
             if (now_ms - slot.wanted_since_ms < input_.settle_ms) {
                 return std::nullopt;  // the age may still change (Input::settle_ms)
@@ -1453,9 +1453,26 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
             r.anim ? std::optional<std::string_view>(r.anim->name) : std::nullopt;
         Show show = Show::show;
         const char* why = "";
+        // ORM (oot-remake docs/PUERTAS.md): walking out of our place, gone
+        // from it, or coming into it (coop/host/passages.hpp).
+        const coop::host::Passage passage =
+            settings_.passages ? passages_.note(r.number, in.scene, theirs, r.position, now_ms)
+                               : coop::host::Passage::none;
+        bool keep_only = false;
         switch (coop::host::visibility(in.scene, local_event, theirs, r.status, anim)) {
         case coop::host::Visibility::hide:
             if (!coop::host::same_place(in.scene, theirs)) {
+                if (passage == coop::host::Passage::leaving) {
+                    keep_only = true;  // drawn on its shown pose: the walk into the exit
+                    why = passages_.why(r.number);
+                    break;
+                }
+                if (passage == coop::host::Passage::gone) {
+                    keep_only = true;  // out of sight where it left, then let go
+                    show = Show::hide;
+                    why = passages_.why(r.number);
+                    break;
+                }
                 continue;  // not here: no puppet (one made is deleted)
             }
             show = Show::hide;  // our cutscene: kept, out of sight
@@ -1475,6 +1492,12 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
                 why = "ocarina";
             }
             break;
+        }
+        if (passage == coop::host::Passage::arriving && show != Show::hold) {
+            show = Show::hide;  // made, kept out of sight until it stands at the entrance
+            why = passages_.why(r.number);
+        } else if (show == Show::show && *passages_.why(r.number) != '\0' && *why == '\0') {
+            why = passages_.why(r.number);  // "arrived (waited the most)", for the log
         }
         Target t;
         t.number = r.number;

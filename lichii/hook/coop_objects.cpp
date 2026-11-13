@@ -49,6 +49,8 @@
 // dropped, and an actor counts as gone only when two walks in a row miss it.
 
 #include "coop_objects.h"
+#include "coop_doors.h"
+#include "coop_carry.h"
 #include "coop_every.h"
 #include "coop_cheat_items.h"
 #include "coop_flags.h"
@@ -81,6 +83,9 @@
 #include "core/loader/loader.h"
 #include "core/memory.h"
 #include "coop/host/game_flags.hpp"
+#include "coop/host/held_switch.hpp"
+#include "coop/host/npc_talk.hpp"
+#include "coop/host/scene.hpp"
 #include "coop/host/session.hpp"
 #include "coop/net/client.hpp"
 #include "coop_objects_sync.h"
@@ -1149,13 +1154,15 @@ public:
     // Present thread, after the session's frame. Not connected, or no scene:
     // forgets what it shared.
     void Share(Core::System& system, coop::host::Session* session,
-               const std::optional<std::string>& scene, u64 server_now_us) {
+               const std::optional<std::string>& scene, u64 server_now_us, bool event) {
         if (session == nullptr || !scene || scene->empty() || server_now_us == 0) {
             if (sharing_) {
                 sync_.Reset();
                 world_.Reset();
                 sharing_ = false;
             }
+            walk_actors_.clear();
+            walk_scene_.clear();
             return;
         }
         if (!Ready(system)) {
@@ -1306,6 +1313,7 @@ public:
             }
             CoopEnemyShots::NoteShooters(std::move(shooters), server_now_us);
         }
+        Walked(*scene, seen, self);
         if (sync_.BlastDrops() != blast_drops_logged_) {
             blast_drops_logged_ = sync_.BlastDrops();
             LOG_INFO(Core, "coop: shots: life drop by a projectile copy's blast kept back ({} so far)",
@@ -1768,6 +1776,15 @@ public:
     int counter_lines_ = 0;
     std::size_t platform_lines_ = 0;
     std::vector<CoopWorld::GimmickProbe::Gimmick> gimmicks_;
+    // ORM (docs/RIESGOS_RESUELTOS.md): the water planes (water.hpp, live or at
+    // load) and the door actors a held switch opens (held_switch.hpp,
+    // HeldDoorCheck) of the last walk, by actor, with their place and AS
+    // command; given to WalkActors.
+    struct Watched {
+        coop::protocol::Vec3 position{};
+        std::optional<std::string> animation;
+    };
+    std::unordered_map<u64, Watched> watched_;
     bool gimmick_probe_on_ = false;
     bool scrubs_on_ = true;  // LICHII_COOP_SCRUBS=0 turns it off (issue 149)
     std::vector<CoopScrubs::Seen> scrubs_seen_;
@@ -2096,6 +2113,10 @@ private:
         gimmicks_.clear();  // dungeon gimmicks for the probe
         platform_drivers_.clear();
         scrubs_seen_.clear();  // issue 149
+        ride_platforms_.clear();  // ORM moving floors (orm_ride.h)
+        family_extras_.clear();   // ORM boss families: the tennis balls of this walk
+        stand_ins_.clear();
+        watched_.clear();
         std::vector<u64> actors;
         if (!List(r, actors)) {
             return false;
@@ -2225,6 +2246,18 @@ private:
                     }
                 }
                 out.push_back(std::move(s));
+            }
+            // ORM charla-radio: invisible talk stand-ins (Npc_Invisible_<X>,
+            // never shared) for the talk partner (coop/host/npc_talk.hpp).
+            if (npc_ && known.first.starts_with("Npc_Invisible_") &&
+                coop::host::stand_in_body(known.first)) {
+                Seen s;
+                s.address = a;
+                s.name = known.first;
+                for (std::size_t i = 0; i < 3; ++i) {
+                    s.position[i] = r.Get<float>(a + kActorPosition + 4 * i).value_or(0.0f);
+                }
+                stand_ins_.push_back(std::move(s));
             }
             names.emplace(a, std::move(known));
         }
@@ -3033,10 +3066,10 @@ void OnFrame(Core::System& system) {
 }
 
 void Share(Core::System& system, coop::host::Session* session,
-           const std::optional<std::string>& scene, std::uint64_t server_now_us) {
+           const std::optional<std::string>& scene, std::uint64_t server_now_us, bool event) {
     Objects& objects = Instance();
     if (objects.share_) {
-        objects.Share(system, session, scene, server_now_us);
+        objects.Share(system, session, scene, server_now_us, event);
     }
 }
 
@@ -3091,6 +3124,22 @@ void TakenForOthers(const std::vector<std::uint64_t>& keys) {
     for (const std::uint64_t key : keys) {
         objects.Take(key);
     }
+}
+
+std::optional<std::vector<coop::host::SeenActor>> WalkActors(const std::optional<std::string>& scene) {
+    Objects& objects = Instance();
+    if (!objects.share_) {
+        return std::nullopt;
+    }
+    return objects.WalkActors(scene);
+}
+
+std::optional<std::uint64_t> LoadedActor(std::uint64_t hash, const std::optional<std::string>& scene) {
+    Objects& objects = Instance();
+    if (!objects.share_) {
+        return std::nullopt;
+    }
+    return objects.LoadedActor(hash, scene);
 }
 
 void OnEvent(const coop::net::Event& event) {

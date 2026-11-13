@@ -814,7 +814,11 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
     fx_template = template if stand_in_effects else None
     if template is not None and not stand_in_effects:
         log("stand-in effects (seed trail): left out (--seed-trail to try them)")
-    for source, name in STAND_INS:
+    # (source, name, effect, optional): an optional one that cannot be built is left out, logged.
+    # `effect` is ORM's effect stand-in (EFFECT_STAND_INS, FX_STAND_INS), not STAND_IN_EFFECTS.
+    stand_ins = ([(s, n, False, False) for s, n in STAND_INS] + [(s, n, True, True) for s, n in EFFECT_STAND_INS]
+                 + [(s, n, False, True) for s, n in GET_STAND_INS] + [(s, n, True, True) for s, n in FX_STAND_INS])
+    for source, name, effect_stand_in, optional in stand_ins:
         src = os.path.join(romfs, "Pack", "Actor", f"{source}.pack.zs")
         if not os.path.isfile(src) or source not in ai_rows:
             log(f"{name}: no {source} in this romfs, left out")

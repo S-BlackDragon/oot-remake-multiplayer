@@ -1,0 +1,18 @@
+# ORM counted Ints (LICHII_ORM_COUNTS=shared_counts.txt; coop/host/final_rules.hpp,
+# oot-remake docs/FINAL.md). An Int the game counts up one by one as the group does things
+# that are each a shared Bool is a plain shared Int, "last write wins": two games that each add
+# one at the same moment both write the same number and one is lost. The rule: the Int is
+# never below the number of its Bools that are set; when it is, it is raised to that through
+# the game's own queue (never lowered). One counted Int a line:
+#
+#   count:IntFlag BoolFlag BoolFlag ...
+#
+# Names checked against GameDataList (Int and Bool, ResetTypeValue 8) and against the built-in
+# dungeon list (lichii/hook/coop_dungeon.cpp shares all seven live): tests/host/final_rules_test.cpp.
+# NOT a LICHII_COOP_FLAGS file nor a LICHII_COOP_DUNGEON_LISTS file (its name is not
+# shared_dungeon_*.txt on purpose: a folder in that switch takes every such file).
+
+# Ganon's Castle: the barriers down (ZMP D-188's trials; the tower's barrier falls at six, read
+# by Defeat_Ganon and room 01's logic). Two trials finished at once in two games lost one: the
+# tower would never open.
+count:InsideGanonCastle_Dungeon_Barrier_Count InsideGanonCastle_Dungeon_BarrierRemove_Forest InsideGanonCastle_Dungeon_BarrierRemove_Fire InsideGanonCastle_Dungeon_BarrierRemove_Water InsideGanonCastle_Dungeon_BarrierRemove_Shadow InsideGanonCastle_Dungeon_BarrierRemove_Spirit InsideGanonCastle_Dungeon_BarrierRemove_Light

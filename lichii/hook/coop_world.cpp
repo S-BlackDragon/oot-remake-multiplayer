@@ -2131,6 +2131,9 @@ bool IsGimmick(std::string_view name) {
     }
     constexpr std::string_view kSwitchParts[] = {
         "StepSwitch_", "EyeSwitch_", "SwitchHit_", "SolarSwitch_", "SwitchCandleStick_",
+        // ORM held switches (coop_held_switch.h): the held ones are spelt with
+        // a small s (Obj_Stepswitch_A_03, _Amos, Obj_WaterTemple_Stepswitch_A_03).
+        "Stepswitch_",
         "WaterPlane", "SwitchShutter_", "CandleStick_", "ElevatorLift", "MoveFloor_",
         // world-objects: the push blocks and their base anchor (issue 147: which words a
         // real push steps), the Deku Tree ladder, its pillar and the trap floors (issue 129).
@@ -2157,15 +2160,19 @@ std::vector<std::string> GimmickProbe::Look(const SignProbe::ReadWord& read,
         return lines;
     }
     last_us_ = now_us;
+    // ORM (docs/SONDAS.md, 2026-11-12): a water plane's place is the middle of a whole room's
+    // water (the Water Temple's main one 117 m from a Link swimming in it), so it is never "near":
+    // the planes are always looked at, first, and the rest by distance.
+    const auto reach = [&](const Gimmick& g) {
+        return g.name.find("WaterPlane") != std::string::npos ? 0.0f : Distance(*player, g.position);
+    };
     std::vector<const Gimmick*> near;
     for (const Gimmick& g : gimmicks) {
-        if (Distance(*player, g.position) <= kNearM) {
+        if (reach(g) <= kNearM) {
             near.push_back(&g);
         }
     }
-    std::sort(near.begin(), near.end(), [&](const Gimmick* a, const Gimmick* b) {
-        return Distance(*player, a->position) < Distance(*player, b->position);
-    });
+    std::sort(near.begin(), near.end(), [&](const Gimmick* a, const Gimmick* b) { return reach(*a) < reach(*b); });
     if (near.size() > kMaxGimmicks) {
         near.resize(kMaxGimmicks);
     }

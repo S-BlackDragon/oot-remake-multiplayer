@@ -1,0 +1,78 @@
+# ORM songs (oot-remake docs/CANCIONES.md): the world flags the songs set that no other list
+# shares yet. Made from coop/host songs.cpp's song_effects(); tests/host/songs_test.cpp checks
+# this file says the same. A dungeon list file (coop/host dungeon_lists.hpp): load it after the
+# others with LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,shared_dungeon_adult.txt,
+# shared_dungeon_songs.txt. NOT a LICHII_COOP_FLAGS file (it would take "once:" for a name).
+#
+#   once:Name         set for good: a 1 is never undone by another game's 0 or by a load
+#   Name              shared both ways, live
+#   hold:Name Place   a room gimmick's played event: shared, held while our Link is in Place
+#   key64:0x...       a placement's one-time key (a 1 crosses, a 0 never undoes it)
+#   toggle64:0x... Place  a key that goes both ways: shared, held while our Link is in Place
+#
+# Names checked against GameData/GameDataList (Bool, ResetTypeValue 8); the keys are the
+# Obj_SongOfTimeSign_A_01 placements with isSaveGameData in the Banc files (isOnceOnly: key64;
+# the blocks that swap back and forth: toggle64, docs/RIESGOS_RESUELTOS.md "Mundo e historia").
+
+# ---- Zelda's Lullaby ----
+# ZeldaLullaby, ZoraRiver_Adult: the waterfall parts (adult)
+once:Zorariver_TheWaterfallsplits_Adult
+# ZeldaLullaby, BottomOfTheWell: room 01: the water stops
+hold:HavePlayedEvent.BottomOfTheWell_Level_Room_01_Ocarina BottomOfTheWell
+# ZeldaLullaby, InsideGanonCastle: the Ocarina room (room 13) opens (the game spells it Castele)
+once:InsideGanonCastele_Dungeon_Room13_Ocarina
+hold:HavePlayedEvent.InsideGanonCastle_Dungeon_Ocarina InsideGanonCastle
+
+# ---- The frogs of Zora's River: each song's reward once in the world ----
+once:MiniGame_FrogTenors_ZeldaLullaby
+once:MiniGame_FrogTenors_EponaSong
+once:MiniGame_FrogTenors_SariaSong
+once:MiniGame_FrogTenors_SunSong
+once:MiniGame_FrogTenors_TimeSong
+once:MiniGame_FrogTenors_StormSong
+
+# ---- Song of Time: blocks that go for good ----
+key64:0x0dbe35edd0ba3c92  # ForestTemple_Static Obj_SongOfTimeSign_A_01, room 2, isOnceOnly
+key64:0x261d8308d842d916  # FireTemple_Static Obj_SongOfTimeSign_A_01, room 11, isOnceOnly
+key64:0xc44444be8c06624b  # GerudoTrainingGround_Static Obj_SongOfTimeSign_A_01, room 9, isOnceOnly
+key64:0x48d70af7eb780c61  # SacredForestMeadow_Child/_Adult_Static Obj_SongOfTimeSign_A_01, isOnceOnly
+hold:HavePlayedEvent.SacredForest_FirstTimeBLock SacredForestMeadow
+# Spirit Temple: the Ocarina gimmicks of rooms 15, 08 and 29 (their results are coop_dungeon.cpp's)
+hold:HavePlayedEvent.SpiritTemple_Level_Room_15_Ocarina SpiritTemple
+hold:HavePlayedEvent.SpiritTemple_Level_Room_08_Ocarina SpiritTemple
+hold:HavePlayedEvent.SpiritTemple_Level_Room_29_Ocarina SpiritTemple
+
+# ---- Song of Time: blocks that come and go (each song swaps them; the last song wins) ----
+toggle64:0x03ecedcb30afe5e4 SpiritTemple  # Obj_SongOfTimeSign_A_01, room 15, on at first
+toggle64:0x97e1668d83dba136 SpiritTemple  # Obj_SongOfTimeSign_A_01, room 15, off at first
+toggle64:0xc1ce2332223d2aec FireTemple  # Obj_SongOfTimeSign_A_01, room 1, on at first
+toggle64:0xf015b3e1a1c12718 FireTemple  # Obj_SongOfTimeSign_A_01, room 1, off at first
+toggle64:0x44543896c729bd8b GerudoTrainingGround  # Obj_SongOfTimeSign_A_01, room 6
+toggle64:0x2d8814df959c0731 GerudoTrainingGround  # Obj_SongOfTimeSign_A_01, room 6
+toggle64:0x8ad9985355a1d827 IceCavern  # Obj_SongOfTimeSign_A_01, room 8, off at first
+toggle64:0xb1f382f3d0834d9e InsideGanonCastle  # Obj_SongOfTimeSign_A_01, room 3, off at first
+
+# ---- Song of Storms ----
+# StormSong, KakarikoVillage_Adult: the windmill man teaches it (one lesson for the world)
+once:HavePlayedEvent.PlayStormSong_Adult
+# StormSong, DesertColossus: the hole and its chest (the game spells it Dessert/Clossus)
+once:DessertClossus_IsStormSongPlayed
+hold:HavePlayedEvent.DessertColossus_IsStormSongPlayed DesertColossus
+
+# ---- The Scarecrow's Song: Pierre appears where it is played, one place at a time ----
+Appear_SCARECROW_LAKE_HYLIA_01
+Appear_SCARECROW_LAKE_HYLIA_02
+Appear_SCARECROW_LAKE_HYLIA_03
+Appear_SCARECROW_ZORA_FOUNTAIN_01
+Appear_SCARECROW_SACRED_FOREST_MEADOW_01
+Appear_SCARECROW_DEATH_MOUNTAIN_CRATER_01
+Appear_SCARECROW_DEATH_MOUNTAIN_CRATER_02
+Appear_SCARECROW_GERUDO_FORTRESS_01
+Appear_SCARECROW_DODONGO_CAVERN_01
+Appear_SCARECROW_FOREST_TEMPLE_01
+Appear_SCARECROW_FIRE_TEMPLE_01
+Appear_SCARECROW_WATER_TEMPLE_01
+Appear_SCARECROW_SHADOW_TEMPLE_01
+Appear_SCARECROW_SHADOW_TEMPLE_02
+Appear_SCARECROW_GERUDO_TRAINING_GROUND_01
+Appear_SCARECROW_SPIRIT_TEMPLE_01

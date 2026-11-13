@@ -27,6 +27,7 @@
 #include "core/memory.h"
 #include "coop/host/session.hpp"
 #include "coop/net/client.hpp"
+#include "coop_clock.h"  // ORM: the shared clock (oot-remake docs/HORA.md)
 #include "coop_every.h"
 #include "coop_puppet.h"
 #include "coop_svc.h"
@@ -244,6 +245,7 @@ struct Glue {
             if (connected) {
                 sync.Reset();
                 nudges_off_logged = false;
+                CoopClock::Reset();  // ORM
                 connected = false;
             }
             if (main != 0 && debug) {
@@ -280,7 +282,9 @@ struct Glue {
         }
         std::vector<coop::protocol::Message> send;
         sync.SetEvent(in_event);  // issue 192: no nudge during a cutscene
-        if (const auto target = sync.Tick(now, host, now_us, send)) {
+        // ORM: one shared clock with nudges (coop_clock.h) instead of upstream's rules.
+        if (const auto target = CoopClock::On() ? CoopClock::Tick(main, now, *session, send)
+                                                : sync.Tick(now, host, now_us, send)) {
             setter.Want(main, *target);
         }
         if (const auto nudge = sync.TakeNudge()) {
@@ -333,7 +337,11 @@ void Loading(std::uint64_t server_now_us) {
 
 void OnEvent(const coop::net::Event& event) {
     if (event.kind == coop::net::EventKind::message) {
-        TheGlue().sync.Receive(event.message);
+        if (CoopClock::On()) {  // ORM
+            CoopClock::Receive(event.message);
+        } else {
+            TheGlue().sync.Receive(event.message);
+        }
     }
 }
 

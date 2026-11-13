@@ -1,0 +1,64 @@
+# ORM shared talk flags (LICHII_COOP_TALK=shared_talk.txt; D-R12, one world for everyone).
+# What a talk changes in the world is the same in every game: a Kokiri who lets you pass, a
+# Kokiri who moved, a deal done once, a quest step the townspeople refer to.
+# What a talk changes for the one who talked stays his own: "already talked once" greetings
+# (HaveTalked_*), the steps through a conversation (Talk_01, FirstTalk...), tutorials, Navi's
+# hints, counters of who congratulated you. Not listed here, so not shared.
+#
+# One flag a line, then its rule (coop/host/flag_defer.hpp): a value another player's talk
+# set waits while our player could see the change, and is written once
+#   - our scene changed or is none of the line's scene: prefixes,
+#   - none of the line's actor: prefixes is loaded, or every one is a copy another game
+#     moves (its owner already shows the change),
+#   - every one of them is farther than far: metres from our Link,
+#   - or after: seconds went by (0: no time limit, wait for one of the others).
+# "now" alone: shared and never held. Each line ends with the flag's hash as a comment
+# (flag_hash of the name; the tests recompute it). Names and hashes from the RomFS's event
+# flows and actor packs (oot-remake/docs/BANDERAS_CHARLA.md); nothing of the game is here.
+
+# Blockers: the Kokiri's blocker AI runs while the flag is 1 (BlockerParam GameDataToEnableAI)
+# and an air wall stands with it (a live Presence). Mido lets you pass when you show him a
+# sword and a shield.
+KokiriForest_Npc_Kokiri_Mido_Child_Blocker scene:KokiriForest actor:Npc_Kokiri_Mido_Child far:25 after:120  # 0x502f6cea
+KokiriForest_Npc_Kokiri_007_Child_Blocker_00 scene:KokiriForest actor:Npc_Kokiri_007_Child far:25 after:120  # 0xe5dc5674
+KokiriForest_Npc_Kokiri_Blocker scene:KokiriForest actor:Npc_Kokiri_ far:25 after:120  # 0xc6724c2e
+# Adult Mido in the Lost Woods blocks the way to the Sacred Forest Meadow the same way (his pack's
+# blocker AI and a live air wall Presence in LostWood_Adult); the Forest sage's event lowers it.
+KokiriForest_Npc_Kokiri_Mido_Adult_Blocker scene:LostWood actor:Npc_Kokiri_Mido_Adult far:25 after:120  # 0x3b320c55
+
+# Where a townsperson stands or walks (its AI and schedule read them).
+KokiriForest_Kokiri_011_StopInFrontOfShop_00 scene:KokiriForest actor:Npc_Kokiri_011_Child after:120  # 0xfadf413f
+KokiriForest_LinkHouseGoDown scene:KokiriForest actor:Npc_Kokiri_Saria_Child after:120  # 0x1afd0ad0
+Npc_Kokiri_Saria_Child_WarpStandby scene:KokiriForest actor:Npc_Kokiri_Saria_Child after:120  # 0x27c52681
+Npc_Kokiri_Saria_Child_WarpDone scene:KokiriForest actor:Npc_Kokiri_Saria_Child after:120  # 0xd852fccd
+KokiriForest_Npc_Kokiri_008_Child_LiftRock_AllBroken scene:KokiriForest actor:Npc_Kokiri_008_Child after:120  # 0x6090cf95
+
+# A deal done once for the world. Not the shop: what the shopkeeper says of the Deku Shield stays
+# each player's own (the shield itself is shared again since test10, issue 130).
+KokiriForest_Npc_Kokiri_008_Child_AlreadyPaid scene:KokiriForest actor:Npc_Kokiri_008_Child after:120  # 0x4097ed9c
+
+# Quest steps the townspeople refer to.
+Get_StoneOfForest_Complete_Mido_TalkEnd scene:KokiriForest actor:Npc_Kokiri_Mido_Child after:120  # 0x356bd37b
+KokiriForest_IsAfterGoronCityDarniaroomOpen_Npc_Kokiri_003_Child scene:KokiriForest actor:Npc_Kokiri_003_Child after:120  # 0x4c657880
+Npc_Kokiri_Saria_Child_SacredForestMeadow_PlayedSariaSong scene:SacredForestMeadow actor:Npc_Kokiri_Saria_Child_SacredForestMeadow after:120  # 0xd40c23b9
+# Talon is back at Lon Lon Ranch: Malon's talk lowers it, and her pack and the ranch's song trigger
+# (the Get_Epona step ReadyForGetEponaSong) read it.
+Forbid_MelodyGet_Epona scene:HyruleField actor:Npc_Hylia_Malon_Child after:120  # 0x63ccae30
+# Adult Talon in Kakariko woken by the Pocket Cucco (the trade item is mirrored, so is this): the
+# townspeople 049 and 051 talk of it, and his next talk sends him home.
+KakarikoVillage_CrowedCucco_Npc_Hylia_Talon_Adult scene:KakarikoVillage actor:Npc_Hylia_Talon_Adult after:120  # 0x7207ede9
+
+# Placements that appear or go with the flag (a live Presence): no actor to watch, so they
+# wait for a scene change, with no time limit.
+IsMalonAppear_Market scene:Market after:0  # 0x291f87b2
+IsMalonAppear_HyruleCastleSecondTime scene:HyruleCastle after:0  # 0xfd1b310e
+# Talon leaves Kakariko for the ranch: his Kakariko AI reads it, and a live Presence brings him and
+# the ranch's beds, bunting and gate cloth into HyruleField_Adult. No actor: at the ranch he is not
+# loaded yet, so an actor rule would write it at once there and pop them in front of the player.
+KakarikoVillage_LeaveKakariko_Npc_Hylia_Talon_Adult scene:KakarikoVillage scene:HyruleField after:0  # 0x0bf7ce9d
+# The Deku Tree's death (its leaves): no story cutscene plays it for everyone yet.
+HavePlayedEvent.Dm_Kokiri_0140 scene:KokiriForest after:0  # 0xebaec07f
+
+# Story cutscenes the story list plays for everyone in the scene (shared_story.txt): their
+# flags go at once, the players present watched it happen.
+HavePlayedEvent.Dm_Kokiri_0070 now  # 0x97137664

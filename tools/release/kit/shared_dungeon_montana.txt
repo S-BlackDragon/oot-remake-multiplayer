@@ -1,0 +1,81 @@
+# ORM Death Mountain, Goron City, the Ice Cavern, the Shadow Temple and the Bottom of the Well with several
+# players (oot-remake docs/MONTANA_SOMBRA.md). Written by oot-remake/tools/romfs/montana_list.py from the romfs
+# (names checked against GameData/GameDataList: once: and hold: a saved Bool; key64: a saved one-time key,
+# ResetTypeValue 24, with its Banc placement); edit the table there, not this file. A dungeon list file (coop/host
+# dungeon_lists.hpp), loaded with LICHII_COOP_DUNGEON_LISTS after shared_dungeon_child.txt and
+# shared_dungeon_adult.txt. NOT a LICHII_COOP_FLAGS file (that reader takes once: for a name).
+#
+# The rule (oot-64: one save for the group, D-061): what the group did there is done for everyone (a rock
+# blown, a Goron stopped, a door or a statue moved, an ice melted); where one Link stands (sensors), what he
+# carries (a bottle of blue fire, the Lens on his face) and the rides he takes (the Shadow Temple boat) are his.
+# Not here on purpose: the Bottom of the Well (the adult list takes its sensors off; Dead Hand is a boss of
+# its own game; the Lens is each player's), the story steps (Step_SageOfFire, Step_SageOfShadow: the story
+# list's, forward only) and the Fire Temple's Gorons (shared_dungeon_adult.txt, coop_dungeon.cpp).
+
+# ---- Death Mountain Trail and Crater: the adult era's bombable rocks of the Trail (the child era's are
+# shared_dungeon_child.txt's; most placements are the same in both eras); the Crater grotto's chest (its
+# Dinolfos beaten) and the Crater chest's appear event. The rolling boulders are each game's own (no flag)
+key64:0x8324a99325078f72    # a Trail rock blown
+key64:0x864dadcda29f736d    # a Trail rock blown
+key64:0xd389d05aafff0ef5    # a Trail rock blown
+key64:0xfc18cca7550014e7    # a Trail rock blown
+key64:0x508a9bd597e45454    # a Trail rock blown
+key64:0x7c35a7b1287cd69d    # a Trail rock blown
+once:DeathMountainCrater_OpenTresureBox    # the Crater grotto's Dinolfos beaten: its chest is there for everyone
+hold:HavePlayedEvent.DeathMountainCrater_SecretHole_AppearTreasureBox DeathMountainCrater    # a chest's appear event: held while we are in the Crater
+
+# ---- Goron City (child): Darunia's door stays open (the Lullaby is shared_dungeon_child.txt's), the big
+# pot spins for everyone once its timed torches are lit (its cutscene, Dm_Goron_0010, is the built-in story
+# list's; its heart piece is the child list's once:), the rolling Goron is stopped once and his bomb bag
+# given once. Not here: the gate's three switches and the rolling Goron's place (sensors of one Link), the
+# shop (each game's shopkeeper serves its own Link; rupees and items are the items list's)
+once:DarniaDoor_Opened    # Darunia's door open
+once:GoronLargePot_isMoving    # the big pot spins (the timed torches were lit)
+once:GoronCity_BombHitsGoron006    # a bomb stopped the rolling Goron
+once:GoronCity_StopGoron006    # the rolling Goron stopped
+once:GoronCity_GetBombBag_fromGoron006    # his bomb bag was given: once for the group
+hold:HavePlayedEvent.GoronCity_SecretHole_AppearTreasureBox GoronCity    # the torch grotto's chest appear event: held while we are in Goron City
+hold:HavePlayedEvent.GoronCity_SecretHole_AppearTreasureBox2 GoronCity    # the torch grotto's second appear event: held while we are in Goron City
+
+# ---- Goron City (adult): Link the Goron rolls until a bomb stops him; stopped, talked to, his tunic given
+# and Darunia's statue moved, he is so for everyone (oot-64: one save; the step Step_SageOfFire is the story
+# list's, forward only; the Goron Tunic is the items list's). The way a Link came in (SageOfFire_FromCrater,
+# _FromDeathMt) stays each game's. And the adult era's lift rocks and the big rock
+once:SageOfFire_GenerateDaruniaJr    # Link the Goron is in the city
+once:SageOfFire_Step01_DaruniaJr_BombHit    # a bomb stopped Link the Goron
+once:SageOfFire_Step02_DaruniaJr_FirstTalked    # he was talked to: the tunic was given
+once:SageOfFire_Step02_TalkedSchedule    # he told where to go: he waits there
+once:SageOfFire_Step02_DoorOpen    # Darunia's statue moved: the way to the Crater open
+key64:0x784dacc398d8b905    # the big rock blown
+key64:0x00283696acc3dd10    # a rock lifted
+key64:0x11a1e3d49563fb64    # a rock lifted
+key64:0x24b315f1b45ddbf2    # a rock lifted
+key64:0x2797a4187ca1f6af    # a rock lifted
+key64:0x27d0bde84a3a97b3    # a rock lifted
+key64:0x2e16955b5f7e9b63    # a rock lifted
+key64:0x40a3aac50d551a7d    # a rock lifted
+key64:0x694deba57dac574b    # a rock lifted
+key64:0x6c101162004359e9    # a rock lifted
+key64:0x8823e8ecb800df34    # a rock lifted
+key64:0xa1eb4d1370b8a187    # a rock lifted
+key64:0xaaf69438f90ce144    # a rock lifted
+key64:0xafbe8b47ee359c52    # a rock lifted
+key64:0xc1c2dc594de6e3ce    # a rock lifted
+key64:0xd4a7dd88678e00b4    # a rock lifted
+key64:0xf394c8e067e267d7    # a rock lifted
+key64:0xf668f60c96acd420    # a rock lifted
+key64:0xfa016609a907eb66    # a rock lifted
+
+# ---- Ice Cavern and Zora's Domain: blue fire is carried in each player's own bottle (bottle contents are
+# never shared, INVENTARIO.md); what it melts is the group's (the Cavern's red ice is the built-in list's;
+# King Zora's red ice, its melting event and its two placements are the town list's,
+# shared_dungeon_towns.txt: held while we are in the Domain, as the ice is 1 until melted). Sheik's
+# Serenade: the song is the items list's, the scene the story list's; this is the Bool King Zora's talk
+# reads
+once:SageOfWater_GetWaterSerenade    # the Serenade of Water was learnt
+
+# ---- Shadow Temple: the boat is each game's (its departure,
+# HavePlayedEvent.ShadowTemple_Gimmick_Departure, is left out of the built-in list on purpose; mates on
+# board: MONTANA_SOMBRA.md, pending), the Lens is each player's, Bongo Bongo is the boss rules'. Taken off:
+# a sensor of where one Link is (room 09)
+unshare:ShadowTemple_Level_Room_09_Away    # set by a Link-area sensor of room 09: where one Link is

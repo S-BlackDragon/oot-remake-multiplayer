@@ -1,0 +1,69 @@
+# ORM towns with several players (oot-remake docs/PUEBLOS.md): Kakariko, the Graveyard, Lake
+# Hylia, the Zora areas, Lon Lon, the Market and Hyrule Castle. Written by
+# oot-remake/tools/romfs/town_list.py from the romfs (names checked against
+# GameData/GameDataList: saved Bools; the keys are the adult towns' saved breakables, Banc
+# placements with ResetTypeValue 24); edit the table there, not this file. A dungeon list file
+# (coop/host dungeon_lists.hpp), loaded with LICHII_COOP_DUNGEON_LISTS after
+# shared_dungeon_child.txt and shared_dungeon_adult.txt. NOT a LICHII_COOP_FLAGS file (that
+# reader takes once: and hold: for names).
+#
+#   once:Name         done for good: a 1 is never undone by another game's 0 or by a load
+#   hold:Name Place   shared, but held while our Link is in Place (either era, and a town's
+#                     _Alternative version: KakarikoVillage_Adult_Alternative is Kakariko)
+#   key64:0x...       a placement's one-time key (a 1 crosses, a 0 never undoes it)
+#
+# The rule (oot-64: one world for the group, D-061; ORM D-R12): what opens a way or is done
+# for good in a town is done for everyone, once; what one player does there stays his own:
+# his minigame run, his talks, the guard who caught him, the milk in his bottle, the letter
+# in his bottle. Most of the towns' world state is already in other lists (PUEBLOS.md, 1).
+
+# ---- Kakariko (child and adult). The Song of Storms drain, the well's ladder, the windmill door
+# and the Death Mountain gate are the child list's and the story lists'; the windmill man's lesson
+# is the song list's; Talon in Kakariko is the talk list's; the cucco lady's bottle is the minigame
+# list's. Here: the ReDead grotto
+once:KakarikoVillage_Gimmick_IsReDeadDestroyed    # the grotto's two ReDeads beaten (its chest): once for the group
+
+# ---- Graveyard: the composer brothers' Poes and the Royal Tomb's first room. Dampe's digging tour
+# is each player's (its heart piece is the minigame list's); the tomb opening, the Sun's Song and
+# the Shadow Temple's door are the story lists' and the adult list's
+once:GraveYard_Field_Sharp_Dead    # Sharp beaten: he comes back in no game
+once:GraveYard_Field_Flat_Dead    # Flat beaten: he comes back in no game
+once:RoyalFamilyTomb_Room00_Cleared    # the tomb's first room cleared: its locked shutter opens
+hold:HavePlayedEvent.RoyalFamilyTomb_00_EnemyAnnihilation_Clear Graveyard    # its clear event: held while we are in the Graveyard
+
+# ---- Lake Hylia (in Hyrule Field's scene). The water after the Water Temple is the story's (its
+# step and timeline, built-in story list); its timeline flag is held here while we are in the field,
+# so the lake never fills under a player who walks the dry bed (AGUA.md: nobody drowns from
+# another's change). Ruto's letter is in the finder's bottle (bottle contents are each player's);
+# the bottle in the lake goes for everyone
+hold:HavePlayedEvent.Dm_LakeHrl_0020 HyruleField    # the lake's water: held while we are in Hyrule Field
+once:Get_StoneOfWater_GetRutoLetter    # Ruto's letter found: its bottle is gone from the lake in every game
+
+# ---- Zora's River, Domain and Fountain. King Zora stepping aside is the story's step (one time,
+# for everyone); the frozen Domain thaws with the story's step. As adult the red ice on the King
+# melts once for the world; the river's waterfall is the song list's
+hold:SageOfWater_KingZora_RedIce_02 ZoraDomain    # the King's red ice (1 until melted): held while we are in the Domain
+hold:HavePlayedEvent.SageOfWater_KingZora_IsMelted_Ice ZoraDomain    # the melting's event: held while we are in the Domain
+once:Gimmick_MagicBeanSoil_ZoraRiver    # a magic bean planted in the river's soil: its plant grows in every game
+
+# ---- Market and Hyrule Castle. The moat crates and Talon's waking are the child list's, Zelda,
+# Impa and the lullaby the story lists'; a guard that catches a player throws out only him (oot-64
+# D-210: each game's own). Lon Lon: Malon, Talon and Epona are the talk list's and D-R19's; a cow's
+# milk goes in the player's own bottle
+once:HrlCastle_GateOpen    # the castle's gate opened: open in every game
+
+# ---- The adult towns' saved breakables (rocks, walls, grotto covers, enemy counters, the red
+# ice): one-time keys (the child towns' are shared_dungeon_child.txt's)
+key64:0x0d23bcff35eca9ea  # Graveyard_Adult_Static Obj_EnemyCounter_A_01
+key64:0x13a9f27541d398a3  # Graveyard_Adult_Static Obj_EnemyCounter_A_01
+key64:0x012c2c12f10ca88b  # HyruleField_Adult_Static Obj_InsideTheDekuTree_InteractiveSpiderWebParts_A_02
+key64:0x05a4eaf7563af857  # HyruleField_Adult_Static Obj_InsideTheDekuTree_InteractiveSpiderWebParts_A_02
+key64:0x38e243800ef76280  # HyruleField_Adult_Static Obj_InsideTheDekuTree_InteractiveSpiderWebParts_A_02
+key64:0x2016a1ad3261af2a  # HyruleField_Adult_Static Obj_InsideTheDekuTree_SpiderWeb_A_02
+key64:0x2a38563132fb5f13  # HyruleField_Adult_Static Obj_InsideTheDekuTree_SpiderWeb_A_02
+key64:0xd9f1cdc0734ed964  # HyruleField_Adult_Static Obj_InsideTheDekuTree_SpiderWeb_A_02
+key64:0x2e5e979511117605  # ZoraDomain_Adult_Alternative_Static Obj_RedIce_A_02
+key64:0x4d1752c8637f713a  # ZoraDomain_Adult_Static Obj_RedIce_A_02
+key64:0x70cccfd5c72c8b32  # ZoraFountain_Adult_Static Obj_LiftRock_B_01
+key64:0x9a9fd0a33810aa87  # ZoraFountain_Adult_Static Obj_LiftRock_B_01
+key64:0xd7bfd6493bebd938  # ZoraFountain_Adult_Static Obj_LiftRock_B_01

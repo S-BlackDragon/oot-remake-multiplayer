@@ -38,16 +38,57 @@ target_link_libraries(coop_presence PUBLIC coop_protocol PRIVATE coop_warnings)
 # Host: reads the local player from guest memory (through an interface the
 # emulator implements) and builds PLAYER_SAMPLE and PLAYER_STATUS. No sockets.
 add_library(coop_host STATIC
+  host/src/age.cpp
+  host/src/boss_rules.cpp
+  host/src/chest_open.cpp
+  host/src/continue_load.cpp
+  host/src/countdown_search.cpp
+  host/src/clock.cpp
+  host/src/doors.cpp
+  host/src/downed.cpp
+  host/src/mate_down_sound.cpp
+  host/src/dungeon_lists.cpp
+  host/src/final_rules.cpp
+  host/src/epona.cpp
   host/src/flags.cpp
   host/src/flag_watcher.cpp
   host/src/game_flags.cpp
   host/src/game_items.cpp
+  host/src/item_rules.cpp
+  host/src/gerudo.cpp
   host/src/notify.cpp
   host/src/game_memory.cpp
+  host/src/group_exit.cpp
+  host/src/hearts.cpp
+  host/src/held_switch.cpp
+  host/src/hazards.cpp
+  host/src/live_check.cpp
+  host/src/pause_detect.cpp
+  host/src/npc_talk.cpp
+  host/src/passages.cpp
+  host/src/flag_defer.cpp
+  host/src/flag_burst.cpp
+  host/src/orm_link_watch.cpp
   host/src/player_reader.cpp
   host/src/sampler.cpp
   host/src/save_transfer.cpp
   host/src/session.cpp
+  host/src/songs.cpp
+  host/src/story.cpp
+  host/src/trades.cpp
+  host/src/beans.cpp
+  host/src/prizes.cpp
+  host/src/wallets.cpp
+  host/src/water.cpp
+  host/src/time_temple.cpp
+  host/src/worn_armor.cpp
+  host/src/orm_group_settings.cpp  # ORM: the group's settings (oot-remake docs/AJUSTES_GRUPO.md)
+  host/src/host_choice.cpp  # ORM: one host for the room (oot-remake docs/PARTIDA_SALA.md)
+  host/src/orm_commands.cpp  # ORM orm/pvp: chat commands (oot-remake docs/COMANDOS.md)
+  host/src/orm_pvp.cpp
+  host/src/orm_as_slots.cpp  # ORM PvP shield: every AS slot of our Link (oot-remake docs/PVP.md)
+  host/src/orm_bodies.cpp  # ORM orm/cuerpos-continuar: out of a mate's body, move by move
+  host/src/orm_stats.cpp
 )
 target_include_directories(coop_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/host/include")
 # Session (session.hpp) ties the client, the sampler, the flag watcher and

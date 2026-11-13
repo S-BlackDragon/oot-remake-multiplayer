@@ -681,8 +681,10 @@ class Session {
   void forget_empty_dead(const std::string& scene);
   // A placed enemy listed by game `id`: true when it is dead for that game
   // (told now, or still its dying copy); false when it is alive for it.
+  // `loaded_with`: what this list has that the game's last one had not.
   bool dead_for(ConnectionId id, Connection& c, const std::string& scene,
-                const protocol::ObjectId& oid);
+                const protocol::ObjectId& oid, const std::set<protocol::ObjectId>& loaded_with,
+                std::uint64_t now_us);
   // Whether a joined player is in this scene now.
   bool scene_has_player(const std::string& scene) const;
   // The player is in `scene` now; leaving another scene lets go of its

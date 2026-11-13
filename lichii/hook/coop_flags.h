@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "common/common_types.h"
+#include "coop/host/flag_defer.hpp"
 #include "coop/host/flags.hpp"
 #include "coop/host/game_flags.hpp"
 #include "coop_every.h"
@@ -49,6 +50,14 @@ private:
 // LICHII_COOP_FLAGS (coop::host::SharedFlags format). Nothing when both are
 // off; `error` is set when the file is bad (then flags are not shared).
 std::optional<coop::host::SharedFlags> LoadShared(std::string& error);
+
+// ORM D-R12, the shared talk list (LICHII_COOP_TALK=<file>, the kit's
+// shared_talk.txt; coop::host::DeferRules format): every flag of the file is
+// shared, and a line's rule holds a value from another game while its
+// townsperson is in view here ("now": shared, never held). Nothing when the
+// variable is unset; `error` is set when the file is bad (then no talk flag
+// is shared; the rest goes on).
+std::optional<coop::host::DeferRules> LoadTalk(std::string& error);
 
 // The debug side, from environment variables (docs/lichii.md):
 // - LICHII_COOP_DEBUG_FLAGS=1: logs every change in the Bool, Int and 64-bit

@@ -773,8 +773,15 @@ bool FlagWatcher::write(FlagStore& store, const FlagEntry& entry) {
 }
 
 void FlagWatcher::note_received(const FlagKey& key, const FlagEntry& before, const FlagEntry& after) {
-  if (!recording_ || received_.size() >= kMaxReceived) return;
-  if (before.kind == after.kind && before.value == after.value) return;
+  if (!recording_) return;
+  if (before.kind == after.kind && before.value == after.value) {
+    // ORM prizes: the same value from another game (take_agreed).
+    if (record_agreed_ && received_kind_ == ReceivedKind::live && agreed_.size() < kMaxReceived) {
+      agreed_.push_back(Received{key, before, after, from_, received_kind_});
+    }
+    return;
+  }
+  if (received_.size() >= kMaxReceived) return;
   received_.push_back(Received{key, before, after, from_, received_kind_});
 }
 
@@ -836,7 +843,42 @@ void FlagWatcher::add(FlagStore& store, const FlagEntry& delta) {
   restate_.insert(key);
 }
 
+bool FlagWatcher::expect_double_find(FlagKey count, std::uint64_t frames) {
+  if (!shared_.contains(count)) return false;
+  if (const auto g = own_gains_.find(count); g != own_gains_.end() && frames_ - std::min(frames_, g->second.frame) <= frames) {
+    take_back_[count] += g->second.amount;  // already out: taken back at the next diff
+    own_gains_.erase(g);
+    return true;
+  }
+  doubles_[count] = frames_ + frames;
+  return true;
+}
+
+void FlagWatcher::undo_doubles(FlagStore& store, Table& changes) {
+  std::erase_if(doubles_, [&](const auto& d) { return d.second < frames_; });
+  for (const auto& [key, amount] : take_back_) {
+    std::optional<FlagEntry> now = store.read(key);
+    if (!now || now->kind != protocol::FlagKind::int32 || amount <= 0) continue;
+    now->key = key;
+    now->value = as_bits(std::max<std::int64_t>(as_int(now->value) - amount, 0));
+    if (!store.write(*now)) {
+      ++stats_.write_failures;
+      continue;
+    }
+    last_[key] = *now;
+    if (role_ == FlagRole::player) {
+      changes[key] = FlagEntry{key, protocol::FlagKind::count_delta, as_bits(-std::int64_t{amount})};
+      ++stats_.changes_sent;
+    } else {
+      restate_.insert(key);  // the host's total, without it
+    }
+    doubles_undone_.push_back(DoubleUndone{key, amount, true});
+  }
+  take_back_.clear();
+}
+
 void FlagWatcher::diff(FlagStore& store, Table& changes) {
+  undo_doubles(store, changes);  // ORM riesgos-visual (expect_double_find)
   for (const FlagKey key : shared_.keys()) {
     if (quiet_.contains(key)) continue;  // a fake value is never sent
     std::optional<FlagEntry> now = store.read(key);
@@ -996,6 +1038,25 @@ void FlagWatcher::diff(FlagStore& store, Table& changes) {
       }
       ++stats_.write_failures;  // sent as any gain
     }
+    if (const auto d = doubles_.find(key);
+        d != doubles_.end() && store.is_count(key) && before.kind == protocol::FlagKind::int32 &&
+        now->kind == protocol::FlagKind::int32) {
+      // ORM riesgos-visual: the find of a chest another player opened first,
+      // counted again by our game (expect_double_find): put back, not sent.
+      std::int64_t own = as_int(now->value) - as_int(before.value);
+      if (const auto a = added_.find(key); a != added_.end()) own -= as_int(a->second.value);
+      if (own > 0) {
+        FlagEntry back = *now;
+        back.value = as_bits(as_int(now->value) - own);
+        if (store.write(back)) {
+          it->second = back;
+          doubles_undone_.push_back(DoubleUndone{key, static_cast<std::int32_t>(own), false});
+          doubles_.erase(d);
+          continue;
+        }
+        ++stats_.write_failures;
+      }
+    }
     if (const auto g = guards_.find(key); g != guards_.end() &&
                                           before.kind == protocol::FlagKind::int32 &&
                                           now->kind == protocol::FlagKind::int32) {
@@ -1024,6 +1085,10 @@ void FlagWatcher::diff(FlagStore& store, Table& changes) {
       // keeps any change not sent yet (write()).
       changes[key] = FlagEntry{key, protocol::FlagKind::count_delta,
                                as_bits(as_int(now->value) - as_int(before.value))};
+      if (as_int(now->value) > as_int(before.value)) {
+        // ORM riesgos-visual: kept for expect_double_find (a CHEST_OPEN that came first, late).
+        own_gains_[key] = OwnGain{static_cast<std::int32_t>(as_int(now->value) - as_int(before.value)), frames_};
+      }
       continue;
     }
     changes[key] = *now;

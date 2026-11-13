@@ -1,0 +1,152 @@
+# ORM, the adult part of the game (oot-remake docs/CONTENIDO_ADULTO.md): what the built-in
+# dungeon list (lichii/hook/coop_dungeon.cpp) shares that it should not, and the adult
+# overworld state no list shares yet. A dungeon list file (coop/host dungeon_lists.hpp):
+# load it after the built-in list with LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,
+# shared_dungeon_adult.txt. NOT a LICHII_COOP_FLAGS file: that reader would take the
+# "unshare:" and "held:" lines for flag names.
+#
+#   SomeFlag                   shared (any line of the shared flags file syntax)
+#   once:SomeFlag              shared by the pickup rule (a 1 is never undone by a 0)
+#   unshare:SomeFlag           taken off the shared list
+#   held:SomeFlag Scene        a held switch: taken off, left to the held-switch rules
+#
+# Read from the romfs (Logic/*.ainb, AI/*.ainb, Event/EventFlow; names checked against
+# GameData/GameDataList, Bool or Int, ResetTypeValue 8). Checked in
+# tests/lichii/adult_list_test.cpp: every unshare: and held: line is in the built-in list,
+# no shared or once: line is.
+
+# ---- Taken off: where ONE player is (issue 148, oot-64's "the player of a room is the one
+# it is about, never the nearest") --------------------------------------------------------
+# Each is set by an area the player's own Link touches (SensorHitInfoMulti with
+# ContactActorLinkPtr in the room graph) or shuts a room behind the player who started a
+# fight. Shared, it moves, shuts or starts something for a player who is not there; the
+# room's result (cleared, unlocked, defeated) stays shared.
+
+# Bottom of the Well: the coffin room, the three areas of room 01, the rock of room 09.
+unshare:BottomOfTheWell_CoffinRoomCheck
+unshare:BottomOfTheWell_Level_Room_01_InTheCenterArea
+unshare:BottomOfTheWell_Level_Room_01_InTheDivingArea
+unshare:BottomOfTheWell_Level_Room_01_InTheReturnArea
+unshare:BottomOfTheWell_Level_Room_09_NearRock
+unshare:BottomOfTheWell_Level_Room_09_ArrivalTime       # an Int: when that player arrived
+# Fire Temple: arrivals, the "right place" checks of rooms 04 and 12, the upper stair.
+unshare:FireTemple_ArrivePlayer_01
+unshare:FireTemple_ArrivePlayer_02
+unshare:FireTemple_Room04_IsAtCorrectArea
+unshare:FireTemple_Room12_IsAtCorrectArea
+unshare:FireTemple_Room11_EnteredFromUpperStair
+# Forest Temple: the falling ceiling room, Meg's fight start (Link walks into room 02's
+# area; the fight shuts the room), the rooms entered (08, 09, 11, 20), the ivy, the lift.
+unshare:ForestTemple_IsInFallingCeilingRoom
+unshare:ForestTemple_MegBattleStart
+unshare:ForestTemple_Room08_Back_Enter
+unshare:ForestTemple_Room08_ClimbIvy_Near
+unshare:ForestTemple_ShortcutLift_ComeFromBelow
+unshare:ForestTemple_Room09_In
+unshare:ForestTemple_Room20_In
+unshare:ForestTemple_InRoom11_AfterGetBow
+# Gerudo Training Ground: which door a player came in by, the secret rooms, in and out.
+unshare:GerudoTrainingGround_Dungeon_Room01_EnterFromRoom00
+unshare:GerudoTrainingGround_Dungeon_Room01_EnterFromRoom02
+unshare:GerudoTrainingGround_Dungeon_Room05_EnterFromRoom04
+unshare:GerudoTrainingGround_Dungeon_Room05_EnterFromRoom06
+unshare:GerudoTrainingGround_Dungeon_Room07_EnterFromRoom00
+unshare:GerudoTrainingGround_Dungeon_Room07_EnterFromRoom06
+unshare:GerudoTrainingGround_Dungeon_Room03_InSecretRoom
+unshare:GerudoTrainingGround_Dungeon_Room08_InSecretRoom
+unshare:GerudoTrainingGround_EnterThroughEntrance
+unshare:GerudoTrainingGround_OutThroughEntrance
+# Ice Cavern: the first room's camera distance, the way in and out of room 02.
+unshare:IceCavern_Room01Demo_Far
+unshare:IceCavern_Room02_DungeonIn
+unshare:IceCavern_Room02_DungeonExit
+unshare:IceCavern_Room02_PassedThrough
+# Shadow Temple: room 13's position check.
+unshare:ShadowTemple_Level_Room_13_PlayerPosCheck
+# Spirit Temple: room 02's position changes, room 31's areas, room 16's check, and the two
+# Iron Knuckle fights that shut their rooms (12, 25; "FightBegain" is the game's spelling).
+unshare:SpiritTemple_Level_Room_02_PlayerPosChange1
+unshare:SpiritTemple_LevelRoom_02_PlayerPosChange1_2
+unshare:SpiritTemple_LevelRoom_02_PlayerPosChange2
+unshare:SpiritTemple_LevelRoom_02_PlayerPosChange2_2
+unshare:SpiritTemple_Level_Room_31_AreaCheck1
+unshare:SpiritTemple_Level_Room_31_AreaCheck2
+unshare:SpiritTemple_Room16_PlayerPosCheck
+unshare:SpiritTemple_Room12_FightBegain
+unshare:SpiritTemple_Room25_FightBegain
+# Water Temple: Dark Link's room locked behind the one who went in (his defeat stays
+# shared), room 05 entered, room 20 entered (by longshot or not).
+unshare:WaterTemple_DarkLinkRoom_Locked
+unshare:WaterTemple_Room05_InRoom
+unshare:WaterTemple_Room20_EnterByLongshot
+unshare:WaterTemple_Room20_EnterTheRoom
+
+# ---- Held switches: on only while something stands on them ------------------------------
+# Link (or an Amos statue) on a step switch. Shared as a plain flag it bounces between the
+# games: A steps off, B's switch, with B on it, goes off.
+held:FireTemple_Room10_StepSwitchOnLink FireTemple
+held:SpiritTemple_Room08_StepSwitchOnLink SpiritTemple
+held:SpiritTemple_Room23_StepSwitchOnLink SpiritTemple
+held:SpiritTemple_Room23_StepSwitchOnAmos SpiritTemple
+
+# ---- Shared: the adult overworld, one world for everyone (D-R12) -------------------------
+# Not in any list until now (the built-in list is the 13 dungeons). Each opens a way or
+# hands out a reward once, for the group, as a chest does.
+
+# Gerudo Fortress: the four carpenters (oot-64: the group frees them; the cell locks are
+# already a kept WORLD_BREAK and the small key count is the group's). The thief beaten in a
+# cell, the carpenter saved and his "after" talk; the counts are plain Ints (last write
+# wins: two rescues within the same tenth of a second could lose one, see the doc).
+# Not shared on purpose: the thief fight starting (AppearGerudoThief_*, CloseShutter_*,
+# BattleGerudoThief: the cell shut behind its player) and the jail (GoToPrison,
+# IsGoingPrison, IsInPrison, LinkIsInTheRoom, RunFromFortress: oot-64 D-171, the guard
+# takes only the one it caught).
+GerudoFortress_DestroyGerudoThief_Npc_Hylia_013_Adult
+GerudoFortress_DestroyGerudoThief_Npc_Hylia_014_Adult
+GerudoFortress_DestroyGerudoThief_Npc_Hylia_015_Adult
+GerudoFortress_DestroyGerudoThief_Npc_Hylia_016_Adult
+GerudoFortress_Saved_Npc_Hylia_013_Adult
+GerudoFortress_Saved_Npc_Hylia_014_Adult
+GerudoFortress_Saved_Npc_Hylia_015_Adult
+GerudoFortress_Saved_Npc_Hylia_016_Adult
+GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_013_Adult
+GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_014_Adult
+GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_015_Adult
+GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_016_Adult
+GerudoFortress_Meet_FourCarpenter_NumOfCarpenterFound
+GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped
+GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped_02
+GerudoFortress_IsAfterClearEvent_Npc_Hylia_012_Adult
+# The thieves beaten in the cells: the count is a plain Int as the carpenters' are (the hook
+# says in its log when it reads lower than the thieves beaten; it does not mend it).
+Enemy_MiddleBoss_GerudoThief_DefeatNum
+# The guard 001 moves to her next post after each rescue (Dm_Gerudo_0020): once for the group,
+# so a player who comes later finds her where the group left her (oot-remake docs/GERUDO_ESPIRITU.md).
+once:GerudoFortress_WarpPoint01_ClearEvent
+once:GerudoFortress_WarpPoint02_ClearEvent
+once:GerudoFortress_WarpPoint03_ClearEvent
+once:GerudoFortress_WarpPoint04_ClearEvent
+# The gate to the Haunted Wasteland.
+Gerudo_phantomdesert_gate
+# Chests that appear (the chest itself is a shared one-time key): Colossus (the hole the
+# Song of Storms opens), Haunted Wasteland, Lake Hylia.
+DesertColossus_IsStormSongPlayed_01
+DesertColossus_IsStormSongPlayed_02
+DesertColossus_IsSecretHole_TreasureBoxAppear
+DesertColossus_Tbox_On
+HountedWasteland_TreasureBoxAppear
+LakeHylia_secretHole_appearTreasureBox
+# Kakariko: the House of Skulltula rewards, each handed out once (the token count is the
+# group's already); the Shadow Temple's door in the Graveyard (Din's Fire on the torches).
+KakarikoVillage_GatheringTokenGold_GetReward10
+KakarikoVillage_GatheringTokenGold_GetReward20
+KakarikoVillage_GatheringTokenGold_GetReward30
+KakarikoVillage_GatheringTokenGold_GetReward40
+KakarikoVillage_GatheringTokenGold_GetReward50
+GraveYard_Field_ShadowTemple_ShutterOpen
+# The Door of Time open (the age itself is the room's: D-R17).
+Market_Child_TimeTempleDoor_Opened
+# The Spirit Temple: Nabooru's Iron Knuckle beaten (room 33), once for the group, so a player who
+# comes in later does not find another one; the fight's start (..._BossAppear) stays each
+# player's own (it starts the fight in the game of who walks in).
+once:Enemy_MiddleBoss_IronKnuckle_Nabooru_BossDefeat

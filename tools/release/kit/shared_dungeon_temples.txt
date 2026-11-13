@@ -1,0 +1,39 @@
+# ORM Fire, Forest and Water temples with several players (oot-remake docs/TEMPLOS.md).
+# Written by oot-remake/tools/romfs/temples_list.py from the romfs (names checked against
+# GameData/GameDataList: once: a saved Bool, plain lines a saved Bool or Int); edit the table
+# there, not this file. A dungeon list file (coop/host dungeon_lists.hpp), loaded with
+# LICHII_COOP_DUNGEON_LISTS after shared_dungeon_child.txt and shared_dungeon_adult.txt. NOT a
+# LICHII_COOP_FLAGS file (that reader takes once: for a name).
+#
+# The rule (oot-64: one world for the group, D-061): what one player does in a temple is done
+# for everyone. Already shared elsewhere: the four Poes and the Forest Temple's twisted corridor,
+# the Goron cells and the boss keys (daurosk's dungeon list), the hammer pillars (WORLD_BREAK),
+# Dark Link (a miniboss with an owner) and the water levels (docs/AGUA.md). Not here on purpose:
+# the lift after the Poes and the Shadow Temple's boat (each game runs its own; a partner on one
+# is drawn on ours: coop_ride.h, LICHII_ORM_RIDE), the rolling boulders (each player's danger).
+
+# ---- Fire Temple: the caught Gorons. A Goron freed by one player leaves his cell for everyone (his
+# cell door is daurosk's list); 006 is Link the Goron, no cell
+once:Npc_Goron_001_Delete    # Goron 001 has been talked to after his rescue: he goes
+once:Npc_Goron_001_Adult_FireTemple_Delete    # Goron 001's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_002_Delete    # Goron 002 has been talked to after his rescue: he goes
+once:Npc_Goron_002_Adult_FireTemple_Delete    # Goron 002's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_003_Delete    # Goron 003 has been talked to after his rescue: he goes
+once:Npc_Goron_003_Adult_FireTemple_Delete    # Goron 003's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_004_Delete    # Goron 004 has been talked to after his rescue: he goes
+once:Npc_Goron_004_Adult_FireTemple_Delete    # Goron 004's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_005_Delete    # Goron 005 has been talked to after his rescue: he goes
+once:Npc_Goron_005_Adult_FireTemple_Delete    # Goron 005's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_007_Delete    # Goron 007 has been talked to after his rescue: he goes
+once:Npc_Goron_007_Adult_FireTemple_Delete    # Goron 007's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_008_Delete    # Goron 008 has been talked to after his rescue: he goes
+once:Npc_Goron_008_Adult_FireTemple_Delete    # Goron 008's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_009_Delete    # Goron 009 has been talked to after his rescue: he goes
+once:Npc_Goron_009_Adult_FireTemple_Delete    # Goron 009's rescue played (Dm_FireTemple_0020): he goes
+once:Npc_Goron_010_Delete    # Goron 010 has been talked to after his rescue: he goes
+once:Npc_Goron_010_Adult_FireTemple_Delete    # Goron 010's rescue played (Dm_FireTemple_0020): he goes
+
+# ---- The count of Gorons still caught (an Int, 9 at the start; only the rescue timeline reads it).
+# The last write wins: two rescues in the same moment in two games count one; it only changes a line
+# of talk
+NumberOfCoughtGoron    # an Int: Gorons still in their cells

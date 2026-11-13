@@ -756,6 +756,18 @@ std::optional<CoopPuppet::Call> Director::NextDoomed(CoopPuppet::Guest& guest, s
     return std::nullopt;
 }
 
+void Director::SetFinds(std::uint64_t main_base, std::vector<Copy> copies) {
+    std::lock_guard lock(mutex_);
+    next_find_base_ = main_base;
+    next_finds_ = std::move(copies);
+}
+
+void Director::SetEffects(std::uint64_t main_base, std::vector<Copy> copies) {
+    std::lock_guard lock(mutex_);
+    next_fx_base_ = main_base;
+    next_fx_ = std::move(copies);
+}
+
 std::map<std::uint64_t, std::uint64_t> Director::Live() const {
     std::lock_guard lock(mutex_);
     return live_;
@@ -1034,8 +1046,12 @@ void Director::NewFrame(CoopPuppet::Guest& guest, std::uint64_t now_ms) {
     std::uint64_t base = 0;
     {
         std::lock_guard lock(mutex_);
-        base = next_base_ != 0 ? next_base_ : next_enemy_base_ != 0 ? next_enemy_base_ : next_drop_base_ != 0 ? next_drop_base_
-                                                                        : next_ride_base_;
+        base = next_base_ != 0         ? next_base_
+               : next_enemy_base_ != 0 ? next_enemy_base_
+               : next_drop_base_ != 0  ? next_drop_base_
+               : next_ride_base_ != 0  ? next_ride_base_
+               : next_find_base_ != 0  ? next_find_base_
+                                       : next_fx_base_;
         copies_ = next_;
         copies_.insert(copies_.end(), next_enemies_.begin(), next_enemies_.end());
         copies_.insert(copies_.end(), next_drops_.begin(), next_drops_.end());

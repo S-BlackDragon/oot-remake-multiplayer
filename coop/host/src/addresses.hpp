@@ -72,6 +72,14 @@ inline constexpr std::uint64_t kActorComponents = 0x270;
 inline constexpr std::uint64_t kComponentsAs = 0x40;
 inline constexpr std::uint64_t kAsComponentInner = 0x18;
 inline constexpr std::uint64_t kAsInnerController = 0x18;
+// [ORM charla-radio] An actor's event component: [[actor + 0x270] + 0x90],
+// what main+0x4aa890 asks an event with (the game over passes Link's,
+// main+0x4ae6bc). main+0xf61460 sets u32 [component + 0x28] to 1 when the
+// manager takes the request, and returns at once when it is 3 (code_011.c
+// f_80f81460). Checked for Link; that a townsperson's talk goes through its
+// own component (so its phase leaves its rest value) is likely, not seen.
+inline constexpr std::uint64_t kComponentsEvent = 0x90;
+inline constexpr std::uint64_t kEventComponentPhase = 0x28;
 // [dump] Controller: s32 slot count at +0x18, slot array at +0x20, 0x48 bytes
 // an entry, whose first 8 bytes point to the slot. Every reader bounds the
 // index by the count (0x3abebc0, 0x37b5d70, 0x2022a0). Checked.

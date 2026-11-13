@@ -1,0 +1,63 @@
+# ORM collectibles with several players (oot-remake docs/COLECCIONABLES.md). Written by
+# oot-remake/tools/romfs/collectible_list.py from the romfs (key64: a saved one-time key,
+# ResetTypeValue 24, whose Banc placement is a heart piece; once: a saved Bool; a soil's once:0x
+# line the saved Bool of GameData struct 0x820c6b5e for that soil); edit the table there, not
+# this file. A dungeon list file (coop/host dungeon_lists.hpp), loaded with
+# LICHII_COOP_DUNGEON_LISTS. NOT a LICHII_COOP_FLAGS file (that reader takes once: for a name).
+#
+# The rule (oot-64: one save for the group, D-061): what is taken once is taken once for
+# everyone and is gone in every game; what repeats (ammunition, the beans and their price) is
+# each player's. The generator checks the coverage: the game's 36 heart pieces (its map icons,
+# HeartPieceAnchor) are all shared by some list, and the 100 gold Skulltulas all are by the
+# built-in token list. Already shared elsewhere: the chests (also the six with a heart piece),
+# the heart containers, the gold Skulltulas, the Great Fairies' gifts.
+
+# ---- Loose heart pieces: one-time keys from the start (until now each was learnt only when a game loaded
+# it, so a piece taken before the session stayed in the others' games). Taken by one player, it is gone for
+# all; the piece count is the items list's (PouchData.Obj_Heart_Piece.StockNum, a count: four pieces, a
+# heart for everyone)
+key64:0x8f5f3d3321aeb7cd    # Death Mountain Crater (child and adult)
+key64:0x0a564328faf93c71    # Death Mountain Crater (child and adult)
+key64:0x09ecb6a0150fee97    # Death Mountain Trail (child and adult)
+key64:0x92feab9a9810c619    # Desert Colossus (child and adult)
+key64:0xdfd66c63357cdea7    # Gerudo Valley (child and adult)
+key64:0x1df0dbf50c1732b7    # the Graveyard (child and adult)
+key64:0xbaec91d6ed8dd96b    # Hyrule Field (adult)
+key64:0x88358af5b5300aa9    # Hyrule Field (child)
+key64:0xb9d0070b468f26d2    # Kakariko (child and adult)
+key64:0xf8c7601da7dd887e    # Kakariko (child and adult)
+key64:0xac2e26b5ec7da3a2    # Zora's Fountain (adult)
+key64:0x6f736fc80f7b0aca    # Zora's Fountain (adult)
+key64:0x3a23b59eaedc0510    # Zora's River (child and adult)
+key64:0x9efabd5b0516c341    # Zora's River (child and adult)
+
+# ---- Heart pieces a person or a game hands out (the anchor's HeartPieceAnchor_GameDataPath) that no list
+# had: given once for the group. The other thirteen are the minigame list's, the child list's (the Goron
+# pot) and the items list's (the fishing pond)
+once:Npc_Hylia_045_HasDived    # the Lake Hylia laboratory's dive: its heart piece was given
+once:KakarikoVillage_IsAfterSave_Npc_Hylia_025    # the House of Skulltula's man was saved: its heart piece was given
+once:MiniGame_FrogTenors_InsectRepellent    # the frogs' bug game: its heart piece was given
+
+# ---- Magic bean soils: a bean planted by one child is planted for the group, so the adult's platform
+# (Obj_SmallFarm_A_03, its Plant link) is there in every game. The Bool is the one GameData struct
+# 0x820c6b5e gives the soil (no name in the romfs: a hash line). The beans and their price stay each
+# player's (PouchData.Item_MagicBean.StockNum, the items list), as ammunition; the soil's bugs
+# (Gimmick_MagicBeanSoil_<area>, reset type 9) are each game's
+once:0x562fab76    # Death Mountain Crater's soil: a bean planted
+once:0xf2ceba92    # Death Mountain Trail's soil: a bean planted
+once:0x2a1c58ce    # Desert Colossus's soil: a bean planted
+once:0x50a1775e    # Gerudo Valley's soil: a bean planted
+once:0x274b7e3d    # the Graveyard's soil: a bean planted
+once:0xb0377637    # Lake Hylia's soil (Hyrule Field's scene): a bean planted
+once:0xe7bb7f2f    # Kokiri Forest's soil without bugs: a bean planted
+once:0xb55acadd    # Kokiri Forest's soil with bugs: a bean planted
+once:0x610eb13c    # the Lost Woods' first soil: a bean planted
+once:0x5ebf7c8b    # the Lost Woods' second soil: a bean planted
+once:0x5eea40a6    # Zora's River's soil: a bean planted
+
+# ---- Deku scrub sales sold once (the Lost Woods' stick and nut upgrades: the bags are the items list's,
+# one for the group). The other sales repeat and are each player's; the heart piece sales are the minigame
+# list's. Not here: the scrubs' per-scrub structs and the sale in progress (Enemy_Scrub_Business_Unopened*,
+# ScrubBusiness_*)
+once:LostWood_Enemy_Scrub_Business_DekuStickPouch_01    # the stick upgrade was sold
+once:Lostwood_Enemy_Scrub_Business_DekuNutsPouch_01    # the nut upgrade was sold (the game's own spelling, lower-case w)

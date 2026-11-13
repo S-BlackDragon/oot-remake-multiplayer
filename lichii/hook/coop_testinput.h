@@ -24,6 +24,10 @@
 //   toward -7.5 71.1 8     push the stick toward that point for 8 ticks
 //                          (Link turns to face it)
 //   warp KakarikoVillage_Child Kakariko_WellSide
+//   warp WaterTemple WaterTemple_FromLakeHylia adult
+//                          (ORM) a last word adult or child asks that age for a
+//                          scene whose name has no era (a dungeon), as X_Adult
+//                          and X_Child do
 //   chat /teleport Saria   (the rest of the line, sent as the chat box sends it)
 //                          test only: changes scene the way the game's own
 //                          sequence does (Sequence_ReservedNextBanc), to the
@@ -32,7 +36,11 @@
 //                          it only during an event, such as the one after a
 //                          save loads: put the warp before the presses that
 //                          load the save (the hook asks again every 0.5 s
-//                          for up to 90 s, until Link is in that scene)
+//                          for up to 90 s, until Link is in that scene).
+//                          ORM: asked in the world with no event, it starts
+//                          the /teleport scene event after 2 s
+//                          (WarpStartsEvent); "warp done ... (taken after
+//                          our scene event, in free play)" says so
 //   place -37.2 109.8 13.5 test only: puts Link at world x, y (height), z
 //                          in this scene (the boss pull's free-play move,
 //                          CoopBoss::MoveLink; needs LICHII_COOP_BOSS on, the
@@ -133,6 +141,7 @@ struct Step {
     float y = 0.0f;
     float z = 0.0f;
     float radius = 1.0f;
+    std::optional<bool> child;  // ORM, warp: the age asked by a last word adult|child
     int line = 0;  // the script line it came from
 };
 
@@ -153,6 +162,23 @@ std::optional<std::string> WearFlag(std::string_view slot);
 // DekuStick, Bomb, SlingShot, Hookshot, Longshot, Hammer, Bow, ...), as the
 // game spells it.
 bool AssignableItem(std::string_view name);
+
+// bottle SLOT VALUE: the BottleItem value as the game spells it ("Fairy" for
+// "fairy"), "restore" for restore (any case), nothing for another word.
+std::optional<std::string> BottleValue(std::string_view word);
+
+// ORM (oot-remake docs/PUEBLOS.md "pueblo-lago", docs/RIESGOS_RESUELTOS.md "Mundo e historia"): a
+// warp asked in the middle of the world. The game takes the reserved scene change when an event
+// ends (the one after a save loads, a talk); in free play none comes. So a warp not taken
+// kWarpEventAfterS after it was asked, with our Link read (not loading) and no event running,
+// starts the /teleport trip's short scene event (CoopTeleport::StartSceneEvent), again every
+// kWarpEventEveryS, at most kWarpEvents times. While an event runs it waits: its end takes it.
+// `last_event_s` below 0: none started yet.
+inline constexpr double kWarpEventAfterS = 2.0;
+inline constexpr double kWarpEventEveryS = 6.0;
+inline constexpr int kWarpEvents = 3;
+bool WarpStartsEvent(double now_s, double asked_s, double last_event_s, int events, bool link_read,
+                     bool event_running);
 
 // What the pad gets now.
 struct Output {
@@ -190,6 +216,7 @@ public:
         std::string name;
         std::string start;
         std::array<float, 3> at{};  // place
+        std::optional<bool> child;  // ORM, warp: adult (false) or child (true) asked
     };
     std::vector<Request> TakeRequests() { return std::exchange(requests_, {}); }
     bool Done() const { return index_ >= script_.steps.size(); }

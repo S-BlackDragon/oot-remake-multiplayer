@@ -1,0 +1,35 @@
+# ORM item rules (LICHII_ORM_ITEM_RULES=shared_items.txt; oot-remake docs/INVENTARIO.md).
+# ZMP's inventory rules (oot-64 D-035, D-061) where they differ from the built-in ones
+# (docs/items.md, Caleb's rule). Everything not listed keeps its built-in rule:
+#   shared: items, equipment owned (swords, shields, tunics, boots), upgrades, bags,
+#           quivers and wallets, bottles (the bottle itself), songs, quest items,
+#           heart containers and pieces, small keys, map, compass, boss key, tokens;
+#   each player's own: rupees (the wallet; 2026-11-11), ammo (sticks, nuts,
+#           seeds, arrows, bombs, bombchus, beans), what is in each bottle, worn
+#           gear, item buttons, life, magic now. The Deku Shield is shared again
+#           since test10 (issue 130, upstream e2132ffc: one purchase reaches everyone).
+#
+# One line per flag (coop/host/item_rules.hpp):
+#   RULE FLAG        RULE is max, any, mirror, count or player
+#   cap COUNT FLAG   a gain on COUNT stops at FLAG's value
+#   fill FROM TO     FROM raised by another player fills TO to it
+
+# Rupees: each player's own wallet (2026-11-11, over ZMP's common wallet: "La cartera
+# debe ser diferente para todos"; oot-remake docs/INVENTARIO.md, "Cartera de cada uno").
+# PlayerStatus.CurrentRupee keeps its built-in rule (per player, never sent as a flag); every
+# game shows everyone's count in its HUD (PLAYER_EQUIP's rupees component). The wallet's
+# size is still the group's: the wallet upgrades are shared items (max) and bring their
+# capacity (0xf80f8077.Rupee) with them. ZMP's common wallet, for whoever wants it back:
+# count PlayerStatus.CurrentRupee
+# cap PlayerStatus.CurrentRupee 0xe0010a50
+
+# The magic meter: its size is shared (built in); when it grows from another player's
+# Great Fairy, everyone's meter is filled (ZMP D-035).
+fill PlayerStatus.MPMax PlayerStatus.MP
+
+# Not on yet: the Great Fairy's gifts as pouch items. Their effect is shared already
+# (PlayerStatus.MPMax max, PlayerStatus.IsDefenseUP any); whether these three ever go
+# down again is not known (docs/items.md calls them temporary). Check in a game first.
+# max PouchData.Item_FairyBless_MP.StockNum
+# max PouchData.Item_FairyBless_MPDouble.StockNum
+# max PouchData.Item_FairyBless_DefenseDouble.StockNum

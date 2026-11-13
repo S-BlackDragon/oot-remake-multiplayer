@@ -91,6 +91,9 @@ struct FrameReport {
   // Values other players' changes wrote into our game this frame (the chat
   // notices, coop/host/notify.hpp).
   std::vector<FlagWatcher::Received> received;
+  // ORM prizes (coop/host/prizes.hpp): another game's value our game held already
+  // (FlagWatcher::take_agreed); empty unless Session::record_agreed(true).
+  std::vector<FlagWatcher::Received> agreed;
   // A save load was seen this frame (FlagWatcher::take_save_load): distinct
   // flags gone back, frames with no scene. 0 when not.
   int save_load_flags = 0;
@@ -170,6 +173,10 @@ class Session {
   std::vector<FlagKey> take_written_for_others() {
     return watcher_ ? watcher_->take_written_for_others() : std::vector<FlagKey>{};
   }
+  // Emulator thread only: FlagWatcher::record_agreed (ORM prizes, FrameReport::agreed).
+  void record_agreed(bool on) {
+    if (watcher_) watcher_->record_agreed(on);
+  }
   // Emulator thread only: FlagWatcher::take_own_count_drops.
   std::vector<FlagKey> take_own_count_drops() {
     return watcher_ ? watcher_->take_own_count_drops() : std::vector<FlagKey>{};
@@ -191,6 +198,12 @@ class Session {
   // Emulator thread only: FlagWatcher::end_doubled_gain.
   void end_doubled_gain() {
     if (watcher_) watcher_->end_doubled_gain();
+  }
+  // Emulator thread only: FlagWatcher::expect_double_find and its log
+  // (ORM riesgos-visual). False when flags are not shared or `count` is not.
+  bool expect_double_find(FlagKey count) { return watcher_ && watcher_->expect_double_find(count); }
+  std::vector<FlagWatcher::DoubleUndone> take_doubles_undone() {
+    return watcher_ ? watcher_->take_doubles_undone() : std::vector<FlagWatcher::DoubleUndone>{};
   }
   // Emulator thread only: FlagWatcher::take_counts_guarded.
   std::vector<FlagWatcher::CountGuarded> take_counts_guarded() {

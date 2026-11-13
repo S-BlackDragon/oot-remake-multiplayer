@@ -1,0 +1,73 @@
+# ORM bottles and trade chains with several players (oot-remake docs/BOTELLAS_TRUEQUES.md).
+# Written by oot-remake/tools/romfs/trade_list.py from the romfs (names checked against
+# GameData/GameDataList: once: a saved Bool, plain lines a saved Bool or Int, enum: values in
+# the game's order, unshare: a trade item's StockNum); edit the table there, not this file.
+# A dungeon list file (coop/host dungeon_lists.hpp), loaded with LICHII_COOP_DUNGEON_LISTS
+# after the child, adult and minigame lists. NOT a LICHII_COOP_FLAGS file.
+#
+# The rule (oot-64: one save for the group, D-035, D-061, D-072.12): a bottle is the group's,
+# what is in it is each player's (a new bottle reaches the others empty); what is handed out
+# once is handed out once for the group; a trade chain is one chain for the group; the timers
+# are each player's. Not here on purpose: GetSwordBigGoron_ElapsedTime and
+# HyruleCastle_StopWeirdEggHatchTimer (each game's clock), the Zora shop's fish and the cows'
+# milk (they can be had again), GhostShop_CouponNum_ForMessage (not saved), the bottle
+# tutorial's run, IsGet.Item_Bottle_BigPoe (the Poe talk's first time), the handovers' talks
+# (CancelHandover*, IsAfterShow*, TalkedAfter_EggHatched: the talk list's), Cojiro and the Odd
+# Powder (no timer: they stay mirror), the red ice (shared_dungeon_towns.txt).
+
+# ---- Bottles handed out once for the group. Owning a bottle is shared (items list:
+# PouchData.Bottle<X>.StockNum, BottleInfo.Bottle<X>.IsValid); what is in it never is (BottleItem,
+# each player's). The Market potion shop's bottle (the insect tutorial of Npc_Hylia_020): its run
+# (Step_Market_Item_Bottle_TutorialEvent, _Started, the insects) stays the player's
+once:Npc_Hylia_020_Shop_Item_Bottle_Present    # the shop's bottle was given: no second one
+once:Market_Item_Bottle_TutorialEvent_Cleared    # the tutorial was cleared: it is not offered again
+
+# ---- Ruto's letter: one letter for the group. It goes into the finder's bottle (its content is
+# his); the other games get the new bottle empty and no second letter in the lake (the same line as
+# shared_dungeon_towns.txt). King Zora moving is the story's (Step_Get_StoneOfWater, ShowLetter)
+once:IsGet.Item_Bottle_Letter    # the letter was taken: gone from every lake
+once:Get_StoneOfWater_GetRutoLetter    # Ruto's letter found: its bottle is gone from the lake
+
+# ---- The Poe collector (Market, adult): the points are the group's (an Int, the last write wins:
+# two sales in the same round trip keep one); his step goes both ways and the bottle comes once, at
+# Complete. The souls are in each seller's bottle (BottleItem). The ten Big Poes of Hyrule Field are
+# one world: beaten in one game, gone in all (and back in all if the game puts one back)
+GhostShop_CouponNum    # an Int: the points sold so far
+enum:Step_SubEvent_GhostShop NotReady Ready Playing Complete    # the collector's step (Complete: the bottle was given)
+HyruleField_Defeat_BigPoe_01    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_02    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_03    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_04    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_05    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_06    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_07    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_08    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_09    # a Big Poe of the field beaten
+HyruleField_Defeat_BigPoe_10    # a Big Poe of the field beaten
+
+# ---- Happy Mask Shop (child): one chain for the group, both ways, as Biggoron's. The masks are the
+# group's (items list, max) and selling one takes none away (the sale only adds rupees, to the
+# shared wallet). Wearing one is each player's. The shop's greetings are the talk list's
+enum:Step_SubEvent_MaskSalesman NotReady Ready UntilRentMaskOfKeaton Step01_Hint Step01 Step02 UntilRentMaskOfSkull Step03_Hint Step03 Step04 UntilRentMaskOfSpooky Step05_Hint Step05 Step06 UntilRentMaskOfBunny Step07_Hint Step07 Step08 Complete    # the shop's step (rent Keaton ... Complete)
+once:IsAfterSell_Mask_Bunny    # the Running Man bought the Bunny Hood
+
+# ---- Biggoron's sword (adult): the step is the minigame list's line, both ways (the same line: two
+# lists with it merge). Where the chain's people stand and their refusals go with it
+enum:Step_SubEvent_GetSwordBigGoron NotReady Ready StartSubEvent WaitEggHatch EggHatched Step01 Step01_01 Step02 Step03 Step03_01 Step03_02 Step03_03 Step04 Step05 Step05_01 Step06 Step06_01 Step06_02 Step06_03 Step07 Step08 Step08_01 Step09 Step09_01 Step10 Step11 Complete    # the trade chain's step
+GetSwordBigGoron_Fado_ChangeScheduleArea    # Fado moved for the chain
+GetSwordBigGoron_Hylia_012_ChangeScheduleArea    # Npc_Hylia_012 moved for the chain
+GetSwordBigGoron_Hylia_017_ChangeScheduleArea    # the old woman (Npc_Hylia_017) moved
+GetSwordBigGoron_Hylia_049_ChangeScheduleArea    # Npc_Hylia_049 moved for the chain
+GetSwordBigGoron_RejectDeliveryAfterSpoiled_KingZora    # King Zora refuses a spoiled frog
+GetSwordBigGoron_RejectDeliveryAfterSpoiled_Npc_Hylia_017_Adult    # the old woman refuses a spoiled mushroom
+GetSwordBigGoron_Step04_GiveUp    # the mushroom step given up
+GetSwordBigGoron_Step09_GiveUp    # the frog step given up
+GetSwordBigGoron_Step10_GiveUp    # the eye drops step given up
+
+# ---- The three trade items with a timer are the receiver's only (BOTELLAS_TRUEQUES.md, 3): the
+# game counts while the step is Step04, Step09 or Step10 AND the item is held, so a partner who has
+# the step but not the item counts nothing and spoils nothing. The item handed over gives the next
+# one to the receiver, and that one is shared again (mirror, items list)
+unshare:PouchData.Item_OddMushroom.StockNum    # the Odd Mushroom (Step04): only in the game that got it
+unshare:PouchData.Item_EyeballFrog.StockNum    # the Eyeball Frog (Step09): only in the game that got it
+unshare:PouchData.Item_EyeDrop.StockNum    # the Eye Drops (Step10): only in the game that got them

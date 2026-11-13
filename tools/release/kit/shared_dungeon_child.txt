@@ -1,0 +1,173 @@
+# ORM: the child blocks' flags (oot-remake docs/CONTENIDO_NINO.md), on top of the built-in lists
+# (coop_dungeon.cpp, coop_chests.cpp, the story list). Loaded with LICHII_COOP_DUNGEON_LISTS
+# (coop/host/dungeon_lists.hpp: share, once:, hold:, unshare:, key64: one-time keys).
+# Written by oot-remake/tools/romfs/child_list.py from the romfs; every name is a saved Bool.
+
+# --- 1. Kokiri Forest, Lost Woods, Sacred Forest Meadow ---
+KokiriForest_Npc_Kokiri_Mido_Child_Blocker                               # Mido steps aside (sword and shield shown): aside in every game (ZMP K1)
+KokiriForest_Npc_Kokiri_Blocker                                          # the Kokiri path blocker of the Deku Tree step
+KokiriForest_Npc_Kokiri_007_Child_Blocker                                # Kokiri 007 stops blocking
+KokiriForest_Npc_Kokiri_007_Child_Blocker_00                             # Kokiri 007 stops blocking (talk 112)
+once:SacredForestMeadow_Field_WolfosDefeat_01                            # the Meadow's Wolfos beaten (gate graph)
+once:SacredForestMeadow_Field_WolfosDefeat_02                            # the Meadow's second Wolfos beaten
+hold:HavePlayedEvent.SacredForestMeadow_Gimmick_OpenShutter SacredForestMeadow # the gate's event: held while we are in the Meadow (issue 129)
+hold:HavePlayedEvent.SacredForestMeadow_Gimmick_TreasureChestAppears SacredForestMeadow # the chest's event: held while we are in the Meadow
+once:GoronCity_LostWood_WallCrack_Broke                                  # the Goron City - Lost Woods wall blown (both ends read it)
+# saved breakables (rocks, walls, grotto covers, webs, enemy counters): one-time keys
+key64:0x05687269aff9adfa  # KokiriForest_Child_Static Land_Kokiri_HidingHoleCover_A_01
+key64:0x8754a9391cc3e0e7  # LostWood_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x484575d41e9d6ffd  # LostWood_Child_Static Obj_BrokenRock_A_01
+key64:0xb3de5fdd79d40d6e  # LostWood_Child_Static Obj_BrokenRock_A_01
+key64:0x755d1ab3b56fae71  # SacredForestMeadow_Child_Static Land_Kokiri_HidingHoleCover_A_01
+key64:0xd080b6047e79c369  # SacredForestMeadow_Child_Static Land_SacredForest_HidingHoleCover_A_02
+key64:0x387acb0477ac9bfc  # SacredForestMeadow_Child_Static Obj_EnemyCounter_A_08
+
+# --- 2. Deku Tree ---
+unshare:InsideTheDekuTree_RoomA_NearScaffold                             # a sensor of where one Link stands
+
+# --- 3. Hyrule Field, Lon Lon Ranch ---
+once:LonLonRanch_ClearBlockPuzzle                                        # the ranch's crate puzzle solved
+# saved breakables (rocks, walls, grotto covers, webs, enemy counters): one-time keys
+key64:0x01bdf91cfeaac117  # HyruleField_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x4728449edbf063c6  # HyruleField_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x2031e5ac12ff9ab4  # HyruleField_Child_Static Land_HrlField_HidingHoleCover_A_01
+key64:0x26ab0c5fdb6fa972  # HyruleField_Child_Static Land_HrlField_HidingHoleCover_A_01
+key64:0x38fa1b94d2fa144b  # HyruleField_Child_Static Land_HrlField_HidingHoleCover_A_01
+key64:0x4b62cc6b0208590a  # HyruleField_Child_Static Land_HrlField_HidingHoleCover_A_01
+key64:0x58abbf67f2c19021  # HyruleField_Child_Static Land_HrlField_HidingHoleCover_A_01
+key64:0x2c02e3c611573e3e  # HyruleField_Child_Static Land_HrlField_HidingHoleCover_A_02
+key64:0xcb662047de39b748  # HyruleField_Child_Static Land_Kokiri_HidingHoleCover_A_01
+key64:0xfeca60ce030fb4d8  # HyruleField_Child_Static Land_Kokiri_HidingHoleCover_A_01
+key64:0xd892fd591bd53c0b  # HyruleField_Child_Static Obj_BrokenRock_A_01
+key64:0x230027f6739022bc  # HyruleField_Child_Static Obj_InsideTheDekuTree_InteractiveSpiderWebParts_A_02
+key64:0x60daddd9532a28ee  # HyruleField_Child_Static Obj_InsideTheDekuTree_InteractiveSpiderWebParts_A_02
+key64:0x7b3e36fbea7a7bc4  # HyruleField_Child_Static Obj_InsideTheDekuTree_InteractiveSpiderWebParts_A_02
+key64:0x4436641fbd8c15fd  # HyruleField_Child_Static Obj_InsideTheDekuTree_SpiderWeb_A_02
+key64:0x83f13df6743e6b2f  # HyruleField_Child_Static Obj_InsideTheDekuTree_SpiderWeb_A_02
+key64:0x8f57c893be6e5553  # HyruleField_Child_Static Obj_InsideTheDekuTree_SpiderWeb_A_02
+
+# --- 5. Hyrule Castle ---
+once:HyruleCastle_IsBoxMoveCorrectPos                                    # the moat crates in place
+once:Talon_AfterWakeUp                                                   # Talon woken (he goes home in every game)
+# saved breakables (rocks, walls, grotto covers, webs, enemy counters): one-time keys
+key64:0xb56e92d79d1a3d33  # HyruleCastle_Static Land_Kokiri_HidingHoleCover_A_01
+key64:0x5952919c0ffe7385  # HyruleCastle_Static WallCrack
+key64:0x7b7f3eb6adcd3e11  # HyruleCastle_Static WallCrack
+key64:0x94b9ef860b70c8dd  # HyruleCastle_Static WallCrack
+key64:0x9d755247d4b22b04  # HyruleCastle_Static WallCrack
+
+# --- 6. Kakariko, Graveyard ---
+once:KakarikoVillage_Windmill_DoorOpened                                 # the windmill door open
+once:KakarikoVillage_Npc_Hylia_009_Child_DeleteWaterPlane                # the well drained (Song of Storms)
+once:KakarikoVillage_DeleteDummyLadder                                   # the well's ladder after the drain
+hold:HavePlayedEvent.KakarikoVillage_ClosedGateOpen KakarikoVillage      # the Death Mountain gate's event (Zelda's letter): held while we are in Kakariko
+hold:HavePlayedEvent.KakarikoVillage_TreasureBoxAppear KakarikoVillage   # a chest's appear event: held while we are in Kakariko
+# saved breakables (rocks, walls, grotto covers, webs, enemy counters): one-time keys
+key64:0x4586d3a35851f848  # Graveyard_Child_Static Obj_EnemyCounter_A_01
+key64:0xbed783bdd371c953  # Graveyard_Child_Static Obj_EnemyCounter_A_01
+key64:0x81fda69c6b788b5b  # Graveyard_Child_Static WallCrack
+key64:0xaf05db5628ab40eb  # KakarikoVillage_Child_Static Land_Kakariko_HidingHoleCover_A_01
+
+# --- 7. Death Mountain, Goron City ---
+once:GoronCity_Candle01_ON                                               # Goron City torch lit
+once:GoronCity_Candle02_ON                                               # Goron City torch lit
+once:GoronCity_secretHole_AppearTreasureBox_clear                        # the grotto torch puzzle solved
+once:GoronCity_Shop_WallCrack_Broke_Left                                 # the shop wall blown
+once:GoronLargePot_IsGetHeartPiece                                       # the big pot's heart piece taken (once for the group)
+once:IsZeldaLullabyPlayed_DaruniaEntrance                                # Darunia's door opened with Zelda's Lullaby
+# saved breakables (rocks, walls, grotto covers, webs, enemy counters): one-time keys
+key64:0x1d47aa1f7c19c1af  # DeathMountainCrater_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x8ed1ec3d9e85ff3a  # DeathMountainCrater_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x4b2c5cae1d92c756  # DeathMountainCrater_Child_Dynamic Obj_BrokenRock_A_02
+key64:0x7875888c9e2007d5  # DeathMountainCrater_Child_Dynamic Obj_BrokenRock_A_02
+key64:0xc22be353cfe596c1  # DeathMountainCrater_Child_Dynamic Obj_BrokenRock_A_02
+key64:0xd0c887c2f6964c47  # DeathMountainCrater_Child_Dynamic Obj_BrokenRock_A_02
+key64:0xf218f5640ec84a20  # DeathMountainCrater_Child_Dynamic Obj_BrokenRock_A_02
+key64:0x4cac80397bbecca9  # DeathMountainCrater_Child_Static Obj_BrokenRock_A_01
+key64:0x9f46d72f3c85f5fb  # DeathMountainCrater_Child_Static Obj_BrokenRock_A_02
+key64:0xae841f1c13a0d4aa  # DeathMountainCrater_Child_Static Obj_BrokenRock_A_02
+key64:0xfa39cd01a16ce7d4  # DeathMountainCrater_Child_Static WallCrack
+key64:0x058bdaa37f36ff70  # DeathMountainTrail_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x2f420d0c53e13b3e  # DeathMountainTrail_Child_Dynamic Obj_BrokenRock_A_01
+key64:0xcff217d47a196d84  # DeathMountainTrail_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x8d015cb6de42a46f  # DeathMountainTrail_Child_Static Land_Kokiri_HidingHoleCover_A_01
+key64:0x77137969dab0a80b  # DeathMountainTrail_Child_Static Obj_BrokenRock_A_01
+key64:0x8a4e791b05223269  # DeathMountainTrail_Child_Static Obj_DeathMtTrail_BrokenRock_A_01
+key64:0x1635ef3b4ff75552  # DeathMountainTrail_Child_Static WallCrack
+key64:0x8aae39d8b9c2b898  # DeathMountainTrail_Child_Static WallCrack
+key64:0xb2997cb052e47e38  # DeathMountainTrail_Child_Static WallCrack
+key64:0x04dc3a02afbf63da  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x07e40dfca5c236d7  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x0fe350e4e5c3dae7  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x126895c8f0d5508b  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x14ba469c5f22e17e  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x29c50a0ffec0bf79  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x33a46e5a087522d5  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x56606bc38a814cd5  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0xba064fce3e905a68  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0xbeda16fd2f762bc9  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0xd99260a93a08944b  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0xe5d4a5f3b73cb4c8  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0xeaf25258caabb3b4  # GoronCity_Child_Dynamic Obj_BrokenRock_A_01
+key64:0x1ebae2b45a56e408  # GoronCity_Child_Dynamic Obj_BrokenRock_A_02
+key64:0x2623441fab194c5a  # GoronCity_Child_Dynamic Obj_BrokenRock_A_02
+key64:0x3164b8d55b7e27f4  # GoronCity_Child_Dynamic Obj_BrokenRock_A_02
+key64:0x609289a0de3d337b  # GoronCity_Child_Dynamic Obj_BrokenRock_A_02
+key64:0xab64a08d7481387f  # GoronCity_Child_Dynamic Obj_BrokenRock_A_02
+key64:0xc8c10ddba8523234  # GoronCity_Child_Dynamic Obj_BrokenRock_A_02
+key64:0x0089627b3bafb8fc  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x07907fe8a7a18654  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x1a98fc998225555b  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x219ddf9904841c81  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x5a2f59ad62347360  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x5e2aeb769eda5e2a  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x68dd81558336472b  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x962ccc0ba7ec5366  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x9ce5fc914f0d6314  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x9f62144642b8acb4  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x9f7d0ebfa5357dbb  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0xa17f86ea54707cc3  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0xad5aea39afb819b3  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0xb3e5f086be10ff32  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0xca531c7c24261f5f  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0xdb02c81c089f2d11  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0xe07a413cd470490f  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0xf1b3d74d9d9e736b  # GoronCity_Child_Dynamic Obj_LiftRock_B_01
+key64:0x366a98c0128242cd  # GoronCity_Child_Dynamic WallCrack
+key64:0xc20bc61a21c3865c  # GoronCity_Child_Dynamic WallCrack
+key64:0xc24555c75bb5a521  # GoronCity_Child_Dynamic WallCrack
+key64:0x751d254f812d5cfb  # GoronCity_Child_Static Obj_Goron_BrokenRock_A_01
+key64:0x78d7ea19a3aaa20a  # GoronCity_Child_Static WallCrack
+key64:0xb166ecc1550d18fb  # GoronCity_Child_Static WallCrack
+
+# --- 8. Dodongo's Cavern ---
+unshare:DodongoCavern_Room05_NearTreasureBox                             # a sensor of where one Link stands
+unshare:DodongoCavern_Room10_PlayerOutOfRoom                             # a sensor of where one Link stands
+unshare:DodongoCavern_Room02_StepSwitchOnPlayer                          # one Link on the step switch (held, each own)
+unshare:DodongoCavern_Room19_StepSwitchOnPlayer                          # one Link on the step switch (held, each own)
+
+# --- 9. Zora's River, Domain, Fountain ---
+once:Zorariver_BrokenRock_Broken                                         # the river's rock blown
+once:Zorariver_TheWaterfallsplits                                        # the waterfall to the Domain open (Zelda's Lullaby)
+once:Unlocked_ZoraDomain_00                                              # the Domain's torch puzzle (chest)
+once:Unlocked_ZoraDomain_01                                              # the Domain's torch puzzle (chest)
+# saved breakables (rocks, walls, grotto covers, webs, enemy counters): one-time keys
+key64:0xbc99d6027c19bce1  # ZoraDomain_Child_Static Land_Zora_HidingHoleCover_A_01
+key64:0x3924363eee8d659a  # ZoraFountain_Child_Static Obj_LiftRock_B_01
+key64:0x6d3a2c8d6b9a4315  # ZoraFountain_Child_Static Obj_LiftRock_B_01
+key64:0xef267a201cae1164  # ZoraFountain_Child_Static Obj_LiftRock_B_01
+key64:0xd9fa55c621c7fce8  # ZoraFountain_Child_Static WallCrack
+key64:0x4c2d16f5651197eb  # ZoraRiver_Child_Static Land_Kokiri_HidingHoleCover_A_01
+key64:0x5c8fa6336e29bd4a  # ZoraRiver_Child_Static Obj_BrokenRock_A_01
+key64:0xd1c0abcdc64a7f3b  # ZoraRiver_Child_Static Obj_BrokenRock_A_01
+key64:0xe5a32b36954cb09c  # ZoraRiver_Child_Static Obj_BrokenRock_A_01
+
+# --- 10. Jabu-Jabu ---
+unshare:InsideJabuJabuBelly_Room09_TBoxNearRuto                          # this game's Ruto near the chest
+unshare:InsideJabuJabuBelly_Room12_TBoxNearRuto                          # this game's Ruto near the chest
+unshare:InsideJabuJabuBelly_Room14_IsNearGimmick                         # a sensor of where one Link stands
+unshare:InsideJabuJabuBelly_Room14_PlayerIsUnder                         # a sensor of where one Link stands
+unshare:InsideJabuJabuBelly_Room18_IsInHiddenArea                        # this game's Ruto in the hidden area
+unshare:InsideJabuJabuBelly_Ruto_IntoRoom11                              # this game's Ruto entering room 11
+unshare:InsideJabuJabuBelly_Room07_StepSwitch_Ruto                       # this game's Ruto on the switch (the solve, _Clear_OnlyRuto, stays shared)
+unshare:InsideJabuJabuBelly_gimic_Liftposition                           # where this game's lift is (each rides their own)

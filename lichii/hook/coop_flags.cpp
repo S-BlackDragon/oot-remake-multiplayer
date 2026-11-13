@@ -11,6 +11,8 @@
 #include "common/logging.h"
 #include "core/memory.h"
 #include "coop/host/game_items.hpp"
+#include "coop/host/item_rules.hpp"
+#include "coop_switch.h"
 
 namespace CoopHook {
 namespace {
@@ -143,6 +145,27 @@ std::optional<coop::host::SharedFlags> LoadShared(std::string& error) {
     const auto items_env = Env("LICHII_COOP_ITEMS");
     const bool items = !items_env || *items_env != "0";
     std::vector<coop::host::FlagKey> keys;
+    coop::host::EnumFlags enums;
+    // ORM (oot-remake docs/INVENTARIO.md): LICHII_ORM_ITEM_RULES=<file> (the
+    // kit's shared_items.txt) changes item rules before the list is built:
+    // ZMP's magic meter (the wallet stays each player's, 2026-11-11).
+    // Without it, or on a bad file, the rules of docs/items.md.
+    coop::host::reset_item_rules();
+    // LICHII_COOP_ITEM_RULES is the name before test9 (coop_switch.h).
+    if (const auto rules_path = CoopSwitch::Value("LICHII_ORM_ITEM_RULES", "LICHII_COOP_ITEM_RULES");
+        items && rules_path) {
+        std::string why;
+        if (const auto rules = coop::host::ItemRules::load(*rules_path, &why)) {
+            const auto applied = coop::host::apply_item_rules(*rules);
+            LOG_INFO(Core, "coop: items: rules from {}: {} changed, {} as built, {} caps, {} fills",
+                     *rules_path, applied.changed, applied.same, applied.caps, applied.fills);
+            for (const auto& line : rules->rules()) {
+                LOG_INFO(Core, "coop: items: {} is {}", line.name, coop::host::item_rule_name(line.rule));
+            }
+        } else {
+            LOG_ERROR(Core, "coop: items: LICHII_ORM_ITEM_RULES {}; the built-in item rules are used", why);
+        }
+    }
     if (items) {
         keys = coop::host::item_shared_flags().keys();
         LOG_INFO(Core, "coop: sharing {} item flags", keys.size());
@@ -159,7 +182,21 @@ std::optional<coop::host::SharedFlags> LoadShared(std::string& error) {
     } else if (!items) {
         return std::nullopt;
     }
-    return coop::host::SharedFlags(std::move(keys));
+    return coop::host::SharedFlags(std::move(keys), std::move(enums));
+}
+
+std::optional<coop::host::DeferRules> LoadTalk(std::string& error) {
+    const auto path = CoopSwitch::Value("LICHII_COOP_TALK");  // coop_switch.h
+    if (!path) {
+        return std::nullopt;
+    }
+    std::string why;
+    auto file = coop::host::DeferRules::load(*path, &why);
+    if (!file) {
+        error = "LICHII_COOP_TALK " + *path + ": " + why;
+        return std::nullopt;
+    }
+    return file;
 }
 
 FlagDebug::FlagDebug()

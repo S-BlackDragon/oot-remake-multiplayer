@@ -77,6 +77,23 @@ OPTIONAL = (
     "Model/Player_Child.Player_Child.bfres.zs",
     "Model/Player_Adult.Player_Adult.bfres.zs",
 )
+# ORM cofre (oot-remake docs/DETALLES_MARIONETA.md, "Cofres"): what a chest gives, shown over the
+# finder's puppet as a model-only stand-in CoopGet_<drop> (build.py GET_STAND_INS). Every drop and
+# substitute of the hook's chest table (coop/host/chest_open.cpp kItems, checked by
+# tests/host/chest_open_test.cpp). Never the game's own Item_* actor in another game: it would give the
+# item there.
+CHEST_FINDS = (
+    "Item_Arrow_Ice", "Item_BombBag_Small", "Item_BombBundle_Small", "Item_BombchuBundle_Small",
+    "Item_Boomerang", "Item_DekuStickBundle_Small", "Item_Dungeon_BossKey", "Item_Dungeon_Compass",
+    "Item_Dungeon_Map", "Item_Dungeon_SmallKey", "Item_Gauntlet_Gold", "Item_Gauntlet_Silver",
+    "Item_GlassTruth", "Item_Hammer", "Item_HeavyBoot", "Item_Hookshot", "Item_HoverBoot", "Item_Longshot",
+    "Item_Range_Bow", "Item_Range_SlingShot", "Item_ScrubBusinessSeed", "Item_Shield_Mirror",
+    "Item_Sword_Kokiri", "Obj_Heart_Piece", "TBox_ArrowBundle_Large", "TBox_ArrowBundle_Medium",
+    "TBox_ArrowBundle_Small", "TBox_DekuNutBundle", "TBox_DekuSeedBundle", "TBox_Rupee_Blue",
+    "TBox_Rupee_Gold", "TBox_Rupee_Green", "TBox_Rupee_Purple", "TBox_Rupee_Red", "TBox_Shield_Deku",
+    "TBox_Shield_Hylian", "Tbox_MagicJar_Large",
+)
+OPTIONAL = OPTIONAL + tuple(f"Pack/Actor/{d}.pack.zs" for d in CHEST_FINDS)
 
 REDUMP = ("Delete the folder {romfs} and dump again: Join.bat, right-click the game, "
           "Dump RomFS, Full. Keep the progress window open until it says it is done.")

@@ -1572,6 +1572,12 @@ TEST_CASE("objects: the AI hold's table and hook") {
     CHECK(CoopHold::kHookOffset + (static_cast<std::uint64_t>(word & 0x3ffffff) << 2) ==
           CoopHold::kCaveOffset);
     CHECK(CoopHold::kCaveOffset + CoopHold::kCave.size() <= CoopHold::kTableOffset);
+    // The `adr x9, hold_table` at +0x10 reaches the table from wherever the cave sits.
+    std::uint32_t adr = 0;
+    std::memcpy(&adr, CoopHold::kCave.data() + 0x10, 4);
+    CHECK((adr & 0x9f00001fu) == 0x10000009u);
+    const std::uint64_t adr_imm = (((adr >> 5) & 0x7ffffu) << 2) | ((adr >> 29) & 3u);
+    CHECK(CoopHold::kCaveOffset + 0x10 + adr_imm == CoopHold::kTableOffset);
     // Mode 1 sets the brain skip bit, mode 2 clears it, anything else changes nothing.
     CHECK(((0x1230u & CoopHold::MasksFor(1).and_mask) | CoopHold::MasksFor(1).or_mask) == 0x1231u);
     CHECK(((0x1231u & CoopHold::MasksFor(2).and_mask) | CoopHold::MasksFor(2).or_mask) == 0x1230u);

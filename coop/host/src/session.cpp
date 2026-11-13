@@ -96,6 +96,8 @@ FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStor
     report.holding = watcher_->holding();
     report.host_reset = watcher_->take_reset();
     report.received = watcher_->take_received();
+    report.agreed = watcher_->take_agreed();
+    report.flag_notes = watcher_->take_notes();  // ORM: SONDAS.md round 6
     if (const auto seen = watcher_->take_save_load()) {
       report.save_load_flags = seen->flags;
       report.save_load_frames = seen->frames;

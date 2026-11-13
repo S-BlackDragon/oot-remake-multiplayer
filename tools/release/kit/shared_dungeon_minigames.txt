@@ -1,0 +1,88 @@
+# ORM minigames and side activities with several players (oot-remake docs/MINIJUEGOS.md).
+# Written by oot-remake/tools/romfs/minigame_list.py from the romfs (names checked against
+# GameData/GameDataList: once: a saved Bool, plain lines a saved Bool or Int, enum: values in
+# the game's order); edit the table there, not this file. A dungeon list file (coop/host
+# dungeon_lists.hpp), loaded with LICHII_COOP_DUNGEON_LISTS after shared_dungeon_child.txt and
+# shared_dungeon_adult.txt. NOT a LICHII_COOP_FLAGS file (that reader takes once: for a name).
+#
+# The rule (oot-64: one save for the group, D-061): whoever plays a minigame plays it in his
+# own game, with his own timer, score, record, rented items and paying; what a minigame hands
+# out once is handed out once for the group. The flag that says "the prize was given" is
+# shared one way (once:): a second player who wins gets what the game gives after the prize
+# (rupees), as a one-player game does the second time. Not here on purpose: records and best
+# times (MiniGame_*_BestScore, _BestTime_*, _Record*), the run state (Step_MiniGame_* Playing,
+# _Progress, timers), tutorials and talks, Ingo's race (LonLonRanch_GambleRace*: each his own;
+# Epona is D-R19's), Malon's obstacle course (no prize flag), the fishing pond (its prizes are
+# the items list's, issue 151) and the House of Skulltula (shared_dungeon_adult.txt).
+
+# ---- Shooting galleries (Market child: seed bag; Kakariko adult: quiver); scores stay each
+# player's
+once:MiniGame_HitTarget_HrlCity_Get_BulletBag    # the Market gallery's bag was given: then rupees
+once:MiniGame_HitTarget_Kakariko_Get_Quiver    # the Kakariko gallery's quiver was given: then rupees
+
+# ---- Lost Woods: the Deku Scrub target (seed bag)
+once:LostWood_HitTargetOfDekuScrub_FirstClear    # the target's bag was given
+
+# ---- Bombchu Bowling: three prizes in turn (bomb bag, heart piece, bomb bag), then the small ones
+once:MiniGame_BombchuBowling_ClearFirstTime    # first prize given
+once:MiniGame_BombchuBowling_ClearSecondTime    # second prize given
+once:MiniGame_BombchuBowling_ClearThirdTime    # third prize given
+
+# ---- Treasure Chest Shop: the heart piece of the last room (its chests and keys stay each player's
+# game)
+once:MiniGame_ChoiceTreasure_IsClear    # the heart piece was won: then rupees
+
+# ---- Dampe: the race's chest gives the Hookshot while nobody has it (a shared item) and the heart
+# piece once; the grave digging tour's heart piece
+once:UnderTheGrave_DampeRace_HeartGeted    # the race's heart piece was taken
+once:GraveYard_DiggingHoleTour_Drop_HeartPiece    # the digging tour's heart piece came out
+
+# ---- Horseback archery (Gerudo Fortress): heart piece, then the quiver
+once:MiniGame_HorsebackArchery_GotaHeart    # the heart piece was given
+once:MiniGame_HorseBackArchery_Get_Quiver    # the quiver was given
+
+# ---- Frogs (Zora's River): one prize per song, the heart piece when all six are done, the bug
+# game's prizes by its count
+once:MiniGame_FrogTenors_ZeldaLullaby    # this song's prize was given
+once:MiniGame_FrogTenors_EponaSong    # this song's prize was given
+once:MiniGame_FrogTenors_SariaSong    # this song's prize was given
+once:MiniGame_FrogTenors_SunSong    # this song's prize was given
+once:MiniGame_FrogTenors_TimeSong    # this song's prize was given
+once:MiniGame_FrogTenors_StormSong    # this song's prize was given
+once:MiniGame_FrogTenors_SongClear    # all six songs: the heart piece was given
+once:MiniGame_FrogTenors_InsectRepellent_ClearAfter    # the bug game's last prize was given
+MiniGame_FrogTenors_InsectRepellent_Clearnumber    # an Int: bug games won (picks the next prize)
+
+# ---- Diving game (Zora's Domain): the Silver Scale, then rupees
+once:MiniGame_Diving_Cleared    # the scale was given
+
+# ---- Cuccos: the cucco lady (Kakariko) and Talon's game (Lon Lon) give a bottle each, once
+once:MiniGame_CatchCucco_IsCompleted    # the cucco lady's bottle was given
+once:IsClear_Minigame_FindOutCucco    # Talon's milk bottle was given
+
+# ---- Other one-time heart pieces: Richard the dog, the Skull Kid (Saria's Song and the ocarina
+# game), the Kakariko rooftop man, the two Business Scrubs that sell one (the Goron City pot's is
+# the child list's)
+once:SubEvent_FindRichard_GetHeartPiece    # Richard's heart piece was given
+once:Npc_SkullKid_Child_IsGetHeartPiece    # Saria's Song for the Skull Kid
+once:Minigame_SkullKidSession_IsGetHeartPiece    # the Skull Kid's ocarina game
+once:Npc_Hylia_001_IsGetHeartPiece    # the man on the Kakariko roof
+once:HyruleField_Enemy_Scrub_Business_HeartPiece_01    # the Hyrule Field scrub's heart piece sold
+once:DeathMountain_Enemy_Scrub_Business_HeartPiece_01    # the crater scrub's heart piece sold
+
+# ---- Biggoron's sword trade: the trade items are one slot for the group (mirror, items list); the
+# chain's step goes with them, both ways (a spoiled item or a trip back in time sets it back for
+# everyone, as the item)
+enum:Step_SubEvent_GetSwordBigGoron NotReady Ready StartSubEvent WaitEggHatch EggHatched Step01 Step01_01 Step02 Step03 Step03_01 Step03_02 Step03_03 Step04 Step05 Step05_01 Step06 Step06_01 Step06_02 Step06_03 Step07 Step08 Step08_01 Step09 Step09_01 Step10 Step11 Complete    # the trade chain's step
+
+# ---- Great Fairies: their gifts are the group's (magic size, spells, defence: items list). Once
+# IsGet.Item_FairyBless_* are shared in the items list (INVENTARIO.md), these lines make a fountain
+# give once for the group, the others then only heal there. Off until then: a met fairy with a per-
+# player bless would leave a player without it
+# once:Meet_GreatFairy_01    # a fountain's gift given
+# once:Meet_GreatFairy_02    # a fountain's gift given
+# once:Meet_GreatFairy_03    # a fountain's gift given
+# once:Meet_GreatFairy_04    # a fountain's gift given
+# once:Meet_GreatFairy_05    # a fountain's gift given
+# once:GreatFairy_MeetFirst    # the first fountain's meeting
+# Meet_GreatFairy_RemainNumber    # an Int: fairies left to meet

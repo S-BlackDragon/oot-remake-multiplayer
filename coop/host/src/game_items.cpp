@@ -1,6 +1,7 @@
 #include "coop/host/game_items.hpp"
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <vector>
 
@@ -431,19 +432,88 @@ constexpr std::uint64_t kGoldSkulltulas[] = {
     0xfcd7f04dcf755e8eull,  // DeathMountainCrater
 };
 
-std::span<const ItemFlag> item_flags() { return kItems; }
+namespace {
+
+// ORM (oot-remake docs/INVENTARIO.md): the table as it is used, kItems with
+// the changes of set_item_rule; caps and fills of the rule list.
+using Table = std::array<ItemFlag, std::size(kItems)>;
+Table& live_items() {
+  static Table table = [] {
+    Table t{};
+    std::copy(std::begin(kItems), std::end(kItems), t.begin());
+    return t;
+  }();
+  return table;
+}
+std::vector<ItemCap>& live_caps() {
+  static std::vector<ItemCap> caps;
+  return caps;
+}
+std::vector<ItemFill>& live_fills() {
+  static std::vector<ItemFill> fills;
+  return fills;
+}
+
+template <typename It>
+It find_in(It first, It last, std::uint32_t hash) {
+  const auto it = std::lower_bound(first, last, hash,
+                                   [](const ItemFlag& e, std::uint32_t h) { return e.hash < h; });
+  return it != last && it->hash == hash ? it : last;
+}
+
+}  // namespace
+
+std::span<const ItemFlag> item_flags() { return live_items(); }
 
 const ItemFlag* find_item(std::uint32_t hash) {
-  const auto it = std::lower_bound(std::begin(kItems), std::end(kItems), hash,
-                                   [](const ItemFlag& e, std::uint32_t h) { return e.hash < h; });
-  return it != std::end(kItems) && it->hash == hash ? &*it : nullptr;
+  auto& table = live_items();
+  const auto it = find_in(table.begin(), table.end(), hash);
+  return it != table.end() ? &*it : nullptr;
+}
+
+bool set_item_rule(std::uint32_t hash, ItemRule rule) {
+  auto& table = live_items();
+  const auto it = find_in(table.begin(), table.end(), hash);
+  if (it == table.end()) return false;
+  if (rule == ItemRule::count && it->kind != protocol::FlagKind::int32) return false;
+  it->rule = rule;
+  return true;
+}
+
+std::optional<ItemRule> built_in_item_rule(std::uint32_t hash) {
+  const auto it = find_in(std::begin(kItems), std::end(kItems), hash);
+  if (it == std::end(kItems)) return std::nullopt;
+  return it->rule;
+}
+
+void set_item_caps(std::vector<ItemCap> caps) { live_caps() = std::move(caps); }
+void set_item_fills(std::vector<ItemFill> fills) { live_fills() = std::move(fills); }
+
+std::optional<std::uint32_t> item_cap(std::uint32_t count) {
+  for (const ItemCap& c : live_caps()) {
+    if (c.count == count) return c.cap;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::uint32_t> item_fill(std::uint32_t from) {
+  for (const ItemFill& f : live_fills()) {
+    if (f.from == from) return f.to;
+  }
+  return std::nullopt;
+}
+
+void reset_item_rules() {
+  std::copy(std::begin(kItems), std::end(kItems), live_items().begin());
+  live_caps().clear();
+  live_fills().clear();
 }
 
 std::span<const std::uint64_t> gold_skulltula_keys() { return kGoldSkulltulas; }
 
 SharedFlags item_shared_flags(bool with_off) {
   std::vector<FlagKey> keys;
-  for (const auto& item : kItems) {
+  for (const auto& item : live_items()) {
     if (item.rule == ItemRule::per_player) continue;
     if (!item.on && !with_off) continue;
     keys.push_back(FlagKey{item.hash, 0});
@@ -648,10 +718,23 @@ bool ItemFlagStore::write(const protocol::FlagEntry& entry) {
       ++stats_.refused;
       return false;
     }
-    const std::int64_t sum = std::int64_t{as_int(now->value)} + as_int(entry.value);
+    std::int64_t sum = std::max<std::int64_t>(
+        std::int64_t{as_int(now->value)} + as_int(entry.value), 0);  // a count is never below 0
+    // ORM: a gain stops at the count's cap (a full wallet), never below what
+    // the game holds; a cap that reads below 1 is not known yet.
+    if (const auto cap_hash = item_cap(key.hash); cap_hash && as_int(entry.value) > 0) {
+      const auto cap = inner_.read(FlagKey{*cap_hash, 0});
+      if (cap && cap->kind == protocol::FlagKind::int32 && as_int(cap->value) >= 1) {
+        const std::int64_t limit = std::max<std::int64_t>(as_int(cap->value), as_int(now->value));
+        if (sum > limit) {
+          sum = limit;
+          ++stats_.capped;
+        }
+      }
+    }
     protocol::FlagEntry total = *now;
     total.key = key;
-    total.value = as_bits(std::max<std::int64_t>(sum, 0));  // a count is never below 0
+    total.value = as_bits(sum);
     if (total.value != now->value && !inner_.write(total)) return false;
     ++stats_.added;
     return true;
@@ -678,7 +761,19 @@ bool ItemFlagStore::write(const protocol::FlagEntry& entry) {
   // a game that got the item before without it (older saves: sticks and
   // seeds owned with room for 0) is mended on the next write or snapshot.
   if (held(merged.value)) grant(key.hash, !held(now->value));
+  // ORM (ZMP D-035): a shared maximum raised by another player fills its
+  // per-player flag (the magic meter grows full for everyone).
+  if (!exact_ && int_item && as_int(merged.value) > as_int(now->value)) fill(key.hash, merged.value);
   return true;
+}
+
+void ItemFlagStore::fill(std::uint32_t from, std::uint32_t value) {
+  const auto to = item_fill(from);
+  if (!to || !ready_) return;  // no Link: a load would put the save's value back
+  const FlagKey key{*to, 0};
+  const auto now = inner_.read(key);
+  if (!now || now->kind != protocol::FlagKind::int32 || as_int(now->value) >= as_int(value)) return;
+  if (inner_.write(protocol::FlagEntry{key, protocol::FlagKind::int32, value})) ++stats_.filled;
 }
 
 std::size_t ItemFlagStore::mend() {

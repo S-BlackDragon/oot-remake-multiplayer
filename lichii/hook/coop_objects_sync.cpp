@@ -1023,7 +1023,13 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                     if (chest) {
                         t->second.bound_animation[s.address] = animation;
                     }
-                    if (chest && opening && beside) {
+                    if (chest && lids_shown_.contains(s.address)) {
+                        // ORM cofre: our door mirror opened its lid with its
+                        // opener's (CHEST_OPEN): it shows open here already.
+                        t->second.shown_open.insert(s.address);
+                        notes_.emplace_back(s.name + " " + key +
+                                            ": opened in another game, its lid opened here with it (CHEST_OPEN)");
+                    } else if (chest && opening && beside) {
                         // Ours started opening just before the other's flag came,
                         // our Link beside it: both opened it at once. It stays;
                         // its content may count twice (a small key) and cannot be
@@ -1047,6 +1053,13 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                     if (chest) {
                         Taking& tk = t->second;
                         if (tk.shown_open.contains(s.address)) {
+                            continue;
+                        }
+                        if (lids_shown_.contains(s.address)) {
+                            // ORM cofre: its lid opened here after the take came (CHEST_OPEN,
+                            // coop_doors), so issue 195's play of its open idle is not needed.
+                            tk.shown_open.insert(s.address);
+                            notes_.emplace_back(s.name + ": opened in another game, its lid opened here (CHEST_OPEN)");
                             continue;
                         }
                         // Issue 195: never removed while it can be shown open.
@@ -1711,6 +1724,14 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
             o.chase_until = std::max(o.chase_until, o.event_until);
         }
         if (o.chase_until > now_us && !o.fish) {
+            flags |= proto::object_presence::targeting;
+        }
+        // A townsperson our player talks to (SetTalk): ours to move.
+        if (talk_claims_.contains(address)) {
+            flags |= proto::object_presence::targeting;
+        }
+        // ORM "Levantar": what our Link lifts (SetCarry): ours to carry.
+        if (carry_claims_.contains(address)) {
             flags |= proto::object_presence::targeting;
         }
         present.push_back({o.id, flags});
@@ -2378,6 +2399,12 @@ void Sync::Poses(std::uint64_t now_us, std::vector<PoseWrite>& out) const {
         if (owner == owners_.end() || owner->second.player == 0 || owner->second.player == self_) {
             continue;
         }
+        if (talk_freed_.contains(address)) {
+            continue;  // our player talks to it: our game moves it (SetTalk)
+        }
+        if (carry_claims_.contains(address)) {
+            continue;  // our Link lifts it: our game moves it (SetCarry)
+        }
         PoseWrite w;
         w.address = address;
         const Received& last = o.received.back();
@@ -2458,6 +2485,12 @@ void Sync::Plays(std::uint64_t now_us, std::vector<PlayWish>& out) const {
         const auto owner = owners_.find(o.id);
         if (owner == owners_.end() || owner->second.player == 0 || owner->second.player == self_) {
             continue;
+        }
+        if (talk_freed_.contains(address)) {
+            continue;  // our player talks to it: our game plays it (SetTalk)
+        }
+        if (carry_claims_.contains(address)) {
+            continue;  // our Link lifts it: our game plays it (SetCarry)
         }
         const Received& last = o.received.back();
         const auto& wanted = last.animation;

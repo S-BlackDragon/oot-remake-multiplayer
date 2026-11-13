@@ -41,4 +41,13 @@ void Frame(Core::System& system, std::uint64_t main_base, const std::optional<co
 // The chat notices since the last call (for the chat box).
 std::vector<std::string> TakeLines();
 
+// ORM (coop/host songs.hpp, the warp-song invitation): start a trip to that player, as
+// "/teleport <name>" does. Any thread.
+void Follow(std::uint8_t number, std::string name);
+
+// ORM (the test warp in free play, coop_testinput.h WarpStartsEvent): starts the trip's short
+// scene event (Trip::kSceneEvent) so the game takes a reserved scene change with no event of its
+// own. False when /teleport is off (LICHII_COOP_TELEPORT=0: no caller starts it). Any thread.
+bool StartSceneEvent();
+
 } // namespace CoopTeleport
