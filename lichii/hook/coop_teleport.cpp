@@ -239,6 +239,15 @@ std::string RefusedLine(std::string_view name, JoinRefuseReason reason) {
     return "teleport: " + n + " refused (reason " + std::to_string(static_cast<int>(reason)) + ")";
 }
 
+std::optional<Vec> StartPosition(std::string_view scene, std::string_view name) {
+    for (const auto& p : kStartPoints) {
+        if (p.scene == scene && p.name == name) {
+            return Vec{p.x, p.y, p.z};
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<std::string> NearestStart(std::string_view scene, const Vec& to) {
     const StartPoint* best = nullptr;
     float best_d = 0.0f;
@@ -269,6 +278,7 @@ Trip::Actions Trip::Start(std::uint8_t number, std::string name, const Local& lo
         requested_ = false;
     }
     phase_ = Phase::idle;
+    resume_ = false;  // ORM resume: a /teleport ends our way back
     if (!local.scene || !local.position) {
         a.lines.push_back("teleport: wait until your game is loaded");
         return a;
@@ -392,8 +402,8 @@ Trip::Actions Trip::TimedOut(std::uint8_t number) {
 
 Trip::Actions Trip::Left(std::uint8_t number) {
     Actions a;
-    if (phase_ == Phase::idle || (number != 0 && number != player_)) {
-        return a;
+    if (phase_ == Phase::idle || (number != 0 && number != player_) || resume_) {
+        return a;  // ORM resume: our way back needs no connection
     }
     a.cancel_scene = requested_;
     a.restore_start = a.cancel_scene && !loaded_;
@@ -444,7 +454,8 @@ Trip::Actions Trip::Tick(const Local& local, std::uint64_t now_us) {
             a.cancel_scene = true;
             a.restore_start = !loaded_;
             requested_ = false;
-            a.lines.push_back("teleport: the game did not change scene in time; stopped");
+            Say(a, "teleport: the game did not change scene in time; stopped");
+            resume_ = false;
             return a;
         } else {
             // Taken: the load started (or the scene is gone), or the game
@@ -494,16 +505,42 @@ Trip::Actions Trip::Tick(const Local& local, std::uint64_t now_us) {
             settle_us_ = 0;  // still loading, or the arrival's own event
         } else if (*local.scene != scene_) {
             phase_ = Phase::idle;
-            a.lines.push_back("teleport: stopped: you left " + scene_);
+            Say(a, "teleport: stopped: you left " + scene_);
+            resume_ = false;
         } else if (settle_us_ == 0) {
             settle_us_ = now_us;
+        } else if (now_us - settle_us_ >= kSettleUs && resume_) {
+            // ORM resume: no one to ask again; our own place, or the entrance.
+            phase_ = Phase::idle;
+            resume_ = false;
+            if (resume_place_ && resume_door_) {
+                a.move = at_;
+                a.resume = true;
+                a.log.push_back("resume: at the spot of the entrance room of " + scene_ +
+                                " we last stood on before leaving it (the last place is in another room: issue 197)");
+                a.notice = "De vuelta a la sala de entrada, por donde saliste: tu sitio está en otra sala";
+            } else if (resume_place_) {
+                a.move = at_;
+                a.resume = true;
+                a.log.push_back("resume: back at the last place in " + scene_);
+                a.notice = "De vuelta donde lo dejaste";
+            } else if (resume_door_) {
+                a.log.push_back("resume: at the entrance of " + scene_ +
+                                " (the last place is in another room of this dungeon, no spot of its entrance room kept: "
+                                "issue 197)");
+                a.notice = "De vuelta a la entrada de la mazmorra: tu sitio está en otra sala";
+            } else {
+                a.log.push_back("resume: at the entrance of " + scene_ + " (the last place was a boss room or a cutscene)");
+                a.notice = "De vuelta a la entrada: lo dejaste en un jefe o en una cinemática";
+            }
         } else if (now_us - settle_us_ >= kSettleUs) {
             phase_ = Phase::asking_again;
             a.ask = player_;
         }
         if (phase_ == Phase::settling && now_us - since_us_ > 2 * kGiveUpUs) {
             phase_ = Phase::idle;
-            a.lines.push_back("teleport: stopped: the new scene did not settle");
+            Say(a, "teleport: stopped: the new scene did not settle");
+            resume_ = false;
         }
         // Settled, left, or given up with our request still there: emptied
         // now (the start name is that scene's own after the load: kept).
@@ -536,6 +573,37 @@ MoveCheck CheckMove(const CoopRooms::Table& rooms, std::string_view scene, const
     }
     const float dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
     return std::sqrt(dx * dx + dy * dy + dz * dz) <= kNearMove ? MoveCheck::ok : MoveCheck::too_far;
+}
+
+Trip::Actions Trip::Resume(std::string scene, std::string start, const Vec& to, bool place, std::uint64_t now_us,
+                           bool door) {
+    Actions a;
+    if (phase_ != Phase::idle || scene.empty() || start.empty()) {
+        a.log.push_back("resume: not now (a trip runs, or no start point): the way back is dropped");
+        return a;
+    }
+    phase_ = Phase::travelling;
+    resume_ = true;
+    resume_place_ = place;
+    resume_door_ = door;
+    player_ = 0;
+    name_.clear();
+    scene_ = std::move(scene);
+    start_ = std::move(start);
+    at_ = to;
+    since_us_ = now_us;
+    asked_us_ = now_us;
+    event_us_ = now_us;
+    settle_us_ = 0;
+    taken_ = false;
+    seen_request_ = false;
+    loaded_ = false;
+    requested_ = true;  // test10 (#197): ours to empty when the trip ends or another starts
+    a.scene = scene_;
+    a.start = start_;
+    a.start_event = true;  // the caller decides only with no event running (coop_resume.h)
+    a.log.push_back("resume: scene change to " + scene_ + " at " + start_);
+    return a;
 }
 
 } // namespace CoopTeleport

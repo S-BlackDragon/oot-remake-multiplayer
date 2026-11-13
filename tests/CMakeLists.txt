@@ -174,6 +174,9 @@ add_executable(coop_tests
   lichii/boss_rules_test.cpp
   lichii/teleport_test.cpp
   lichii/pvp_test.cpp
+  lichii/resume_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_resume.cpp
+  lichii/escape_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_escape.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_escape_timer.cpp
   lichii/live_events_test.cpp
   lichii/shared_scenes_test.cpp
   lichii/scrubs_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_scrubs.cpp

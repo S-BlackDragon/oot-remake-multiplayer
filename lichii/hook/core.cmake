@@ -11,6 +11,9 @@ target_sources(core PRIVATE
     "${_coop_hook}/coop_teleport_game.cpp"
     "${_coop_hook}/coop_pvp.cpp"
     "${_coop_hook}/coop_pvp_game.cpp"
+    "${_coop_hook}/coop_resume.cpp"
+    "${_coop_hook}/coop_resume_game.cpp"
+    "${_coop_hook}/coop_host_choice.cpp"  # ORM: one host for the room
     "${_coop_hook}/coop_scene_probe.cpp"
     "${_coop_hook}/coop_callers.cpp"
     "${_coop_hook}/coop_escape.cpp"

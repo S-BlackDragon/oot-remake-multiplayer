@@ -367,6 +367,19 @@ void Frame(Core::System& system, std::uint64_t main_base, const std::optional<co
     }
 
     std::vector<Trip::Actions> all;
+    // ORM resume (coop_resume.h): our last place kept, and once after the
+    // load the way back to it (a move here, or a trip of its own).
+    if (auto back = CoopResume::Frame(local, g.grounded, g.trip.Resuming(), g.on, now)) {
+        Trip::Actions act;
+        act.notice = back->notice;
+        if (back->what == CoopResume::Decision::What::move) {
+            act.move = back->at;
+            act.resume = true;
+        } else if (back->what == CoopResume::Decision::What::travel) {
+            all.push_back(g.trip.Resume(back->scene, back->start, back->at, back->place, now, back->door));
+        }
+        all.push_back(std::move(act));
+    }
     if (want) {
         all.push_back(g.trip.Start(want->first, want->second, local, now));
     }
@@ -410,6 +423,12 @@ void Frame(Core::System& system, std::uint64_t main_base, const std::optional<co
         g.events_open = g.trip.phase() == Trip::Phase::travelling && local.scene && !local.loading_banc;
     }
     for (auto& act : all) {
+        for (const auto& line : act.log) {  // ORM resume: its lines go to the log only
+            LOG_INFO(Core, "coop: {}", line);
+        }
+        if (!act.notice.empty()) {
+            CoopNotices::TheBoard().Add(0, {}, act.notice, now / 1000);
+        }
         if ((act.cancel_scene || act.release) && main_base != 0) {
             ClearScene(system, main_base, act.cancel_scene, act.restore_start, g.saved_start);
             if (act.cancel_scene) {
@@ -441,7 +460,18 @@ void Frame(Core::System& system, std::uint64_t main_base, const std::optional<co
             // seen after a restart; until then no table means short moves only.
             static const CoopRooms::Table rooms = CoopFairy::RoomTable();
             const auto check = CheckMove(rooms, *local.scene, *local.position, *act.move);
-            if (check != MoveCheck::ok) {
+            if (check != MoveCheck::ok && act.resume) {
+                // ORM resume: the fallback of the fallback (the load put us
+                // elsewhere than its start point): stay, said in the log only.
+                LOG_INFO(Core, "coop: resume: not moved to {:.1f} {:.1f} {:.1f}: {} from where the load put us "
+                         "({:.1f} {:.1f} {:.1f}; issue 197): staying here",
+                         act.move->x, act.move->y, act.move->z,
+                         check == MoveCheck::other_room ? "another room of this dungeon"
+                                                        : "far, and no room table for this dungeon",
+                         local.position->x, local.position->y, local.position->z);
+                act.notice = "De vuelta a la mazmorra: tu sitio está en otra sala";
+                act.move.reset();
+            } else if (check != MoveCheck::ok) {
                 LOG_INFO(Core, "coop: teleport: not moved to {:.1f} {:.1f} {:.1f}: {} (issue 197)", act.move->x,
                          act.move->y, act.move->z,
                          check == MoveCheck::other_room ? "another room of this dungeon"

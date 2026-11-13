@@ -36,6 +36,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "coop/protocol/messages.hpp"
@@ -73,6 +74,9 @@ std::string NotMovedLine(MoveCheck check, std::string_view name, bool after_load
 // written from the game's scene files by tools/puppet_pack/start_points.py).
 // Nothing for a scene we have no start point of.
 std::optional<std::string> NearestStart(std::string_view scene, const Vec& to);
+// ORM resume (issue 197): where the start point `name` of `scene` stands;
+// nothing for one we do not know.
+std::optional<Vec> StartPosition(std::string_view scene, std::string_view name);
 
 // A chat line that is a command, not chat. "/teleport" alone lists players.
 struct Command {
@@ -200,6 +204,13 @@ public:
         // scene we never went to. After a load elsewhere the current one is
         // that scene's own and is kept.
         bool restore_start = false;
+        // ORM resume (coop_resume.h): lines for the log only (a resume trip
+        // says nothing in the chat) and a short notice for the HUD.
+        std::vector<std::string> log;
+        std::string notice;
+        // ORM resume: `move` is our way back (not a /teleport): a move the
+        // dungeon room rule refuses (issue 197) is said in the log, not the chat.
+        bool resume = false;
     };
 
     // The command: refused (a line, nothing to send) or asked (`ask` set).
@@ -216,6 +227,18 @@ public:
     Actions Stop(std::string line);
     // Each frame (a few times a second is enough).
     Actions Tick(const Local& local, std::uint64_t now_us);
+    // ORM resume (coop_resume.h): a trip to our own last place, asked of no
+    // player. The same scene change to `start` of `scene`; once the scene has
+    // settled, our Link is moved to `to` when `place`, else left where the
+    // scene's entrance put him. A /teleport ends it; a lost connection does
+    // not. Its lines go to `log`, not the chat.
+    // `door` (issue 197): the last place is in another room of a dungeon than
+    // its entrance; with `place`, `to` is the spot of the entrance room where
+    // our Link last stood before leaving it (coop_resume.h Door), without,
+    // the entrance itself: said so in the log and the notice.
+    Actions Resume(std::string scene, std::string start, const Vec& to, bool place, std::uint64_t now_us,
+                   bool door = false);
+    bool Resuming() const { return resume_; }
 
     enum class Phase : std::uint8_t { idle, asking, travelling, settling, asking_again };
     Phase phase() const { return phase_; }
@@ -237,6 +260,11 @@ private:
     bool loaded_ = false;         // this trip: a load ran (then the old start name is stale)
     bool requested_ = false;      // our request may still be in the game (asked, not yet emptied)
     std::uint64_t taken_us_ = 0;
+    bool resume_ = false;        // ORM resume: this trip is Resume's
+    bool resume_place_ = false;  // ORM resume: move to at_ once settled
+    bool resume_door_ = false;   // ORM resume: the dungeon room rule decided (issue 197)
+    // ORM resume: a line of this trip, to the chat or (a resume trip) the log.
+    void Say(Actions& a, std::string line) const { (resume_ ? a.log : a.lines).push_back(std::move(line)); }
 };
 
 } // namespace CoopTeleport
