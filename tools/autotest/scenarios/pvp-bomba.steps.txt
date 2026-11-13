@@ -1,0 +1,11 @@
+# pvp-bomba (oot-remake docs/COMANDOS.md "Bombas"): A's bomb hurts both Links, each once.
+# A takes bombs from the cheat, goes next to B, pulls a bomb and drops it at his feet, both stay.
+# Read: A and B "coop: life:" lines: both lose life when it goes off (each in his own game);
+#  B: no "coop: pvp: a mate's bomb went off ... with no copy here" (his copy was live: his game's
+#  own explosion hurt him, never twice); A: "coop: shots:" for the bomb.
+#! switches LICHII_COOP_CHEATS=1,LICHII_COOP_DEBUG_LIFE=1
+start A B
+load A B
+expect loaded A=1 B=1
+play A pvp-bomba.A.txt B pvp-bomba.B.txt
+shot pvp-bomba

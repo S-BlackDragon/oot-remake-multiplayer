@@ -1,0 +1,5 @@
+mark start
+wait 840
+mark shield
+hold ZL 300             # Z: Link faces the nearest target and raises the shield (it may be A only with /fijar on)
+mark end

@@ -1,0 +1,8 @@
+# pvp-choque: A walks straight into B and back; neither goes through the other.
+mark start
+chat /ir B
+wait 300
+stick 0 1 90
+mark walked
+stick 0 -1 90
+mark end

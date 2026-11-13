@@ -417,6 +417,50 @@ void Session::on_player_message(ConnectionId id, Connection& c, std::uint8_t cha
     on_join_partner(id, c, *j);
     return;
   }
+  if (auto* r = std::get_if<Revive>(&message)) {
+    on_revive(c, *r, now_us);
+    return;
+  }
+  if (auto* s = std::get_if<StoryEvent>(&message)) {
+    on_story_event(id, c, *s, now_us);
+    return;
+  }
+  if (const auto* look = std::get_if<PlayerLook>(&message)) {
+    on_player_look(id, c, *look);
+    return;
+  }
+  if (const auto* gs = std::get_if<GroupSettings>(&message)) {  // ORM (orm_session.cpp)
+    on_group_settings(id, c, *gs);
+    return;
+  }
+  if (const auto* rs = std::get_if<RoomSwitch>(&message)) {  // ORM orm/pvp (orm_session.cpp)
+    on_room_switch(c, *rs, now_us);
+    return;
+  }
+  if (auto* hit = std::get_if<PlayerHit>(&message)) {
+    on_player_hit(id, c, *hit, now_us);
+    return;
+  }
+  if (auto* call = std::get_if<PlayerCall>(&message)) {
+    on_player_call(id, c, *call, now_us);
+    return;
+  }
+  if (const auto* rename = std::get_if<PlayerRename>(&message)) {
+    on_player_rename(id, c, *rename, now_us);
+    return;
+  }
+  if (auto* pose = std::get_if<ObjectPose>(&message)) {
+    on_object_pose(id, c, channel, *pose, now_us);
+    return;
+  }
+  if (auto* note = std::get_if<OrmOcarinaNote>(&message)) {
+    on_ocarina_note(id, c, *note, now_us);
+    return;
+  }
+  if (const auto* choice = std::get_if<HostChoice>(&message)) {  // ORM one host (orm_host.cpp)
+    on_host_choice(id, c, *choice, now_us);
+    return;
+  }
   if (std::holds_alternative<FlagSet>(message)) {
     on_flag_set(c, message);
     return;
@@ -446,7 +490,7 @@ void Session::on_player_message(ConnectionId id, Connection& c, std::uint8_t cha
     return;
   }
   if (std::holds_alternative<PvpHit>(message)) {
-    on_pvp_hit(id, c, message);
+    on_pvp_hit(id, c, message, now_us);
     return;
   }
   // A PVP_HURT naming its own sender as the attacker is nobody's.
@@ -558,13 +602,17 @@ void Session::on_pvp_mode(ConnectionId id, Connection& c, const PvpMode& m) {
 
 // To the victim only, and only while PvP is on: a game with PvP off never
 // gets a hit, whatever an attacker's game believes.
-void Session::on_pvp_hit(ConnectionId id, Connection& c, Message& message) {
+void Session::on_pvp_hit(ConnectionId id, Connection& c, Message& message, std::uint64_t now_us) {
   const std::uint8_t victim = std::get<PvpHit>(message).victim;
   const auto target = pvp_ ? connection_of(victim) : std::nullopt;
   if (!target || *target == id || !set_sender(message, c.number)) {
     ++stats_.pvp_hits_dropped;
     return;
   }
+  // ORM orm/pvp (test10): upstream's PVP_HIT arms our downed-by-PvP grace as
+  // PLAYER_HIT did: a fall within pvp_down_window_us counts as up for the
+  // group defeat for pvp_down_hold_us (note_pvp_down, orm_session.cpp).
+  connections_.at(*target).hit_taken_at = std::max<std::uint64_t>(now_us, 1);
   send(*target, kChannelOwnership, message);
   ++stats_.pvp_hits_relayed;
   ++stats_.relayed;
@@ -774,7 +822,11 @@ void Session::on_status(Connection& c, std::uint8_t flags, std::uint64_t now_us)
     }
   };
   since(status::paused, c.paused_since);
+  const bool was_down = c.dead_since != 0;
   since(status::dead, c.dead_since);
+  if (c.dead_since == 0) c.revive_hold_at = 0;  // up: a later fall starts with no hold
+  if (c.dead_since == 0) c.pvp_down_at = 0;     // ORM orm/pvp: up again
+  if (!was_down && c.dead_since != 0) note_pvp_down(c, now_us);
   c.status = flags;
 }
 

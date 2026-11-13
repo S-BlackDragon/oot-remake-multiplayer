@@ -1,0 +1,27 @@
+# pvp-escudo, A (pvp-escudo.steps.txt): PvP on, next to B, three spins while B guards, turns, unequips.
+# Each spin is held until B's window: B holds ZL for 600 ticks each time (pvp-escudo.B.txt).
+#! expect A coop: pvp: on \(set by 1\)
+#! expect A coop: pvp: our sword reached P2
+#! expect A coop: pvp: P2 hurt by P1: 0 \(life \d+, flags 2\)
+mark start
+wait 120
+chat /pvp on
+wait 120
+chat /ir B
+wait 360
+mark next-to-b
+wait 240                # B: shield on, faces A, holds ZL
+hold Y 70               # charge, let go: the spin
+wait 90
+mark spin-facing        # B: "blocked, takes 0; shield up (...), facing the hit"
+wait 600                # B turns his back and holds ZL again
+hold Y 70
+wait 90
+mark spin-behind        # B: "taken ...; shield up (...) but the hit came from beside or behind it"
+wait 600                # B takes the shield off, faces A, holds ZL
+hold Y 70
+wait 90
+mark spin-no-shield     # B: "taken ...; shield not up: no shield equipped"
+chat /pvp off
+wait 120
+mark end

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -1359,6 +1360,323 @@ struct DungeonEvent {
   std::string scene;
   std::string name;  // the event's name, 1 to kMaxEventNameChars, no "HavePlayedEvent."
   bool operator==(const DungeonEvent&) const = default;
+};
+
+// REVIVE (ORM, oot-remake docs/CAIDO_REVIVIR.md, "downed, not dead"): the
+// sender has held A beside a downed player (PLAYER_STATUS bit 4) long enough,
+// and that player's game gets Link up. From a client, `other_player` names the
+// downed player; the server passes it to that player only, with the sender's
+// number in the player field (as JOIN_PARTNER), and only while that player is
+// dead. `progress` kReviveDone is the request; 0 to kReviveMaxProgress is
+// the hold so far in percent, sent about every 250 ms while A is held, for
+// the downed player's screen (101 to 254 are refused).
+inline constexpr std::uint8_t kReviveDone = 255;
+inline constexpr std::uint8_t kReviveMaxProgress = 100;
+
+struct Revive {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, the reviver relayed
+  std::uint8_t other_player = 1;             // 1 to kMaxPlayers: the downed player
+  std::uint8_t progress = kReviveDone;
+  bool operator==(const Revive&) const = default;
+};
+
+// GROUP_DEFEAT (ORM, "downed, not dead"): the server's word that every player
+// in the session (two or more) has had PLAYER_STATUS bit 4 (dead) for 2 s
+// running. Sent once to everyone; again only after someone was up between.
+// A game with the downed rules on lets its game over run (the player presses
+// Continue and the game reloads its save, the room's at the session start).
+struct GroupDefeat {
+  std::uint8_t down = 1;            // players down, 1 to kMaxPlayers
+  std::uint32_t server_time_ms = 0; // the server's clock (ms, wraps)
+  bool operator==(const GroupDefeat&) const = default;
+};
+
+// STORY_EVENT (ORM, oot-remake docs/CINEMATICAS.md, "story cutscenes for
+// everyone"): a listed story event (a cutscene, asked by its name) started by
+// one player's own game. From a client: `start` when its game starts such an
+// event by itself (it owns it), `end` when that event is over. The server
+// relays the first `start` of a (scene, name) and its owner's `end` to the
+// others, with the sender's number in the player field, and keeps the pairs
+// started for the room: a player who joins later gets each as `played`, from
+// the server only (with the owner's number and the start time). A game in the
+// same scene that has not played it asks its own game to start the same event.
+//
+// `skipped` (ORM, ZMP D-048) is an end whose owner skipped the cutscene (its
+// game saw his skip): the others skip what is left of their copy. A plain
+// `end` never cuts anyone's copy. To a joiner the server sends a pair's
+// `played` and then its owner's last word, `end` or `skipped`.
+enum class StoryKind : std::uint8_t {
+  start = 1,
+  end = 2,
+  played = 3,   // server to a joiner only
+  skipped = 4,  // an end, the owner skipped it (ORM, D-048)
+};
+inline constexpr std::size_t kMaxStoryNameChars = 127;  // A-Z a-z 0-9 _, as the game's event names
+
+struct StoryEvent {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, the owner relayed
+  StoryKind kind = StoryKind::start;
+  std::string scene;  // the owner's scene, 1 to 64 characters
+  std::string name;   // the event's name, 1 to kMaxStoryNameChars
+  Vec3 position{};    // the owner's Link when it started (finite)
+  std::uint32_t server_time_ms = 0;  // the server's clock (ms, wraps) when it started
+  bool operator==(const StoryEvent&) const = default;
+};
+
+// PLAYER_LOOK (ORM, oot-remake docs/COLOR_JUGADOR.md, "a name and a colour
+// per player"): the colour a player chose, for its name tag and panel line
+// (later its puppet's tunic). From a client after each WELCOME and whenever
+// it changes, with 0 in the player field; the server keeps each player's
+// last one, relays it to the others with the sender's number, and sends every
+// player's to a joiner right after its WELCOME. `style` is reserved: 0 now; a
+// reader keeps an unknown value and draws as for 0. A player with no
+// PLAYER_LOOK is drawn in the default colour of its number.
+using Rgb = std::array<std::uint8_t, 3>;  // red, green, blue, 0 to 255
+
+struct PlayerLook {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, the player relayed
+  Rgb rgb{};
+  std::uint8_t style = 0;                    // name tag style, reserved: 0
+  bool operator==(const PlayerLook&) const = default;
+};
+
+// CHEST_OPEN (ORM, oot-remake docs/DETALLES_MARIONETA.md, "Efectos";
+// 2026-11-11: "cuando alguien abra un cofre debe poder ver cómo lo abre"): a
+// player's own game started opening a shared chest: the chest's AS slot 0
+// changed to an opening command while that player's Link stood beside it.
+// The other games in that scene play the same command on their own chest of
+// the same placement, at the sender's frame carried on by the time since, so
+// the lid opens on every screen while the opener's Link opens it (the opened
+// flag, which may come later, keeps its own path). Channel 0; the server
+// relays it to everyone else with the sender's number and keeps nothing.
+struct ChestOpen {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
+  std::uint64_t chest = 0;          // the chest's placement hash; never 0 nor ~0
+  std::string scene;                // the sender's scene, 1 to kMaxSceneChars
+  Animation animation;              // the chest's command (1 to kMaxAnimationChars), frame, rate (finite)
+  std::uint64_t server_time_us = 0; // when the sender read it, on the server clock
+  bool operator==(const ChestOpen&) const = default;
+};
+
+// OCARINA_NOTE (ORM, oot-remake docs/OCARINA.md, section 7; issue 152): what
+// a player plays on the Ocarina, so the others hear it at its puppet. From a
+// client while its Link plays freely, with 0 in the player field: `note` when
+// the sounding note changes, `release` when it is let go, `song` when the
+// game recognises a song. The server relays it to the others with the
+// sender's number, keeps nothing, and holds each player to its own rate.
+// Only sound: a song played by another player changes nothing in a game (the
+// flags it sets travel as shared flags). `serial` steps with each message of
+// its sender; a receiver drops one with the same serial as the last.
+// `instrument`, `note` and `song` are the game's own enums (main+0x3ee6ab0,
+// +0x3ee6ae0, +0x3effdb0 of build e0f3ccfaf50065ae).
+enum class OcarinaKind : std::uint8_t {
+  note = 1,
+  release = 2,
+  song = 3,
+};
+inline constexpr std::uint8_t kMaxOcarinaInstrument = 3;  // Ocarina 0, Piccolo 1, Malon 2, Harp 3
+inline constexpr std::uint8_t kMaxOcarinaNote = 19;       // 1 LowB to 19 HighF (0 Rest: not a note)
+inline constexpr std::uint8_t kMaxOcarinaSong = 12;       // 0 ZeldaLullaby to 12 ScarecrowSong
+
+struct OrmOcarinaNote {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, the player relayed
+  OcarinaKind kind = OcarinaKind::note;
+  std::uint8_t instrument = 0;               // 0 to kMaxOcarinaInstrument
+  std::uint8_t note = 1;                     // 1 to kMaxOcarinaNote with `note`; 0 otherwise
+  std::uint8_t song = 0;                     // 0 to kMaxOcarinaSong with `song`; 0 otherwise
+  std::uint8_t serial = 0;                   // steps with each of the sender's messages (wraps)
+  bool operator==(const OrmOcarinaNote&) const = default;
+};
+
+// GROUP_SETTINGS (ORM, oot-remake docs/AJUSTES_GRUPO.md): the settings of a
+// player's game and co-op that change the shared world, as text pairs (the
+// rules and the wire format: coop/protocol/orm_messages.hpp). From a client
+// after each WELCOME and whenever one changes, with 0 in the player field; the
+// server keeps each player's last one, relays it to the others with the
+// sender's number, and sends every player's to a joiner right after its
+// WELCOME, as PLAYER_LOOK.
+struct SettingEntry {
+  std::string key;    // a game option ("OptionData.IsUseAmiibo") or a co-op switch ("LICHII_COOP_DOWNED")
+  std::string value;  // "on", "off", an option's value name, a list's fingerprint
+  bool operator==(const SettingEntry&) const = default;
+};
+
+struct GroupSettings {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, the player relayed
+  std::vector<SettingEntry> entries;         // by key, each key once
+  bool operator==(const GroupSettings&) const = default;
+};
+
+// LINK_NOTICE (ORM, oot-remake docs/RIESGOS_RESUELTOS.md, "Red, kit y
+// alojamiento"): the relay (orm_server) tells one player something about his
+// own link, so a connection that cannot keep up is never degraded silently.
+// Server to client only, channel 0, never relayed. The body is frozen (u8
+// kind, u32 a, u32 b): a game of another release decodes it too, which is how
+// it learns the server's protocol before a REFUSED wrong_protocol_version.
+// A kind this build does not know is kept as it is (the game ignores it).
+enum class LinkNoticeKind : std::uint8_t {
+  behind = 1,           // frames for this player are being dropped: a = percent dropped, b = KiB waiting
+  caught_up = 2,        // the link keeps up again: a = seconds it was behind
+  server_protocol = 3,  // a = the server's protocol version (sent before REFUSED wrong_protocol_version)
+  over_rate = 4,        // the server dropped this player's own messages over its rate: a = unreliable, b = reliable
+};
+
+struct LinkNotice {
+  LinkNoticeKind kind = LinkNoticeKind::behind;  // raw value kept
+  std::uint32_t a = 0;
+  std::uint32_t b = 0;
+  bool operator==(const LinkNotice&) const = default;
+};
+
+// HOST_CHOICE (ORM, oot-remake docs/PARTIDA_SALA.md, "Un solo anfitrion"):
+// one host for the relay (flags, the save transfer, the clock) and for the
+// room's save. The relay picks it from what it measures (the lowest average
+// round trip to the others, a steady link, a game in the world) with
+// hysteresis, or a player picks it by hand (/anfitrion <name>). Channel 0, both
+// ways, never relayed as it came:
+// - from a client (by and host 0): `wish` (this player's own wish, after each
+//   WELCOME and when it changes) or `pick` (`name` hosts from now on; an empty
+//   name gives the choice back to the measures);
+// - from the server: `told`, to everyone after each HOST that changed and to a
+//   joiner after its HOST: `host` hosts because of `why`; `by` picked it (0:
+//   the relay itself); `name` the host's nickname; `pinned` the name picked by
+//   hand that the relay keeps (empty: automatic); `rtt_ms` the host's average
+//   round trip to the others as measured (0: not measured). A pick the relay
+//   cannot take is answered to the picker alone with why `refused` and the
+//   name asked in `name`.
+// Unknown kinds and whys are kept as they came (a game ignores them).
+enum class HostChoiceKind : std::uint8_t {
+  wish = 1,
+  pick = 2,
+  told = 3,
+};
+
+enum class HostWish : std::uint8_t {
+  automatic = 0,  // the relay decides
+  me = 1,         // this player would rather host (the app's toggle)
+  never = 2,      // never this player while another can (room_save_host = false)
+};
+
+enum class HostWhy : std::uint8_t {
+  first = 1,     // the first player in
+  left = 2,      // the host left: the best of the others
+  measured = 3,  // a clearly better link for a while
+  unfit = 4,     // the host's game was out of the world or its link unsteady for a while
+  picked = 5,    // a player picked it by hand
+  wished = 6,    // a player who asked to host (or the host asked not to)
+  refused = 7,   // to the picker alone: that pick cannot be taken (`name`: the name asked)
+};
+
+struct HostChoice {
+  HostChoiceKind kind = HostChoiceKind::told;  // raw value kept
+  HostWish wish = HostWish::automatic;         // wish; raw value kept
+  HostWhy why = HostWhy::first;                // told; raw value kept
+  std::uint8_t host = 0;                       // told: 1 to kMaxPlayers
+  std::uint8_t by = 0;                         // told: who picked, 0: the relay
+  std::uint16_t rtt_ms = 0;                    // told: the host's measured average, 0: none
+  std::string name;                            // pick: a nickname or empty; told: the host's (or the one asked)
+  std::string pinned;                          // told: the name picked by hand, empty: automatic
+  bool operator==(const HostChoice&) const = default;
+};
+
+// ---- ORM orm/pvp (oot-remake docs/COMANDOS.md): four session messages, wire
+// formats in coop/protocol/orm_messages.hpp. ----
+
+// ROOM_SWITCH: a switch that holds for the whole room, set live by any
+// player (chat command, the Cooperativo screen). From a client with 0 in the
+// player and time fields; the server keeps the room's last value of each key,
+// stamps who set it and when (its clock), relays a change to everyone (the
+// sender too, as the answer) and sends the room's switches to a joiner after
+// its WELCOME. A key this build does not know is kept and relayed as it is.
+enum class RoomSwitchKey : std::uint8_t {
+  pvp = 1,         // weapons of one Link hurt the others (off: they do nothing to mates)
+  lock_mates = 2,  // Z-targeting locks on mates as on enemies
+  bodies = 3,      // ORM choque: each mate's puppet has a real body (oot-remake docs/CHOQUE.md)
+};
+inline constexpr std::uint8_t kMaxRoomSwitchKey = 31;  // keys 1 to 31
+inline constexpr std::size_t kMaxRoomSwitches = 8;
+struct RoomSwitchEntry {
+  std::uint8_t key = 1;  // RoomSwitchKey, 1 to kMaxRoomSwitchKey
+  bool on = false;
+  bool operator==(const RoomSwitchEntry&) const = default;
+};
+struct RoomSwitch {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client; from the server: who set it
+  std::uint64_t server_time_us = 0;          // 0 from a client; from the server: when it took it
+  std::vector<RoomSwitchEntry> entries;      // 1 to kMaxRoomSwitches, keys increasing (each once)
+  bool operator==(const RoomSwitch&) const = default;
+};
+
+// PLAYER_HIT: the attacker's game saw its weapon reach a mate's puppet while
+// the room's PvP switch is on. To the victim only (the server checks the
+// switch, the scene and a rate); the victim's game decides (shield, its
+// invulnerability, a repeat) and applies the damage and the push to its own
+// Link: the victim owns his life.
+enum class HitWeapon : std::uint8_t {
+  sword = 1,
+  arrow = 2,
+  seed = 3,
+  hookshot = 4,
+  boomerang = 5,
+  magic = 6,
+  hammer = 7,
+  nut = 8,
+  stick = 9,
+  other = 10,
+};
+inline constexpr std::uint8_t kMaxHitWeapon = 10;
+inline constexpr std::uint8_t kMaxHitDamage = 80;  // quarter hearts (20 hearts)
+inline constexpr float kMaxHitPush = 3.0f;         // metres
+namespace player_hit {
+inline constexpr std::uint8_t pull = 0x01;       // the push is toward the attacker (the hookshot)
+inline constexpr std::uint8_t push_only = 0x02;  // no damage (a Deku Nut's stun, a shove)
+}  // namespace player_hit
+struct PlayerHit {
+  std::uint8_t player_number = kPlayerSelf;  // the attacker; 0 from a client
+  std::uint8_t victim = 1;                   // 1 to kMaxPlayers, never the attacker
+  std::uint32_t hit_id = 0;                  // the attacker's own counter, never 0
+  HitWeapon weapon = HitWeapon::sword;
+  std::uint8_t damage = 0;                   // quarter hearts, 0 to kMaxHitDamage
+  std::uint8_t flags = 0;                    // player_hit bits (others kept)
+  Vec3 from{};                               // the attacker's Link, finite
+  Vec3 push{};                               // world metres, at most kMaxHitPush long
+  bool operator==(const PlayerHit&) const = default;
+};
+
+// PLAYER_CALL: "come to me". `come` goes to one mate (`to`), who may accept
+// (/aceptar: his game asks the usual JOIN_PARTNER teleport to the caller);
+// `gather` is the host's to everyone (`to` 0). The server relays it with the
+// sender's number; a `gather` from a player who does not host is dropped.
+enum class CallKind : std::uint8_t {
+  come = 1,
+  gather = 2,
+};
+struct PlayerCall {
+  std::uint8_t player_number = kPlayerSelf;  // the caller; 0 from a client
+  std::uint8_t to = 0;                       // come: 1 to kMaxPlayers; gather: 0
+  CallKind kind = CallKind::come;
+  std::uint32_t call_id = 0;                 // the caller's own counter
+  bool operator==(const PlayerCall&) const = default;
+};
+
+// PLAYER_RENAME: a player's new name while playing. From a client with 0
+// and result ok; the server checks it (the app's rule, and no other player
+// of the room has it, ignoring ASCII case), keeps it for joiners and
+// reconnections, and sends it with the player's number and ok to everyone,
+// or back to the asker alone with the reason.
+enum class RenameResult : std::uint8_t {
+  ok = 0,
+  name_taken = 1,
+  bad_name = 2,
+};
+inline constexpr std::uint8_t kMaxRenameResult = 2;
+// The app's rule for a name: 1 to kMaxNicknameChars of A-Z a-z 0-9 . _ -
+bool valid_new_nickname(std::string_view name);
+struct PlayerRename {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client; the renamed player
+  RenameResult result = RenameResult::ok;
+  std::string nickname;                      // valid_new_nickname
+  bool operator==(const PlayerRename&) const = default;
 };
 
 using Message = std::variant<Hello, Welcome, Refused, PlayerJoined, PlayerLeft,

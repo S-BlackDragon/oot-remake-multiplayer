@@ -1,0 +1,12 @@
+# pvp-fijar: Z on a mate. NOT CHECKED: the puppet pack has no lock-on (attention)
+# component yet (COMANDOS.md "Falta"); this run only shows the switch's notices and A's ZL.
+mark start
+chat /fijar on
+wait 120
+hold ZL 120
+mark z-on
+chat /fijar off
+wait 120
+hold ZL 120
+mark z-off
+mark end

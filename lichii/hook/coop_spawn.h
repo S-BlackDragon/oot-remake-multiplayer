@@ -163,6 +163,16 @@ public:
     // Issue 151: where our own cast lures are (CoopProjectiles::IsLure), as
     // of the last walk.
     std::vector<Vec3> OwnLures() const;
+    // ORM PvP (orm_pvp_shared.h, oot-remake docs/COMANDOS.md): our shots in
+    // flight now (a made-up flight at its made-up place), and the mates'
+    // bombs that went off with no copy of ours since the last call.
+    struct ShotNow {
+        std::uint64_t id = 0;
+        std::string name;
+        Vec3 at{};
+    };
+    std::vector<ShotNow> OwnShots(std::uint64_t now_us) const;
+    std::vector<Vec3> TakeUnseenBlasts() { return std::exchange(unseen_blasts_, {}); }
     std::size_t Copies() const { return copies_.size(); }
     // Our bombs' fuse as learnt so far (coop_projectiles.h).
     const CoopProjectiles::FuseClock& Fuse() const { return fuse_; }
@@ -275,6 +285,8 @@ private:
         std::uint64_t animation_at = 0;  // server clock of its sample
         // Went off while held: the bomb is made first, then blown up.
         bool explode_once_made = false;
+        // ORM PvP: went off with no copy of ours: never made after that.
+        bool unseen = false;
         Vec3 Position() const { return track.Empty() ? Vec3{} : track.Last().position; }
     };
 
@@ -310,6 +322,7 @@ private:
     bool impacts_on_ = true;
     std::size_t impacts_made_ = 0;
     std::vector<Flight> flights_;
+    std::vector<Vec3> unseen_blasts_;  // ORM PvP (TakeUnseenBlasts)
     std::vector<MadeUp> made_up_;
     // Enemy shots on our list that are not sent (verdict keep or hide), by
     // address, and how many walks each was seen.

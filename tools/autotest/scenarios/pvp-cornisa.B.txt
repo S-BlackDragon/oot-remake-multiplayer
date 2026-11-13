@@ -1,0 +1,4 @@
+mark start
+# place X Y Z           # TO FILL: the ledge's edge (see pvp-cornisa.steps.txt)
+wait 900
+mark end

@@ -12,6 +12,7 @@
 // view_mutex. OnFrame never holds two at once.
 
 #include "coop_hook.h"
+#include "orm_commands_game.h"  // ORM chat commands, PvP, stats (docs COMANDOS.md)
 
 #include <algorithm>
 #include <array>
@@ -572,6 +573,7 @@ public:
     }
 
     void Frame(Core::System& system) {
+        OrmCommands::FrameStart();  // ORM: the hook's time in a frame, for /stats
         FrameView view;
         view.at = Clock::now();
         const auto reading = Read(system, view);

@@ -1,0 +1,23 @@
+# pvp-espada: sword pushes and hurts only with PvP on; a shield toward A blocks.
+mark start
+chat /pvp
+wait 60
+chat /ir B
+wait 300
+mark next-to-b
+hold Y 70               # charge, let go: a spin attack hits all round
+wait 90
+mark spin-pvp-off       # B: no hit at all (A sends none)
+chat /pvp on
+wait 120
+mark pvp-on
+hold Y 70
+wait 90
+mark spin-pvp-on        # B: "hit #.. taken", life down, pushed about a metre
+wait 240                # B raises his shield toward A
+hold Y 70
+wait 90
+mark spin-shield        # B: "blocked"
+chat /pvp off
+wait 120
+mark end

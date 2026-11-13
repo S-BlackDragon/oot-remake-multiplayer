@@ -1,0 +1,27 @@
+# pvp-escudo, B (pvp-escudo.steps.txt): the Deku Shield on, then ZL toward A, back to A, without shield.
+# A stands about 1 m to B's -z after /ir (the pvp-espada run: A at -82.00 33.65, B pushed to +z).
+#! expect B coop: test give IsGet\.Weapon_Shield_Deku
+#! expect B coop: pvp: shield read from \d+ AS slots of our Link
+#! expect B coop: pvp: our rules on P1's hit \(\d+ quarter hearts by upstream's\): blocked, takes 0; shield up \(
+#! expect B coop: pvp: our rules on P1's hit \(\d+ quarter hearts by upstream's\): taken, takes \d+; shield up \(.*\) but the hit came from beside or behind it
+#! expect B coop: pvp: our rules on P1's hit \(\d+ quarter hearts by upstream's\): taken, takes \d+; shield not up: no shield equipped
+mark start
+give IsGet.Weapon_Shield_Deku
+give PouchData.Weapon_Shield_Deku.StockNum
+wait 60
+flag IsGet.Weapon_Shield_Deku 1
+int PouchData.Weapon_Shield_Deku.StockNum 1
+wear shield Weapon_Shield_Deku
+wait 780
+toward -82.0 20.0 6     # face A (-z); few ticks: Link turns, hardly walks
+mark facing
+hold ZL 600
+toward -82.0 60.0 6     # turn the back to A (+z)
+mark behind
+hold ZL 600
+wear shield none
+wait 20
+toward -82.0 20.0 6
+mark no-shield
+hold ZL 600
+mark end

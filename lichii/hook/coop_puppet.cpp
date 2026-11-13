@@ -16,6 +16,7 @@
 #include <cstring>
 #include <memory>
 #include <string_view>
+#include <mutex>
 
 #include "coop/host/scene.hpp"
 #include "coop/host/session.hpp"
@@ -23,6 +24,25 @@
 #include "coop/presence/presence.hpp"
 
 namespace CoopPuppet {
+
+// ORM orm/pvp: the lock-on variant's suffix and tally (coop_puppet.h).
+namespace {
+std::mutex g_suffix_mutex;
+std::string g_suffix;
+std::atomic<std::uint32_t> g_locks_made{0};
+std::atomic<std::uint32_t> g_locks_failed{0};
+constexpr std::string_view kLockSuffix = "_Lock";
+
+bool IsLockActor(const std::string& name) {
+    return name.size() > kLockSuffix.size() && name.compare(name.size() - kLockSuffix.size(), kLockSuffix.size(),
+                                                            kLockSuffix) == 0;
+}
+void NoteLock(const std::string& name, bool made) {
+    if (IsLockActor(name)) {
+        (made ? g_locks_made : g_locks_failed).fetch_add(1);
+    }
+}
+} // namespace
 namespace {
 
 // The puppet plays the other player's Ocarina notes (issue 152) only with
@@ -261,6 +281,7 @@ void Director::NewFrame(Guest& guest, std::uint64_t now_ms) {
                     TunicFails(slot.actor_name, "not made twice: the puppet pack has no tunic "
                                                 "colours (an older pack? run make-puppet-pack again)");
                 }
+                NoteLock(slot.actor_name, false);  // ORM orm/pvp
                 slot.phase = Phase::idle;
                 slot.retry_ms = now_ms + 5000;
                 slot.take = slot.drop = false;
@@ -1345,6 +1366,7 @@ void Director::Poll(Slot& slot, Guest& guest, std::uint64_t now_ms) {
     } else if (state == 5 || state == 6) {
         Say("P" + std::to_string(slot.number) + " " + slot.actor_name + ": request " +
             Hex(request) + " failed (state " + std::to_string(state) + "); trying again in 5 s");
+        NoteLock(slot.actor_name, false);  // ORM orm/pvp
         WriteValue(guest, slot.handle, std::uint64_t{0});
         slot.phase = Phase::idle;
         slot.retry_ms = now_ms + 5000;
@@ -1569,6 +1591,21 @@ void Director::TunicFails(const std::string& actor, const std::string& why) {
     if (tunic_failed_.insert(actor).second) {
         Say(actor + " " + why + "; that colour shows as the plain puppet from now on");
     }
+}
+
+
+void SetActorSuffix(std::string suffix) {
+    std::lock_guard lock(g_suffix_mutex);
+    g_suffix = std::move(suffix);
+}
+
+std::string ActorSuffix() {
+    std::lock_guard lock(g_suffix_mutex);
+    return g_suffix;
+}
+
+LockTally Locks() {
+    return {g_locks_made.load(), g_locks_failed.load()};
 }
 
 namespace {

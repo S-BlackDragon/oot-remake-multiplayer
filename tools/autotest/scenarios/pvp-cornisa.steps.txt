@@ -1,0 +1,10 @@
+# pvp-cornisa (oot-remake docs/COMANDOS.md "Empujones"): a sword hit pushes B off a ledge.
+# NOT CHECKED, and the place is to be filled: B must stand at a ledge's edge with A on the
+# inside. The lookout platform by the Kokiri shop is the plan; take its edge's x y z from a
+# run's "coop: life:" or objects debug line and write it into pvp-cornisa.B.txt.
+#! switches LICHII_COOP_DEBUG_LIFE=1
+start A B
+load A B
+expect loaded A=1 B=1
+play A pvp-cornisa.A.txt B pvp-cornisa.B.txt
+shot pvp-cornisa

@@ -1,0 +1,14 @@
+mark start
+give bombs
+wait 60
+chat /ir B
+wait 300
+press R                 # quick select to the bombs (see bomb.A.txt)
+wait 30
+press ZR
+wait 45
+mark pulled
+press B                 # put it down at our feet
+wait 300
+mark exploded
+mark end

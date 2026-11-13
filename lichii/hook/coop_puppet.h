@@ -608,6 +608,31 @@ Director& TheDirector();
 // Any thread: TheDirector's LiveMask(), 0 while the puppets are off.
 std::uint32_t LivePuppets();
 
+// ORM orm/pvp (oot-remake docs/COMANDOS.md, "Fijar aliados"): a suffix added
+// to the Link puppets' actor name ("_Lock": the pack's lock-on variant); ""
+// none (the default). A live puppet whose name changes is made again. Any
+// thread. LockTally: lock-on puppets made and failed since the start (any
+// thread), for the ally target's check.
+void SetActorSuffix(std::string suffix);
+std::string ActorSuffix();
+struct LockTally {
+    std::uint32_t made = 0;
+    std::uint32_t failed = 0;
+};
+LockTally Locks();
+
+// ORM smoothing (oot-remake docs/EPONA.md, REVISION_NUEVAS orm/epona): the
+// pose the Link puppets' director last drew player n with (the smoothing
+// source it asks each calc frame), and the server time it was asked for. The
+// riders' horses (coop_epona.h) are drawn from this very pose, so a horse and
+// its rider are one smoothed place. Any thread; nothing while the smoothing is
+// off, before a first pose, or after the player left.
+struct ShownPose {
+    std::uint64_t server_us = 0;
+    coop::host::SmoothedPose pose;
+};
+std::optional<ShownPose> LastSmoothed(std::uint8_t number);
+
 // Every remote player presence shows at `server_now_us`, with scene, status,
 // age, newest animation and gear: what Publish plans from. CoopFairy plans
 // from the same list, so a Navi hides when its puppet does. Null session or

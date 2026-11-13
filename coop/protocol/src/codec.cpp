@@ -2612,6 +2612,19 @@ bool allowed_on_channel(MessageType type, std::uint8_t channel) {
     case MessageType::save_part:
     case MessageType::pvp_mode:
     case MessageType::ocarina_note:
+    case MessageType::revive:
+    case MessageType::group_defeat:
+    case MessageType::story_event:
+    case MessageType::player_look:
+    case MessageType::chest_open:
+    case MessageType::orm_ocarina_note:
+    case MessageType::group_settings:  // ORM
+    case MessageType::link_notice:
+    case MessageType::host_choice:
+    case MessageType::room_switch:  // ORM orm/pvp
+    case MessageType::player_hit:
+    case MessageType::player_call:
+    case MessageType::player_rename:
       return channel == kChannelSession;
     case MessageType::flag_set:
     case MessageType::flag_state:
@@ -2712,6 +2725,18 @@ bool may_send(Sender from, MessageType type) {
     case MessageType::pvp_hit:
     case MessageType::pvp_hurt:
     case MessageType::ocarina_note:
+    case MessageType::revive:
+    case MessageType::story_event:
+    case MessageType::player_look:
+    case MessageType::object_pose:
+    case MessageType::chest_open:
+    case MessageType::orm_ocarina_note:
+    case MessageType::group_settings:  // ORM
+    case MessageType::host_choice:     // ORM: wish and pick from a client, told from the server
+    case MessageType::room_switch:  // ORM orm/pvp
+    case MessageType::player_hit:
+    case MessageType::player_call:
+    case MessageType::player_rename:
       return true;
   }
   return false;
@@ -2877,6 +2902,20 @@ Error decode(std::span<const std::uint8_t> bytes, Message& out) {
     case MessageType::drop_take: return decode_as<DropTake>(body, out);
     case MessageType::drop_ask: return decode_as<DropAsk>(body, out);
     case MessageType::boss_room: return decode_as<BossRoom>(body, out);
+    case MessageType::revive: return decode_as<Revive>(body, out);
+    case MessageType::group_defeat: return decode_as<GroupDefeat>(body, out);
+    case MessageType::story_event: return decode_as<StoryEvent>(body, out);
+    case MessageType::player_look: return decode_as<PlayerLook>(body, out);
+    case MessageType::object_pose: return decode_as<ObjectPose>(body, out);
+    case MessageType::chest_open: return decode_as<ChestOpen>(body, out);
+    case MessageType::orm_ocarina_note: return decode_as<OrmOcarinaNote>(body, out);
+    case MessageType::group_settings: return decode_as<GroupSettings>(body, out);  // ORM
+    case MessageType::room_switch: return decode_as<RoomSwitch>(body, out);  // ORM orm/pvp
+    case MessageType::player_hit: return decode_as<PlayerHit>(body, out);
+    case MessageType::player_call: return decode_as<PlayerCall>(body, out);
+    case MessageType::player_rename: return decode_as<PlayerRename>(body, out);
+    case MessageType::link_notice: return decode_as<LinkNotice>(body, out);
+    case MessageType::host_choice: return decode_as<HostChoice>(body, out);
     case MessageType::player_equip: return decode_as<PlayerEquip>(body, out);
     case MessageType::player_life: return decode_as<PlayerLife>(body, out);
   }

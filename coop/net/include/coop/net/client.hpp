@@ -330,6 +330,9 @@ class Client {
   bool start();
   // Says goodbye to the server if connected and stops for good.
   void stop();
+  // ORM orm/pvp (/reintentar): between attempts, the next one starts at the
+  // next service() instead of after its delay. False in any other state.
+  bool retry_now();
 
   // Runs ENet and the timers. Waits at most `wait_ms` for network traffic;
   // 0 does not wait.

@@ -710,7 +710,7 @@ class Session {
                          protocol::Message& message, std::uint64_t now_us);
   void on_damage(ConnectionId id, Connection& c, protocol::Damage& d, std::uint64_t now_us);
   void on_pvp_mode(ConnectionId id, Connection& c, const protocol::PvpMode& m);
-  void on_pvp_hit(ConnectionId id, Connection& c, protocol::Message& message);
+  void on_pvp_hit(ConnectionId id, Connection& c, protocol::Message& message, std::uint64_t now_us);
   void on_object_group(ConnectionId id, Connection& c, const protocol::ObjectGroup& g);
   void on_fish_lure(Connection& c, const protocol::FishLure& m, std::uint64_t now_us);
   // A fish's owner by the lures (issue 151): asks it over when another game's

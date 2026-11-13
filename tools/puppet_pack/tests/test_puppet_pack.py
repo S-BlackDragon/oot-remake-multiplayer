@@ -299,6 +299,54 @@ class AinbTest(unittest.TestCase):
             ainb.oneshot_root(no_emit, "a", "b")
 
 
+class LockOnPuppetTest(unittest.TestCase):
+    """ORM orm/pvp: the lock-on variant (oot-remake docs/COMANDOS.md, "Fijar aliados")."""
+
+    APC = "?Component/ActorPositionCalculatorParam/Player_Child.game__component__ActorPositionCalculatorParam.bgyml"
+    CLIENT = "Attention/ClientParam/EnemyCommon_LockOn.game__attention__ClientParam.bgyml"
+
+    def player(self):
+        members = fake_player_pack("Child")
+        child = byml.loads(members["Actor/Player_Child.engine__actor__ActorParam.bgyml"])
+        child["Components"]["ActorPositionCalculatorRef"] = self.APC
+        members["Actor/Player_Child.engine__actor__ActorParam.bgyml"] = byml.dumps(child)
+        members[build.ref_to_member(self.APC)] = byml.dumps({"AttackPosBone": "Spine_2"})
+        return members
+
+    def dark_link(self):
+        return {
+            self.CLIENT: byml.dumps({"AttentionType": byml.UInt(3016662870), "CheckList": []}),
+            "Attention/ClientParam/EnemyCommon_AutoAim.game__attention__ClientParam.bgyml": byml.dumps({"X": 1}),
+        }
+
+    def test_lock_variant(self):
+        pack, ap, names, keys = build.build_pack(self.player(), "Child", lock_members=self.dark_link())
+        out = sarc.read(pack)
+        doc = byml.loads(out["Actor/CoopPuppet_Child_Lock.engine__actor__ActorParam.bgyml"])
+        comps = doc["Components"]
+        self.assertEqual(comps["AttentionSenderRef"], "?" + build.LOCK_SENDER)
+        self.assertEqual(comps["ActorPositionCalculatorRef"], self.APC)
+        sender = byml.loads(out[build.LOCK_SENDER])
+        self.assertEqual(sender["ClientList"], [build.LOCK_CLIENT])  # the lock-on client alone, no auto-aim
+        self.assertEqual(sender["$parent"], build.LOCK_SENDER_PARENT)
+        self.assertIn(self.CLIENT, out)
+        self.assertIn(build.ref_to_member(self.APC), out)
+        self.assertNotIn("Attention/ClientParam/EnemyCommon_AutoAim.game__attention__ClientParam.bgyml", out)
+        self.assertNotIn("PhysicsRef", comps)  # still no physics, life or AI
+        self.assertNotIn("Actor/CoopPuppet_Child.engine__actor__ActorParam.bgyml", out)
+
+    def test_plain_puppet_has_no_attention(self):
+        pack, _, _, _ = build.build_pack(self.player(), "Child")
+        comps = byml.loads(sarc.read(pack)["Actor/CoopPuppet_Child.engine__actor__ActorParam.bgyml"])["Components"]
+        self.assertNotIn("AttentionSenderRef", comps)
+
+    def test_no_client_or_no_position_calculator(self):
+        with self.assertRaises(build.BuildError):
+            build.build_pack(self.player(), "Child", lock_members={})
+        with self.assertRaises(build.BuildError):
+            build.build_pack(fake_player_pack("Child"), "Child", lock_members=self.dark_link())
+
+
 class BuildPackTest(unittest.TestCase):
     def test_pack_contents(self):
         members = fake_player_pack("Child")

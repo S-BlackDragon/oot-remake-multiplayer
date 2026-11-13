@@ -375,16 +375,21 @@ def build_pack(members, variant, sound=True, player_footsteps=False, sound_user=
                project=None, basic_xlink=False):
     """Returns (pack bytes, actor param bytes, member list, equipment keys) for one variant.
     `actor`: the pack's actor (default CoopPuppet_<variant>); `project`: a model project of its own
-    (a tunic colour), else the player's."""
+    (a tunic colour), else the player's. `effects` (ORM): the puppet keeps Link's effect user.
+    `lock_members` (ORM orm/pvp): LOCK_SOURCE's pack members: the lock-on variant (lock_name)."""
     player = f"Player_{variant}"
-    actor = actor or puppet_name(variant)
-    doc = make_actor_param(flatten_actor_param(members, player), sound, basic_xlink)
+    actor = actor or (lock_name(variant) if lock_members is not None else puppet_name(variant))
+    player_components = flatten_actor_param(members, player)
+    doc = make_actor_param(player_components, sound, basic_xlink, effects)
     files = collect_members(members, doc)
     if project:
         path, data = tunic_model_info(actor, variant, project)
         files[path] = data
         doc["Components"]["ModelInfoRef"] = "?" + path
     keys = equipment_keys(files, doc)
+    if lock_members is not None:  # ORM orm/pvp
+        add_lock_on(files, doc, player_components, lock_members)
+        files.update(collect_members(members, {"apc": doc["Components"]["ActorPositionCalculatorRef"]}))
     fs = puppet_footstep(doc, actor) if sound and not player_footsteps else None
     if fs:
         path, data, _ = fs
@@ -804,6 +809,84 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
         template = sarc.read(dicts.decompress(read(src))).get(IMPACT_TEMPLATE)
     if template is None:
         log(f"impacts: no {IMPACT_TEMPLATE} in this romfs, left out")
+
+    # ORM orm/pvp: the lock-on variants (optional: a romfs without Dark Link leaves them out, and the
+    # hook then says "Fijar aliados" is not available: COMANDOS.md).
+    lock_src = os.path.join(romfs, "Pack", "Actor", f"{LOCK_SOURCE}.pack.zs")
+    lock_members = sarc.read(dicts.decompress(read(lock_src))) if os.path.isfile(lock_src) else None
+    if lock_members is None:
+        log(f"lock-on puppets: no {LOCK_SOURCE} in this romfs, left out")
+    for v in VARIANTS if lock_members is not None else ():
+        player = f"Player_{v}"
+        actor = lock_name(v)
+        members = sarc.read(dicts.decompress(read(os.path.join(romfs, "Pack", "Actor", f"{player}.pack.zs"))))
+        try:
+            pack, ap, names, keys = build_pack(members, v, sound, player_footsteps, sound_user, actor,
+                                               effects=effects, lock_members=lock_members)
+        except BuildError as e:
+            log(f"{actor}: {e}, left out")
+            continue
+        dst_rel = f"Pack/Actor/{actor}.pack.zs"
+        write(os.path.join(out_romfs, dst_rel), dicts.compress(pack, PACK_DICT))
+        new_ai.append(info_row(ai_rows[player], actor, heaps.get(actor), sound, sound_user, effects))
+        new_gai.append({"__RowId": actor})
+        table.add_new(strip_zs(dst_rel), ((len(pack) + 0x1F) & ~0x1F) + PACK_SIZE_MARGIN)
+        chain_ap = sum(table.get(path) or 0 for path, _ in actor_param_chain(members, player))
+        ap_size = max(chain_ap, len(ap) + PACK_SIZE_MARGIN)
+        table.add_new(actor_param_path(actor), ap_size)
+        sender = byml.dumps({"$parent": LOCK_SENDER_PARENT, "ClientList": [LOCK_CLIENT]})
+        if table.get(LOCK_SENDER) is None:
+            table.add_new(LOCK_SENDER, len(sender) + PACK_SIZE_MARGIN)
+        client = ref_to_member(LOCK_CLIENT)
+        if table.get(client) is None:
+            table.add_new(client, len(lock_members[client]) + PACK_SIZE_MARGIN)
+        footstep = None
+        if footstep_path(actor) in names:
+            path, data, src = puppet_footstep(make_actor_param(flatten_actor_param(members, player)), actor)
+            fs_size = max((table.get(src) or 0) + max(0, len(data) - len(members.get(src, b""))),
+                          len(data) + PACK_SIZE_MARGIN)
+            table.add_new(path, fs_size)
+            footstep = {"param": path, "size": fs_size}
+        if slink_path(actor) in names:
+            path, data, src = puppet_slink(make_actor_param(flatten_actor_param(members, player)), actor, sound_user)
+            table.add_new(path, max((table.get(src) or 0) + max(0, len(data) - len(members.get(src, b""))),
+                                    len(data) + PACK_SIZE_MARGIN))
+        made.append({"actor": actor, "from": player, "lock": True, "lock_from": LOCK_SOURCE, "pack": dst_rel,
+                     "pack_bytes": len(pack), "instance_heap": _num(new_ai[-1].get("InstanceHeapSize", 0)),
+                     "param_size": ap_size, "members": names, "equipment_keys": keys, "footstep": footstep})
+        log(f"{actor}: {len(names)} files, {len(pack)} bytes, lock-on from {LOCK_SOURCE} -> {dst_rel}")
+
+    # ORM choque: the bodies (optional: a player pack whose prism cannot be read leaves them out, and the
+    # hook then draws the mates aside as before: coop: check: bodies: collider fallback).
+    bodies = []
+    for v in VARIANTS:
+        player = f"Player_{v}"
+        members = player_members[v]
+        for suffix, top in BODY_KINDS:
+            actor = body_name(v, suffix)
+            try:
+                pack, ap, names, info, params = build_body(members, v, top, actor)
+            except BuildError as e:
+                log(f"{actor}: {e}, left out (the hook draws the mates aside)")
+                continue
+            dst_rel = f"Pack/Actor/{actor}.pack.zs"
+            write(os.path.join(out_romfs, dst_rel), dicts.compress(pack, PACK_DICT))
+            row = body_row(ai_rows[player], actor, heaps.get(actor))
+            new_ai.append(row)
+            new_gai.append({"__RowId": actor, "MainRigidBodyLayer": BODY_SIDE["LayerEntity"]})
+            table.add_new(strip_zs(dst_rel), ((len(pack) + 0x1F) & ~0x1F) + PACK_SIZE_MARGIN)
+            # As the puppet's: its ActorParam is small, the player's chain is room to spare (issue 111).
+            chain_ap = sum(table.get(path) or 0 for path, _ in actor_param_chain(members, player))
+            ap_size = max(chain_ap, len(ap) + PACK_SIZE_MARGIN)
+            table.add_new(actor_param_path(actor), ap_size)
+            for path, data in params.items():
+                table.add_new(path, param_entry_size(len(data)))
+            bodies.append({"actor": actor, "from": player, "top": top, "radius": info["radius"],
+                           "height": info["height"], "shape_from": info["shape_from"], "pack": dst_rel,
+                           "pack_bytes": len(pack), "instance_heap": _num(row["InstanceHeapSize"]),
+                           "param_size": ap_size, "members": names})
+            log(f"{actor}: {len(names)} files, {len(pack)} bytes, radius {info['radius']:.2f} head "
+                f"{info['height']:.2f}{', head disc' if top else ''} -> {dst_rel}")
 
     shots = []
     # Stand-ins are model-only unless stand_in_effects (--seed-trail). With the seed's Tail effect

@@ -425,6 +425,7 @@ LinkInfo Client::link() const {
 
 void Client::on_receive(const std::uint8_t* data, std::size_t size,
                         std::uint8_t channel) {
+  link_.received_bytes += size;  // ORM orm/pvp: /red, /stats
   proto::Message message;
   if (proto::decode(std::span<const std::uint8_t>(data, size), message) !=
           proto::Error::none ||
@@ -799,6 +800,12 @@ bool Client::send_packet(std::span<const std::uint8_t> plain, std::uint8_t chann
 }
 
 void Client::push(Event event) { events_.push_back(std::move(event)); }
+
+bool Client::retry_now() {
+  if (state_ != State::waiting_retry) return false;
+  retry_at_us_ = 0;  // ORM orm/pvp: service() begins the attempt now
+  return true;
+}
 
 bool Client::is_other_player(std::uint8_t number) const {
   const Player* known = find_player(number);

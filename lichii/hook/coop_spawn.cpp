@@ -8,6 +8,7 @@
 #include "coop_spawn.h"
 
 #include "coop_objects_sync.h"  // QuatOf
+#include "orm_pvp_shared.h"     // ORM PvP: our shots and the unseen blasts
 
 #include <algorithm>
 #include <array>
@@ -113,6 +114,16 @@ void Sync::Receive(const proto::Message& message) {
             inbox_.push_back(message);
         }
     }
+}
+
+std::vector<Sync::ShotNow> Sync::OwnShots(std::uint64_t now_us) const {
+    std::vector<ShotNow> out;
+    for (const auto& [address, m] : mine_) {
+        if (m.missed == 0 && Flies(m.name) && !Explodes(m.name)) {
+            out.push_back({m.id.value, m.name, m.made_up ? ShotPlace(m, now_us) : m.position});
+        }
+    }
+    return out;
 }
 
 std::vector<Vec3> Sync::OwnLures() const {
@@ -539,7 +550,15 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
             c.act = Act::show;  // made first; blown up once the director has it
         }
         if (explode && !r.blasted) {
-            CoopProjectiles::TheBlasts().Add(c.position, now_us);
+            // ORM PvP (orm_pvp_shared.h): with no copy of it here our game has
+            // no explosion: the copy is never made now (no blast later, never
+            // twice), and the PvP frame gives our Link the blast if in reach.
+            if (!made && !r.explode_once_made) {
+                r.unseen = true;
+                unseen_blasts_.push_back(c.position);
+            } else {
+                CoopProjectiles::TheBlasts().Add(c.position, now_us);
+            }
             r.blasted = true;
         }
         copies.push_back(std::move(c));
@@ -1432,6 +1451,7 @@ public:
             if (active_) {
                 sync_.Reset();
                 CoopProjectiles::TheLures().Set({});
+                OrmPvpShared::TheBoard().SetShots({});  // ORM PvP
                 TheDirector().SetInput(0, {});
                 active_ = false;
             }
@@ -1479,6 +1499,18 @@ public:
                      f.velocity[1], f.velocity[2]);
         }
         CoopProjectiles::TheLures().Set(sync_.OwnLures());  // issue 151, for the objects sync
+        {
+            // ORM PvP (orm_pvp_shared.h): our shots for the hits on mates, and
+            // the mates' bombs our game never saw go off.
+            std::vector<OrmPvpShared::Shot> shots;
+            for (auto& shot : sync_.OwnShots(now_us)) {
+                shots.push_back({shot.id, std::move(shot.name), shot.at});
+            }
+            OrmPvpShared::TheBoard().SetShots(std::move(shots));
+            for (const auto& at : sync_.TakeUnseenBlasts()) {
+                OrmPvpShared::TheBoard().AddUnseenBlast(at);
+            }
+        }
         TheDirector().SetInput(main_, std::move(copies));
         if (const auto fuse = sync_.Fuse().Fuse(); fuse && fuse != logged_fuse_) {
             LOG_INFO(Core, "coop: shots: our bombs' fuse is {:.2f} s", double(*fuse) / 1e6);

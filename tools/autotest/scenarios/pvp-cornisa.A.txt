@@ -1,0 +1,10 @@
+mark start
+chat /pvp on
+wait 240
+chat /ir B
+wait 300
+hold Y 70               # spin: B is pushed about 1.2 m away from A, off the edge
+wait 180
+mark pushed             # B: "hit # taken", then his height drops (the game's own fall)
+chat /pvp off
+mark end

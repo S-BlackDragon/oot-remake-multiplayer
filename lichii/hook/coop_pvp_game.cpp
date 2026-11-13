@@ -23,6 +23,7 @@
 #include "coop_objects.h"
 #include "coop_puppet.h"
 #include "coop_pvp.h"
+#include "orm_commands_game.h"  // ORM test10: our PvP rules on these (coop/host/orm_pvp.hpp)
 
 namespace CoopPvp {
 namespace {
@@ -261,9 +262,19 @@ void Frame(const std::optional<std::string>& scene, const std::optional<coop::ho
                     who = Hitter{t.scene, t.status, true};
                 }
             }
-            const auto d = g.victim.Hit(h, true, local, who, now_us);
+            auto d = g.victim.Hit(h, true, local, who, now_us);
             if (!d) {
                 continue;
+            }
+            // ORM: our rules on top (shield, Nayru, invulnerability, the last one
+            // up, knockback; orm_commands_game.h). The hurt tells what was taken.
+            if (const std::int32_t take = OrmCommands::PvpVictimTake(h, d->take, reading, local.life);
+                take != d->take) {
+                const std::int32_t before = d->hurt.life + d->take;
+                d->take = take;
+                d->hurt.amount = take;
+                d->hurt.life = before - take;
+                d->hurt.flags = take == 0 ? proto::pvp_hurt::guarded : (d->hurt.life == 0 ? proto::pvp_hurt::died : 0);
             }
             if (d->take > 0) {
                 CoopObjects::HurtOurLink(d->take, h.at, h.from);

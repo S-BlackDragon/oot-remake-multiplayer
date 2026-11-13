@@ -1,0 +1,4 @@
+mark start
+wait 360
+stick 0 -1 60           # toward A too
+mark end

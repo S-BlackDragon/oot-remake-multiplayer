@@ -1,0 +1,18 @@
+# pvp-escudo (oot-remake docs/PVP.md "Escudo"): the victim's shield on upstream's PvP (test10).
+# The 0.12 run of pvp-espada took the hit B meant to block: B wore no shield (PLAYER_EQUIP shield '')
+# and held ZL with "LockOnWait" in the main slot. Here B puts the Deku Shield on first (cheat, as
+# charla-mido), A turns PvP on, comes next to B and spins three times:
+#   1. B faces A and holds ZL:            B "our rules on P1's hit ...: blocked, takes 0; shield up (...), facing the hit"
+#   2. B turns his back to A, holds ZL:   B "...: taken, takes N; shield up (...) but the hit came from beside or behind it"
+#   3. B takes the shield off, holds ZL:  B "...: taken, takes N; shield not up: no shield equipped"
+# The shield line names the path: "command '<AS command>' in slot <n>" (the game's own guard, read
+# from every AS slot) or "the guard button held with a shield on ('<command>')" (ZL with a shield,
+# when no slot names the guard). Both are a pass for 1; write down which one ran (docs/PVP.md).
+# B's first "coop: pvp: shield read from N AS slots" line gives the slot count and the button.
+# A must see "coop: pvp: P2 hurt by P1: 0 (life L, flags 2)" for 1 (guarded) and amounts > 0 for 2, 3.
+#! switches LICHII_COOP_CHEATS=1,LICHII_COOP_DEBUG_LIFE=1
+start A B
+load A B
+expect loaded A=1 B=1
+play A pvp-escudo.A.txt B pvp-escudo.B.txt
+shot pvp-escudo

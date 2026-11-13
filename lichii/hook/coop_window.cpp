@@ -816,6 +816,7 @@ public:
         connect(edit_, &QLineEdit::returnPressed, this, [this] { Send(); });
         connect(edit_, &QLineEdit::textEdited, this, [this] { SetFailed(false); });
         edit_->installEventFilter(this);
+        OrmChatComplete::Attach(edit_);  // ORM: command suggestions (orm_chat_complete.h)
     }
 
     void Open() {

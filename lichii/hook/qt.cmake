@@ -4,6 +4,7 @@ set(_coop_hook "${LICHII_COOP_DIR}/lichii/hook")
 target_sources(yuzu PRIVATE
     "${_coop_hook}/coop_cheats_window.cpp"
     "${_coop_hook}/coop_window.cpp"
+    "${_coop_hook}/orm_chat_complete.cpp"  # ORM: command suggestions (docs COMANDOS.md)
 )
 target_include_directories(yuzu PRIVATE "${_coop_hook}")
 # ORM partner map: coop_window.cpp includes coop_map.h, which needs coop/overlay (and
