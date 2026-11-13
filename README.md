@@ -1,3 +1,80 @@
+# A gift for daurosk's co-op: our work on top of v0.1.0-test10
+
+*Español: [README.es.md](README.es.md)*
+
+Hi daurosk. I'm not a programmer, but I know Ocarina of Time well. I play your co-op with friends and, with AI
+agents (Claude), added these things on top of your test10. It's a gift: take anything as it is or change it; if it
+doesn't fit, no problem. Thanks for your work.
+
+## What this branch is
+
+- Branch `regalo-test10`: your tag `v0.1.0-test10`, unchanged, and on top of it **one commit per feature** (15
+  features and this documentation). Nothing of yours is removed; every file we add or change is in English and
+  commented for a reader who is not the author.
+- **Built and tested as a whole** at the top of the branch: `ctest` 2591/2591 green (the Qt app tests need Qt 6 and were not built here; they passed on their own branch) (Windows, MSVC, Ninja).
+- **How the commits were split.** Our work grew over many small branches. For this gift every line we added was
+  grouped by the feature it belongs to, so each commit holds that feature's own files and its lines in shared upstream
+  files (`coop_hook.cpp`, `messages.hpp`, `codec.cpp`, `session.cpp`, `core.cmake`, the CMake lists). Most features use
+  `01-platform` (the switch reader and the platform layer) and `02-network` (our message block), so when you take a
+  single feature, take those two first. A single commit taken alone may still need a few lines from another one; the
+  tree at the top of the branch is the one that builds.
+- **Switches keep the defaults we ship.** Every feature has an on/off switch (an environment variable, set from
+  `tools/release/kit/coop-options.ini`). What has not been confirmed in a real game ships **off**.
+- **Not here, on purpose:** our own server, our launcher and its update channel, any download of the game, keys or
+  firmware, and any game data. The "Cooperativo" screen (14) talks to any helper you write; its protocol is documented.
+
+## What we tested, what works, what is still an idea
+
+| Document | What it says |
+|---|---|
+| [docs/gift/TESTED.md](docs/gift/TESTED.md) | every scenario we ran with two real games: what it checks, green or red, the cause of each red and its fix, and the bugs we found in upstream code paths, with log lines |
+| [docs/gift/WORKS.md](docs/gift/WORKS.md) | only what is confirmed working in a game with two players, with the scenario and the evidence |
+| [docs/gift/IDEAS.md](docs/gift/IDEAS.md) | ideas not finished or not confirmed: how we would do them, what is known, the probe that would confirm them |
+| [docs/gift/HOW-WE-WORK.md](docs/gift/HOW-WE-WORK.md) | our method in plain words: two hidden games per test, scenario directives, synthetic saves, switches off until a game confirms, fallbacks with a log line |
+| [docs/gift/LIMITS.md](docs/gift/LIMITS.md) | honest limits: one home PC, why validation is slow, where we are, how long it may take |
+| [docs/orm/README.md](docs/orm/README.md) | one page per feature: switches, files, hooks into your files, messages, tests, log lines, gaps |
+
+Spanish copies of the docs/gift pages are in [docs/gift/es/](docs/gift/es/).
+
+## The features
+
+Status words: **confirmed in game** = seen with two players in a real game run of the named scenario ("test10" = on
+this tree; the others on our test9-based build). **Not yet** = unit-tested only.
+
+| Feature | What changes for players | Switch (shipped default) | Main files | Status | How to take it |
+|---|---|---|---|---|---|
+| [01-platform](docs/orm/01-platform.md) | Nothing visible; any ORM switch takes 0/1, true/false, yes/no, on/off and logs an odd value | none (always on) | `lichii/hook/platform*.{h,cpp}`, `coop_switch.h`, `coop_frame_log.*` | Emulator: confirmed in game (every scenario). Hookshot: not yet | `git cherry-pick 74f2683e` |
+| [02-network](docs/orm/02-network.md) | Up to six players; join over ws/wss too; a warning when your link cannot keep up; one host chosen by link quality or `/anfitrion` | `server_websocket` (kit: on); transport udp by default | `coop/protocol/orm_*`, `coop/net/*transport*`, `server/orm_*`, `server/host_choice.*` | Protocol 110: confirmed in game, test10. Six players, host choice: not yet | `git cherry-pick 5f0652fe` |
+| [03-fixes](docs/orm/03-fixes.md) | A host on the title screen no longer sends a fresh save's flags; carried objects and bones read right | none | fixes inside existing files | Title-screen fix: confirmed in game. Others: see TESTED.md | `git cherry-pick 8257b784` |
+| [04-downed](docs/orm/04-downed.md) | With a mate in the room you lie down instead of dying; a mate revives you; all down = group game over; spectator camera | `LICHII_COOP_DOWNED=1`, `LICHII_COOP_SPECTATOR=1` | `coop/host/downed.*`, `lichii/hook/coop_downed*`, `coop_spectator.*`, `coop_continue.*` | Confirmed in game: `caer-pareja`, `caer-solo`. Continue keep: not yet | `git cherry-pick 5aff2704` |
+| [05-bosses](docs/orm/05-bosses.md) | Grab and tennis bosses keep their owner; enemies turn to players still standing; endgame and escape with six | `LICHII_ORM_BOSS_FAMILIES` (on); `LICHII_ORM_ESCAPE_CLOCK` off | `coop/host/boss_rules.*`, `final_rules.*`, `hazards.*`, `lichii/hook/coop_enemies.*`, `coop_hits.*`, `coop_final*`, `server/enemies.cpp` | Boss room entry: confirmed in game (`jefe-gohma-entrada`). The rest: not yet | `git cherry-pick df8324c0` |
+| [06-world](docs/orm/06-world.md) | Water levels, held switches, chests and doors on every screen, talk flags, warp-song invitation, kit lists, your own wallet | `LICHII_ORM_WATER=1`, `LICHII_COOP_TALK`, `LICHII_COOP_WARP_INVITE=1`, `LICHII_COOP_DUNGEON_LISTS`, `LICHII_ORM_ITEM_RULES` | `coop/host/{water,held_switch,chest_open,doors,npc_talk,songs,dungeon_lists,...}.*`, `tools/release/kit/shared_*.txt` | Confirmed in game: `meca-agua-templo`, `meca-sostenido-*`, `efectos-cofre`, `charla-dos`, `viaje-cancion`, `cartera-cada-uno`. Most lists: not yet | `git cherry-pick d88b42b7` |
+| [07-cutscenes](docs/orm/07-cutscenes.md) | A story cutscene one player starts plays for everyone in the scene; only its owner's skip skips it | `LICHII_ORM_STORY_EVENTS=1` | `coop/host/story.*`, `lichii/hook/orm_story_events*`, `shared_story.txt` | Confirmed in game: `historia`. Skip: not yet | `git cherry-pick 594cdff2` |
+| [08-age](docs/orm/08-age.md) | The group follows a mate's age change to the Temple of Time after a notice and a 3 s countdown | `LICHII_ORM_AGE=0` (off) | `coop/host/age.*`, `time_temple.*`, `lichii/hook/coop_age_game.*`, `coop_time_temple*` | Not yet (the game refused the era-change event in our runs) | `git cherry-pick 9e28597d` |
+| [09-pvp](docs/orm/09-pvp.md) | Real weapon damage, shield, Nayru's Love and shove on your PvP; Z-target mates; `/` commands with Tab | `pvp = off` (host decides); `LICHII_ORM_PVP` (on) | `coop/host/orm_pvp.*`, `orm_commands.*`, `lichii/hook/orm_commands_game.*`, `orm_chat_complete.*` | Damage, invulnerability, shove: confirmed in game, test10 (`pvp-espada`). Shield, lock-on: not yet | `git cherry-pick 9beae1ef` |
+| [10-hud](docs/orm/10-hud.md) | Names, panel, chat, notices and everyone's rupees inside the picture; your own HUD settings; mates on the maps; quick messages | `LICHII_COOP_HUD=1` (our HUD), `LICHII_COOP_MAP=1`, `LICHII_ORM_QUICK_CHAT=1` | `lichii/hook/orm_hud.*`, `coop_hud_*`, `coop_map*`, `orm_quick_chat.*`, `lichii/patches/0100`, `0101` | Confirmed in game: `comunicacion-aqui`, `mapa-flecha`, `cartera-cada-uno`. HUD settings: not yet | `git cherry-pick ee889ccd` |
+| [11-puppets](docs/orm/11-puppets.md) | Mates move smoothly and show what they carry, effects, masks, Ocarina, horse and moving floor; the townsperson they talk to moves for all | `LICHII_ORM_SMOOTH=1`, `LICHII_COOP_OCARINA_SOUND=1`, `LICHII_ORM_HORSE=1`, `LICHII_COOP_NPC_POSE=1` | `coop/host/{pose_smooth,epona,ride,worn_armor}.*`, `lichii/hook/coop_{carry,effects,epona,mascaras,npc_*}.*`, `orm_ride.*` | Confirmed in game: `levantar-vasija`, `ocarina-mano`, `efectos-cofre`, `charla-dos`. Others: not yet | `git cherry-pick f7affb19` |
+| [12-bodies](docs/orm/12-bodies.md) | Your Link stops at a mate and can stand on his head; nobody gets wedged on a shared Continue spot | `/choque` (room, on); `LICHII_ORM_BODIES=1` | `coop/host/orm_bodies.*`, `lichii/hook/coop_bodies.*`, `tools/puppet_pack/build.py` | Confirmed in game, test10: `choque-bloqueo`, `choque-encima`, `choque-continuar` | `git cherry-pick 9313f77f` |
+| [13-resume](docs/orm/13-resume.md) | A returning player goes back to his own last scene and place; in a dungeon, to its entrance room | `LICHII_ORM_RESUME` (on) | `lichii/hook/coop_resume*` | Dungeon case: confirmed in game, test10 (`reanudar-mazmorra-1`, `-2`). Outside dungeons: not yet | `git cherry-pick 9f84a767` |
+| [14-app](docs/orm/14-app.md) | A co-op screen inside the emulator (status, prepare, play) that talks to any helper over JSON lines | `orm-app.ini` next to the exe (absent: off) | `lichii/app/*`, `lichii/patches/0102-orm-app.patch`, `lichii/hook/orm_app_channel.*` | Not yet | `git cherry-pick ee22f807` |
+| [15-tools](docs/orm/15-tools.md) | Nothing in game; a hosting check in the kit, a perf meter, test commands, the two-game harness and synthetic saves | `LICHII_ORM_PERF` (off) | `lichii/hook/coop_perf.*`, `coop_testinput.*`, `tools/autotest/scenarios/`, `tools/orm/` | Test commands: used in every passing run. Perf meter: not yet | `git cherry-pick 2295d962` |
+
+## How to take something
+
+```
+git remote add sbd https://github.com/S-BlackDragon/oot-remake-multiplayer
+git fetch sbd regalo-test10
+git cherry-pick <commit>          # e.g. 01-platform and 02-network first, then the feature
+```
+
+Or just read the code and the page in `docs/orm/` and do it your own way. Nothing is expected from you: this fork is
+where we keep adding our work over time, the same way (one commit per feature, same cleaning), so you can look
+whenever you like.
+
+---
+
+# daurosk's original README (unchanged)
+
 # oot-remake-multiplayer
 
 Online co-op for the Ocarina of Time remake on PC.
