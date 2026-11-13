@@ -46,6 +46,7 @@
 #include "coop/host/flags.hpp"
 #include "coop/host/game_memory.hpp"
 #include "coop/host/player_reader.hpp"
+#include "coop/host/flag_burst.hpp"
 #include "coop/host/sampler.hpp"
 #include "coop/net/client.hpp"
 #include "coop/presence/presence.hpp"
@@ -65,6 +66,10 @@ struct SessionSettings {
   // The steady clock the flag watcher counts its frames on (issue 106,
   // GameTicks). Empty: one frame() is one frame (tests).
   GameTicks::Clock clock;
+  // ORM (coop/host/flag_burst.hpp): the flag changes that come within this
+  // long of the last FLAG_SET or FLAG_STATE sent are held and go together. 0:
+  // every frame's changes go at once, as before.
+  std::uint64_t flag_burst_us = 0;
   // Called on the network thread, under the network lock, for every client
   // event after the session has handled it (for logging). It may use the
   // client it is given but must not call into the Session.
@@ -208,12 +213,16 @@ class Session {
 
   void handle(const net::Event& event);  // network thread, under net_mutex_
   void send(Outbound& out);              // network thread, under net_mutex_
-  void queue_flags(const std::vector<Outgoing>& out, std::vector<Outbound>& to);
+  void queue_flags(const std::vector<Outgoing>& out, std::vector<Outbound>& to, std::uint64_t now_us);
+  std::uint64_t now_us() const;  // the flag bursts' clock: settings.clock, else frames
 
   // Emulator thread only.
   Sampler sampler_;
   std::optional<FlagWatcher> watcher_;
   bool reset_sampler_ = false;
+  FlagBurst burst_;             // ORM: flag changes held for one message
+  GameTicks::Clock clock_;      // settings.clock
+  std::uint64_t frames_ = 0;    // frame() calls, the clock without one
   bool scene_readable_ = true;  // set_scene_readable
   PlayerReader::DrawnState drawn_state_{};  // frame(GameMemory&)'s readers share it
 

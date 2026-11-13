@@ -44,6 +44,7 @@ std::optional<save::SaveSlot> g_unwritten;  // a guest's slot that came before t
 std::deque<proto::SavePart> g_outbox;       // the host's parts, a frame each
 std::uint32_t g_next_id = 0;
 bool g_asked = false;  // this run's ask went out (once a run: later saves come as host_load)
+bool g_got_save = false;  // ORM one host: the host's save came whole (no ask again after a change of host)
 bool g_said_own = false;
 // Issue 106: on the clock, not presented frames (high refresh presents up to
 // 2.75 times as many).
@@ -170,6 +171,17 @@ void OnEvent(const coop::net::Event& event, coop::net::Client& client) {
         g_planner.forget(event.player);
         return;
     }
+    // ORM one host (coop_host_choice.h): the relay may move the host at any
+    // time now, not only when it leaves. An ask the old host never answered
+    // goes again, to the new one (its planner answers each player once).
+    if (event.kind == EventKind::host_changed) {
+        if (g_asked && !g_got_save && !client.is_host()) {
+            g_asked = false;
+            LOG_INFO(Core, "coop: save: the host changed (player {}) before its save came: asking the new one",
+                     event.player);
+        }
+        return;
+    }
     if (event.kind != EventKind::message) {
         return;
     }
@@ -211,6 +223,7 @@ void OnEvent(const coop::net::Event& event, coop::net::Client& client) {
         LOG_WARNING(Core, "coop: save: the host's save (transfer {}) is not a save slot", part->transfer_id);
         return;
     }
+    g_got_save = true;  // ORM one host
     LOG_INFO(Core, "coop: save: the host's save is in ({} bytes, {}, transfer {})", packed.size(),
              part->reason == proto::SaveReason::host_load ? "the host loaded a save" : "asked on joining",
              part->transfer_id);

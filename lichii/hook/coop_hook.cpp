@@ -43,6 +43,7 @@
 #include "coop/host/game_items.hpp"
 #include "coop/host/game_memory.hpp"
 #include "coop/host/notify.hpp"
+#include "coop/host/orm_link_watch.hpp"  // ORM: a link that cannot keep up is told (RIESGOS_RESUELTOS.md)
 #include "coop/host/player_reader.hpp"
 #include "coop/host/scene.hpp"
 #include "coop/host/session.hpp"
@@ -61,6 +62,7 @@
 #include "coop_cheats.h"
 #include "coop_chests.h"
 #include "coop_flags.h"
+#include "coop_interest.h"
 #include "coop_save.h"
 #include "coop_game_build.h"
 #include "coop_game_scan.h"
@@ -282,12 +284,25 @@ public:
         // Issue 106: the flag watcher's frames are 1/60 s of real time, not
         // presents (high refresh presents up to 165 a second).
         session.clock = [] { return CoopEvery::NowUs(); };
+        // ORM (oot-remake docs/ANCHO_DE_BANDA.md): the flag changes of one
+        // burst (a scene load sets dozens over a few frames) go out together,
+        // at most one FLAG_SET or FLAG_STATE every LICHII_COOP_FLAG_BURST_MS
+        // (default 100; 0: every frame, as before). The first one goes at once.
+        {
+            const std::string burst = EnvString("LICHII_COOP_FLAG_BURST_MS");
+            session.flag_burst_us = burst.empty() ? 100'000 : std::strtoull(burst.c_str(), nullptr, 10) * 1000;
+        }
+        // ORM (coop_interest.h): no pose while nobody is in our place, the
+        // native 30 a second otherwise; LICHII_COOP_INTEREST=0: always.
+        CoopInterest::The().SetEnabled(EnvString("LICHII_COOP_INTEREST") != "0");
+        CoopInterest::The().Clear();
         pickups_given_ = 0;
         // Called by service() on the network thread, with the client.
         session.on_event = [this](const coop::net::Event& event, coop::net::Client& client) {
             Log(event);
             CoopPuppet::OnEvent(event);
             CoopPose::OnEvent(event, SteadyMs());
+            CoopInterest::OnEvent(event, SteadyMs());  // ORM: who stands where, for the pose
             Chat(event, client);
             CoopObjects::OnEvent(event);
             CoopSpawn::OnEvent(event);
@@ -296,6 +311,7 @@ public:
             CoopBoss::OnEvent(event);  // docs/dungeons-boss.md
             CoopTeleport::OnEvent(event, client);  // /teleport (docs/setup.md "Chat commands")
             CoopPvp::OnEvent(event, client);  // PvP (docs/play-online.md "PvP")
+            CoopHostChoice::OnEvent(event, client);  // ORM: our host wish, the relay's word
             CoopSave::OnEvent(event, client);  // the host's save for the guests (issue 167)
             CoopHud::OnEvent(event);  // the others' hearts for the HUD (PLAYER_LIFE)
             if (event.kind == coop::net::EventKind::message) {  // deku-dungeon-2
@@ -869,6 +885,48 @@ public:
         for (auto& line : CoopPvp::TakeLines()) {
             chat_.Add(std::move(line), true);
         }
+        // ORM one host (coop_host_choice.h): the launcher's host file, the relay's word.
+        CoopHostChoice::Frame(report.connected ? session_.get() : nullptr, CoopEvery::NowUs(),
+                              std::chrono::duration_cast<std::chrono::seconds>(
+                                  std::chrono::system_clock::now().time_since_epoch())
+                                  .count());
+        for (auto& line : CoopHostChoice::TakeLines()) {
+            chat_.Add(std::move(line), true);
+        }
+        // ORM story cutscenes for everyone (coop/host/story.hpp).
+        OrmStoryEvents::Frame(platform, view.game ? base_ : 0, report.connected ? session_.get() : nullptr,
+                              reading, event_name, report.connected ? report.server_now_us : 0,
+                              report.connected ? &view.others : nullptr);
+        // ORM the room's age (D-R17, coop_age_game.h): a mate's age change followed.
+        CoopAge::Frame(platform, view.game ? base_ : 0, report.connected ? session_.get() : nullptr, reading);
+        for (auto& line : CoopAge::TakeLines()) {  // ORM (2026-11-13): logged as "coop: age: notice" there
+            chat_.Add(std::move(line), true);
+        }
+        // ORM endgame (coop_final.h): counted Ints, the escape's clock,
+        // Twinrova's owner (for the next object walk).
+        CoopFinal::Frame(platform, view.game ? base_ : 0, reading, event_name, downed_state,
+                         report.connected ? report.server_now_us : 0);
+        // ORM Gerudo Fortress: the carpenters' counts (coop_gerudo.h).
+        CoopGerudo::Frame(platform, view.game ? base_ : 0, reading);
+        // ORM our Ocarina's notes out, the others' to their puppets (coop_ocarina_note.h).
+        CoopOcarinaNote::Frame(platform, view.game ? base_ : 0, report.connected ? session_.get() : nullptr, reading);
+        // ORM: the group's settings (amiibo, ZELDA NOTES, co-op switches as the host's).
+        OrmGroupSettings::Frame(platform, view.game ? base_ : 0, report.connected ? session_.get() : nullptr);
+        for (auto& line : OrmGroupSettings::TakeLines()) {
+            chat_.Add(std::move(line), true);
+        }
+        // ORM chat commands, PvP and the stats (orm_commands_game.h, docs COMANDOS.md).
+        OrmCommands::Frame(platform, reading, report.connected ? session_.get() : nullptr,
+                           report.connected ? report.server_now_us : 0, view.others, downed_state);
+        for (auto& line : OrmCommands::TakeLines()) {
+            chat_.Add(std::move(line), true);
+        }
+        // ORM spectator camera (coop_camera_probe.h): the probe, and a downed Link
+        // looking at the nearest mate. Off unless switched on.
+        CoopCameraProbe::Frame(platform, view.game ? base_ : 0, view.scene, view.position, view.others,
+                               downed_state == coop::host::DownedState::downed,
+                               downed_state == coop::host::DownedState::alive);
+        perf.Mark(CoopPerf::Part::present_features);
         Place(view);
 
         std::lock_guard lock(view_mutex_);
@@ -1290,7 +1348,22 @@ private:
         auto last_state = coop::net::State::idle;
         while (!stop_) {
             session_->service();
-            session_->with_client([](coop::net::Client& c) { CoopPose::Send(c, SteadyMs()); });
+            {
+                // ORM (coop_interest.h): the native pose rate, or none while
+                // nobody is in our place.
+                const std::uint64_t now_ms = SteadyMs();
+                const auto rates = CoopInterest::The().RatesAt(now_ms);
+                if (rates.pose_gap_ms != pose_gap_logged_ && now_ms - pose_gap_log_ms_ >= 1000) {
+                    pose_gap_logged_ = rates.pose_gap_ms;  // a change, at most one line a second
+                    pose_gap_log_ms_ = now_ms;
+                    const auto nearest = CoopInterest::The().Nearest(now_ms);
+                    LOG_INFO(Core, "coop: interest: {} ({}), poses {}",
+                             CoopInterest::ToString(CoopInterest::The().TierAt(now_ms)),
+                             nearest ? fmt::format("nearest {:.0f} m", *nearest) : std::string("nearest not known"),
+                             rates.pose_gap_ms ? fmt::format("every {} ms", *rates.pose_gap_ms) : std::string("off"));
+                }
+                session_->with_client([&](coop::net::Client& c) { CoopPose::Send(c, now_ms, rates.pose_gap_ms); });
+            }
             RoomView room = session_->with_client([&](coop::net::Client& c) {
                 return RoomView{c.state(), c.player_number(), c.round_trip_us(), c.players(),
                                 note_, c.encrypted()};
@@ -1388,6 +1461,20 @@ private:
         }
     }
 
+    // ORM: one piece of advice from the link watch: the log line, and the
+    // player's Spanish line in the chat lines and on the HUD. Network thread.
+    void TellLink(const coop::host::LinkAdvice& advice) {
+        if (advice.warning) {
+            LOG_WARNING(Core, "{}", advice.log);
+        } else {
+            LOG_INFO(Core, "{}", advice.log);
+        }
+        if (!advice.notice.empty()) {
+            chat_.Add(advice.notice, true);
+            CoopNotices::TheBoard().Add(0, {}, advice.notice, SteadyMs(), kLinkNoticeMs);
+        }
+    }
+
     // Chat and room notices for the window's chat lines. Same thread and lock
     // as Log.
     void Chat(const coop::net::Event& event, const coop::net::Client& client) {
@@ -1414,8 +1501,19 @@ private:
         case EventKind::disconnected:
             chat_.Add("connection lost, reconnecting", true);
             break;
-        case EventKind::refused:
+        case EventKind::refused: {
             chat_.Add("server " + note_, true);
+            // ORM: the same in Spanish, with both protocols when the relay
+            // said its own (LINK_NOTICE server_protocol before the REFUSED).
+            const auto server_protocol = client.server_protocol();
+            if (server_protocol) {
+                LOG_WARNING(Core, "coop: the server speaks protocol {}, this game {}", *server_protocol,
+                            coop::protocol::kProtocolVersion);
+            }
+            const std::string spanish =
+                coop::host::refused_notice(event.refuse_reason, server_protocol, coop::protocol::kProtocolVersion);
+            chat_.Add(spanish, true);
+            CoopNotices::TheBoard().Add(0, {}, spanish, SteadyMs(), kLinkNoticeMs);
             break;
         case EventKind::chat:
             chat_.Add(name(event.player, {}) + ": " + event.text, false);
@@ -1769,6 +1867,13 @@ private:
     std::atomic<bool> welcomed_once_ = false;
     // Network thread (Run): the "no packets from the server" warning is out (issue 143).
     bool quiet_warned_ = false;
+    // ORM, network thread (Run): the link watch (orm_link_watch.hpp) and its next look.
+    coop::host::LinkWatch link_watch_;
+    std::uint64_t next_link_watch_ms_ = 0;
+    static constexpr std::uint64_t kLinkNoticeMs = 12000;  // a long line: time to read it
+    // ORM coop_interest.h: the pose gap last logged (0: none yet) and when.
+    std::optional<std::uint64_t> pose_gap_logged_ = std::uint64_t{0};
+    std::uint64_t pose_gap_log_ms_ = 0;
     static constexpr std::uint32_t kQuietWarnMs = 3000;
     std::uint32_t name_retries_logged_ = 0;  // network thread (Run), issue 108
     std::uint32_t name_retries_base_ = 0;    // the total when this window began

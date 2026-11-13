@@ -140,7 +140,7 @@ class Presence {
   const Settings& settings() const { return settings_; }
   void set_settings(const Settings& settings) { settings_ = settings; }
 
-  // This player's own number (1 to 4), from WELCOME. Messages about it are
+  // This player's own number (1 to kMaxPlayers), from WELCOME. Messages about it are
   // ignored. 0 while not known.
   std::uint8_t self() const { return self_; }
 
@@ -178,7 +178,7 @@ class Presence {
 
   Settings settings_;
   std::uint8_t self_ = 0;
-  std::array<std::optional<Player>, 4> players_;
+  std::array<std::optional<Player>, protocol::kMaxPlayers> players_;
 };
 
 // Shortest-path spherical interpolation of two rotations, t in 0..1. The

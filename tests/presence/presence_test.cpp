@@ -259,7 +259,7 @@ TEST_CASE("presence: join, leave and welcome") {
   CHECK(p.apply(proto::Message{proto::PlayerJoined{3, "Three"}}));
   CHECK(p.players() == std::vector<std::uint8_t>{1, 3, 4});
   CHECK_FALSE(p.on_joined({2, "Me"}));  // own number
-  CHECK_FALSE(p.on_joined({5, "Five"}));
+  CHECK_FALSE(p.on_joined({7, "Seven"}));
 
   CHECK(p.on_sample(sample(3, 100, 1, {0, 0, 0})) == SampleResult::buffered);
   CHECK(p.apply(proto::Message{proto::PlayerLeft{3, proto::LeaveReason::timed_out}}));
@@ -546,7 +546,7 @@ TEST_CASE("presence: a velocity scale that is not finite is taken as 1") {
 
 TEST_CASE("presence: unknown player numbers are ignored") {
   Presence p = two_players();
-  for (std::uint8_t n : {std::uint8_t{0}, std::uint8_t{3}, std::uint8_t{5}, std::uint8_t{255}}) {
+  for (std::uint8_t n : {std::uint8_t{0}, std::uint8_t{3}, std::uint8_t{7}, std::uint8_t{255}}) {
     CHECK(p.on_sample(sample(n, 0, 1, {0, 0, 0})) == SampleResult::unknown_player);
     CHECK_FALSE(p.on_left(proto::PlayerLeft{n}));
     CHECK_FALSE(p.on_status(proto::PlayerStatus{n, 1}));
@@ -554,7 +554,7 @@ TEST_CASE("presence: unknown player numbers are ignored") {
     CHECK_FALSE(p.player(n));
   }
   proto::PlayerJoined j;
-  j.player_number = 5;
+  j.player_number = 7;
   CHECK_FALSE(p.on_joined(j));
   j.player_number = 0;
   CHECK_FALSE(p.on_joined(j));

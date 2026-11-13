@@ -3,12 +3,18 @@ find_package(Threads REQUIRED)
 add_executable(coop_server_tests
   ../main.cpp
   session_test.cpp
+  session_fuzz_test.cpp
+  enemies_test.cpp  # ORM enemigos
+  menus_test.cpp  # ORM menus (pause, title screen)
   options_test.cpp
   loopback_test.cpp
   relay_test.cpp
   upnp_test.cpp
   nat_test.cpp
   nat_loopback_test.cpp
+  orm_interest_test.cpp
+  host_choice_test.cpp  # ORM: one host for the room
+  ../orm/server_session_test.cpp  # ORM cases once in session_test.cpp (D-R65)
 )
 # upnp_test runs a fake router on its own thread.
 target_link_libraries(coop_server_tests PRIVATE coop_server_lib doctest::doctest coop_warnings Threads::Threads)

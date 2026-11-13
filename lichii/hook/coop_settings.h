@@ -1,5 +1,5 @@
-// Co-op settings for the emulator: server address, port, player name, join
-// password and colour.
+// Co-op settings for the emulator: server address, transport (ORM), port,
+// player name, join password and colour.
 // From coop.ini in the emulator's config folder, then environment variables,
 // which win. Co-op stays off unless a server is set. No emulator code here.
 #pragma once
@@ -16,7 +16,9 @@ namespace CoopHook {
 
 struct Settings {
     std::string server;            // IP or host name; empty means co-op off
-    std::uint16_t port = 27510;    // protocol default
+    std::string transport = "udp"; // "udp" (ENet), "ws" (WebSocket) or "wss" (TLS)
+    std::uint16_t port = 27510;    // protocol default; 27511 ws, 443 wss
+    std::string path = "/";        // WebSocket path; ignored by UDP
     std::string name = "Player";   // nickname, 1 to 16 characters
     std::string password;          // join password; empty: none
     // The player's colour, 0xRRGGBB (coop_colors.h); unset: the others give
@@ -26,13 +28,16 @@ struct Settings {
 };
 
 // Reads `key = value` lines. Blank lines, `#` or `;` comments and `[section]`
-// headers are skipped. Keys: server (`host` or `host:port`), port, name, password,
-// color (a colour name or #RRGGBB, CoopColors::Parse; "" for none).
+// headers are skipped. Keys: server (`host`, `host:port`, ORM: `udp://host[:port]`,
+// `ws://host[:port][/path]` or `wss://host[:port][/path]`), transport (ORM: `udp`,
+// `ws` or `wss`), path (ORM), port, name, password, color (a colour name or
+// #RRGGBB, CoopColors::Parse; "" for none).
 // Each problem is added to `errors` with its line number.
 void ApplyIni(std::string_view text, Settings& settings, std::vector<std::string>& errors);
 
-// LICHII_COOP_SERVER, LICHII_COOP_PORT, LICHII_COOP_NAME, LICHII_COOP_PASSWORD,
-// LICHII_COOP_COLOR, when set.
+// LICHII_COOP_SERVER, LICHII_COOP_TRANSPORT (ORM), LICHII_COOP_PATH (ORM),
+// LICHII_COOP_PORT, LICHII_COOP_NAME, LICHII_COOP_PASSWORD, LICHII_COOP_COLOR,
+// when set.
 // `get` returns a variable's value, or nothing when it is not set.
 void ApplyEnvironment(const std::function<std::optional<std::string>(const char*)>& get,
                       Settings& settings, std::vector<std::string>& errors);

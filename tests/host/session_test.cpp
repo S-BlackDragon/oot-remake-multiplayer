@@ -107,6 +107,7 @@ struct Peer {
 
 coop::server::ServerOptions any_port() {
   coop::server::ServerOptions o;
+  o.bind = 0x7F000001u;  // 127.0.0.1 only: no Windows firewall prompt for the test binary
   o.port = 0;
   o.session.join_password = "test-pass";
   return o;

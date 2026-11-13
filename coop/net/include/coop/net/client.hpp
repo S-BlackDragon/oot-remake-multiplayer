@@ -87,6 +87,7 @@
 // later ones. A DNS name makes that attempt block inside service() for as
 // long as the lookup takes; pass an IP address to never block.
 
+#include <array>
 #include <cstddef>
 #include <compare>
 #include <cstdint>
@@ -104,10 +105,9 @@
 #include "coop/net/path_mark.hpp"
 #include "coop/protocol/messages.hpp"
 
-struct _ENetHost;
-struct _ENetPeer;
-
 namespace coop::net {
+
+class Transport;
 
 struct ClientConfig {
   std::string host = "127.0.0.1";  // an IP, or a name (see above)
@@ -117,8 +117,15 @@ struct ClientConfig {
   // one). Empty: the server refuses with bad_password.
   std::string join_password;
 
+  // "udp" (ENet), "ws" (WebSocket) or "wss" (WebSocket over TLS).
+  std::string transport = "udp";
+  // The WebSocket path; ignored by the UDP transport.
+  std::string path = "/";
+
   std::uint32_t ping_interval_ms = 250;
-  // ENet drops a peer after this long with nothing acknowledged.
+  // ENet drops a peer after this long with nothing acknowledged, and a
+  // welcomed connection ends after this long with nothing from the server on
+  // any transport (it PINGs every 250 ms; a half-open WebSocket never says).
   std::uint32_t timeout_ms = 10000;
   // ENet's datagram size (its MTU), see protocol::kDatagramBytes.
   std::uint32_t mtu = protocol::kDatagramBytes;
@@ -240,6 +247,15 @@ struct LinkInfo {
   // What ENet counted for unassembled messages it threw away and we took off
   // again on this connection (lost fragments; issue 175).
   std::uint64_t mended_bytes = 0;
+  // ORM (TransportStats): ours not on the wire yet, and unreliable frames we
+  // dropped since the client started (coop/host orm_link_watch.hpp).
+  std::uint32_t send_queued_bytes = 0;
+  std::uint32_t send_queued_frames = 0;
+  std::uint64_t send_dropped_frames = 0;
+  // ORM orm/pvp (/red, /stats): message bytes we sent and got on this
+  // connection (the protocol's, not ENet's or the WebSocket's framing).
+  std::uint64_t sent_bytes = 0;
+  std::uint64_t received_bytes = 0;
 };
 
 struct Event {
@@ -249,7 +265,7 @@ struct Event {
   DropReason drop_reason = DropReason::none;  // connect_failed, disconnected
   protocol::Message message;          // message
   std::uint8_t channel = 0;           // message, and the four after it
-  std::uint8_t player = 0;            // chat, player_*: 1 to 4
+  std::uint8_t player = 0;            // chat, player_*: 1 to kMaxPlayers
   std::string text;                   // chat
   std::string nickname;               // player_joined, player_left
   protocol::LeaveReason leave_reason{};  // player_left; raw value kept
@@ -275,7 +291,7 @@ using FlagAnswer = std::function<std::optional<protocol::FlagEntry>(
 
 // One player in the room, this client included.
 struct Player {
-  std::uint8_t number = 1;  // 1 to 4
+  std::uint8_t number = 1;  // 1 to kMaxPlayers
   std::string nickname;     // our own is the one from our HELLO
   // The last PLAYER_STATUS flags: the ones received for the others, the ones
   // sent for ourselves. Nothing until the first.
@@ -286,6 +302,15 @@ struct Player {
   // first. Ours is sent again to every player who joins, so they see it.
   std::optional<protocol::Equipment> equipment;
   bool operator==(const Player&) const = default;
+};
+
+// The round trip from the last PINGs, in microseconds: now - the PING's time
+// on each PONG. All zero until the first PONG on this connection.
+struct RttStats {
+  std::uint32_t samples = 0;  // up to kRttWindow
+  std::uint32_t median_us = 0;
+  std::uint32_t min_us = 0;
+  std::uint32_t max_us = 0;
 };
 
 // Longest chat text in characters (code points), as in the protocol.
@@ -395,6 +420,10 @@ class Client {
   // From the PINGs since the last WELCOME; nothing before the first sample.
   std::optional<std::uint64_t> round_trip_us() const { return clock_.round_trip_us(); }
   std::optional<std::int64_t> clock_offset_us() const { return clock_.offset_us(); }
+  // The last few round trips (kRttWindow), zeros until the first PONG.
+  RttStats rtt() const;
+  // PONGs that answered one of our PINGs on any connection.
+  std::uint32_t pong_count() const { return pong_count_; }
 
   std::uint64_t now_us() const;
   // The server's clock now, estimated; the client's clock before any sample.
@@ -425,6 +454,16 @@ class Client {
   // True once the path to the server lost full datagrams (DropReason
   // small_path): every connection from then on uses ENet's smallest, 576.
   bool small_datagrams() const { return small_datagrams_; }
+
+  // ORM (oot-remake docs/RIESGOS_RESUELTOS.md): the LINK_NOTICEs the relay
+  // sent this player while connected since the last call, oldest first (at
+  // most kMaxLinkNotices kept; the oldest go).
+  static constexpr std::size_t kMaxLinkNotices = 16;
+  std::vector<protocol::LinkNotice> take_link_notices();
+  // ORM: the server's protocol version, when it said it in a LINK_NOTICE
+  // server_protocol on the current or last attempt (our relay sends one
+  // before REFUSED wrong_protocol_version). None from an older server.
+  std::optional<std::uint16_t> server_protocol() const { return server_protocol_; }
 
  private:
   void use_small_datagrams();
@@ -460,17 +499,20 @@ class Client {
   bool answer_join(protocol::JoinPartner answer);
   void clear_shared();
   void check_join_timeouts(std::uint64_t now);
+  void add_rtt(std::uint32_t round_trip_us);
+
+  // Round trips kept for rtt().
+  static constexpr std::size_t kRttWindow = 40;
+  std::array<std::uint32_t, kRttWindow> rtt_us_{};
+  std::size_t rtt_next_ = 0;
+  std::size_t rtt_count_ = 0;
+  std::uint32_t pong_count_ = 0;
 
   ClientConfig config_;
-  bool enet_started_ = false;
-  _ENetHost* host_ = nullptr;
-  _ENetPeer* peer_ = nullptr;
+  std::unique_ptr<Transport> transport_;
   State state_ = State::idle;
   bool ever_welcomed_ = false;
   std::uint8_t player_number_ = 0;
-
-  bool address_known_ = false;
-  std::uint32_t address_host_ = 0;  // ENet's form, network byte order
 
   std::uint64_t attempt_started_us_ = 0;
   std::uint64_t hello_sent_us_ = 0;
@@ -484,6 +526,8 @@ class Client {
   // From REJOIN_TOKEN after our last WELCOME; shown (REJOIN_CLAIM) before
   // each later HELLO to this server.
   std::optional<protocol::RejoinTokenBytes> rejoin_token_;
+  std::optional<std::uint16_t> server_protocol_;      // ORM: see server_protocol()
+  std::vector<protocol::LinkNotice> link_notices_;    // ORM: see take_link_notices()
   std::uint64_t welcomed_us_ = 0;
   std::uint64_t pong_due_us_ = 0;  // PONG budget: the next free slot's time
   std::uint64_t next_ping_us_ = 0;
@@ -495,7 +539,7 @@ class Client {
   LinkInfo link_;  // ENet's values, read after each service() with a peer
   std::uint32_t name_taken_retries_ = 0;
   bool small_datagrams_ = false;
-  PathMark path_mark_;  // enet_path.hpp
+  // ORM: upstream's PathMark (enet_path.hpp) lives in EnetTransport, per connection.
 
   ClockEstimator clock_;
   std::vector<Player> players_;  // sorted by number

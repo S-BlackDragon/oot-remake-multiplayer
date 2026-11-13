@@ -118,7 +118,29 @@ enum class MessageType : std::uint16_t {
   player_ride = 385,  // 385 to 389: riding Epona (docs/protocol.md, "Riding")
   platform_clock = 400,  // 400 to 404: moving platforms' clocks (docs/protocol.md, "Moving platforms")
   platform_counter = 401,  // looping platforms' pause counters (docs/protocol.md, "Moving platforms")
+  // ORM (oot-remake), 0xF000 to 0xF0FF, every number from orm_types.hpp (the one
+  // table, oot-remake docs/TIPOS_MENSAJE.md). Were 60 to 65 up to protocol 108, 240 to 254 in 109.
+  revive = orm::type::revive,              // ORM: a mate gets a downed player up (0xF001 kept)
+  group_defeat = orm::type::group_defeat,  // ORM: every player is down: the game over for all
+  story_event = orm::type::story_event,    // ORM: a story cutscene for everyone in the scene
+  player_look = orm::type::player_look,    // ORM: a player's colour (name tag, later the tunic)
+  object_pose = orm::type::object_pose,    // ORM: the bones of the townsperson a player talks to
+  chest_open = orm::type::chest_open,      // ORM: a player's game started opening a shared chest (its lid, on every screen)
+  orm_ocarina_note = orm::type::ocarina_note,  // ORM: a note or song a player plays, heard at its puppet (upstream's ocarina_note 140: notes only)
+  group_settings = orm::type::group_settings,  // ORM: a player's settings that change the shared world (orm_messages.hpp)
+  link_notice = orm::type::link_notice,    // ORM: the relay tells one player how his link keeps up
+  host_choice = orm::type::host_choice,    // ORM: who hosts, by the relay's measures or by hand
+  room_switch = orm::type::room_switch,    // ORM: a room-wide switch set live (orm_messages.hpp)
+  player_hit = orm::type::player_hit,      // ORM: a weapon hit on a mate's puppet, to that mate
+  player_call = orm::type::player_call,    // ORM: "come to me" to a mate, or the host's to all
+  player_rename = orm::type::player_rename,  // ORM: a new name, checked by the server
 };
+
+// ORM: upstream's types stay inside its blocks and below ours (orm_types.hpp).
+static_assert(orm::in_upstream_type_block(static_cast<std::uint16_t>(MessageType::platform_counter)) &&
+                  static_cast<std::uint16_t>(MessageType::platform_counter) == orm::kUpstreamLastType &&
+                  static_cast<std::uint16_t>(MessageType::platform_counter) < orm::kTypeBlock.first,
+              "ORM: re-check orm::kUpstreamTypeBlocks against upstream's MessageType");
 
 // PLAYER_SAMPLE component ids.
 enum class SampleComponent : std::uint16_t {
@@ -130,6 +152,9 @@ enum class SampleComponent : std::uint16_t {
   age = 6,
   animation = 7,
 };
+// ORM: a new upstream component here must stay below ours (orm_types.hpp).
+static_assert(static_cast<std::uint16_t>(SampleComponent::animation) == orm::kUpstreamLastSampleComponent,
+              "ORM: upstream's PLAYER_SAMPLE components changed: update orm_types.hpp");
 
 // PLAYER_EQUIP component ids. 1 to 8 are the game's equipped actor names
 // (PlayerStatus.Equip*), 9 the drawn bits, 10 the actor name of the item in
@@ -155,7 +180,26 @@ enum class EquipComponent : std::uint16_t {
   // The player's colour (coop-options.ini `color`): 3 bytes, red, green,
   // blue. Others tint that player's puppet with it (docs/puppet.md, "Colour").
   color = 16,
+  // ORM (oot-remake docs/TIPOS_MENSAJE.md, docs/INVENTARIO.md "Cartera de cada
+  // uno"): the player's own wallet, PlayerStatus.CurrentRupee, a u32 of 4
+  // bytes, so every game can show everyone's rupees. Ours, from the top block
+  // (24 to 31, orm_types.hpp; 30 is the mount). A build without it skips it
+  // by its length.
+  rupees = orm::equip_component::rupees,
+  // ORM D-R19 (oot-remake docs/EPONA.md): the horse the player is on (getting
+  // on or riding), by its actor's name (Animal_Epona_Adult, Animal_Horse_For_Ingo,
+  // ...); "" on foot. Older readers skip it by its length. 30, in ORM's
+  // block 24-31 (oot-remake docs/TIPOS_MENSAJE.md, orm_types.hpp
+  // orm::equip_component::mount); 16 is upstream's next slot.
+  mount = orm::equip_component::mount,
 };
+// ORM: a new upstream component here must stay below ours (orm_types.hpp).
+static_assert(static_cast<std::uint16_t>(EquipComponent::color) == orm::kUpstreamLastEquipComponent,
+              "ORM: upstream's PLAYER_EQUIP components changed: update orm_types.hpp");
+
+// The most rupees a PLAYER_EQUIP may carry (a wallet of the game holds far
+// fewer); a larger value is refused, a sender clamps to it.
+inline constexpr std::uint32_t kMaxRupees = 99999;
 
 // Longest equipped actor name: the game keeps each in a String64 flag.
 inline constexpr std::size_t kMaxEquipNameChars = 64;
@@ -293,6 +337,9 @@ inline constexpr std::uint8_t in_cutscene = 1u << 2;
 inline constexpr std::uint8_t in_menu = 1u << 3;
 inline constexpr std::uint8_t dead = 1u << 4;
 }  // namespace status
+// ORM: our PLAYER_STATUS bits count down from 7 (orm_types.hpp).
+static_assert(static_cast<unsigned>(status::dead) == (1u << orm::kUpstreamLastStatusBit),
+              "ORM: upstream's PLAYER_STATUS bits changed: update orm_types.hpp");
 
 struct PlayerStatus {
   std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
@@ -543,7 +590,7 @@ struct FlagReset {
 // SAVE_ASK: a guest asks the host for its save (docs/protocol.md, "Save
 // transfer"). The server passes it to the host only, with the asker's number.
 struct SaveAsk {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a guest, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a guest, 1 to kMaxPlayers relayed
   bool operator==(const SaveAsk&) const = default;
 };
 
@@ -560,8 +607,8 @@ enum class SaveReason : std::uint8_t {
   host_load = 2,  // the host loaded a save: every guest reloads
 };
 struct SavePart {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from the host, 1 to 4 relayed
-  std::uint8_t to_player = 0;                // 0: every guest; 1 to 4: that one
+  std::uint8_t player_number = kPlayerSelf;  // 0 from the host, 1 to kMaxPlayers relayed
+  std::uint8_t to_player = 0;                // 0: every guest; 1 to kMaxPlayers: that one
   std::uint32_t transfer_id = 0;
   SaveReason reason = SaveReason::join;
   std::uint32_t total_size = 0;  // 1 to kMaxSaveBytes
@@ -707,6 +754,9 @@ enum class ObjectComponent : std::uint16_t {
   state = 18,
   slots = 19,  // protocol 10, issue 150: a boss's other AS slots (below)
 };
+// ORM: a new upstream component here must stay below ours (orm_types.hpp).
+static_assert(static_cast<std::uint16_t>(ObjectComponent::slots) == orm::kUpstreamLastObjectComponent,
+              "ORM: upstream's OBJECT_SAMPLE components changed: update orm_types.hpp");
 
 struct ObjectLife {
   std::int32_t life = 0;

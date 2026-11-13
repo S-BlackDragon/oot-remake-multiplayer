@@ -1,4 +1,7 @@
 #include "session.hpp"
+#include "orm_interest.hpp"
+
+#include "coop/protocol/orm_status.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -365,9 +368,9 @@ void Session::admit(ConnectionId id, Connection& c, const Hello& hello,
   send_to_others(id, kChannelSession, PlayerJoined{c.number, c.nickname});
   // The first player in hosts. The joiner learns who hosts, then gets the
   // whole flag table, both on the progress channel and so before any
-  // FLAG_STATE relayed after this.
-  if (!host_) host_ = id;
-  send(id, kChannelProgress, Host{connections_.at(*host_).number});
+  // FLAG_STATE relayed after this. ORM: then why (HOST_CHOICE told,
+  // orm_host.cpp); later the relay may pick another host (host_choice.hpp).
+  host_on_join(id, now_us);
   // PvP on: told at join, after HOST. Off is not told: every
   // game starts each connection with PvP off (docs/protocol.md, "PvP").
   if (pvp_) send(id, kChannelSession, PvpMode{pvp_set_by_, pvp_});
@@ -377,7 +380,10 @@ void Session::admit(ConnectionId id, Connection& c, const Hello& hello,
 
 void Session::on_player_message(ConnectionId id, Connection& c, std::uint8_t channel,
                                 Message& message, std::size_t bytes, std::uint64_t now_us) {
-  if (std::holds_alternative<Pong>(message)) return;  // our PING answered
+  if (const auto* pong = std::get_if<Pong>(&message)) {  // our PING answered
+    c.link.pong(pong->ping_sender_time_us, now_us, config_.host.max_gap_us);  // ORM one host
+    return;
+  }
   if (std::holds_alternative<FlagSnapshot>(message)) bytes = 0;  // see bytes_per_second
   // The host's save: a few hundred KB at once, paced by the host's game (one
   // part a frame, its outbox capped, each guest answered once) and taken from
@@ -386,6 +392,7 @@ void Session::on_player_message(ConnectionId id, Connection& c, std::uint8_t cha
   const bool host_save = std::holds_alternative<SavePart>(message) && id == host_;
   if (!host_save && !within_rate(c, channel, bytes, now_us)) {
     ++stats_.rate_limited;
+    note_rate_limited(id, c, channel <= kChannelOwnership, now_us);  // ORM: never silently
     return;
   }
   if (const auto* ping = std::get_if<Ping>(&message)) {
@@ -500,6 +507,22 @@ void Session::on_player_message(ConnectionId id, Connection& c, std::uint8_t cha
     on_status(c, st->flags, now_us);
   }
   if (sender_of(message)) set_sender(message, c.number);
+  if (config_.pose_same_place && std::holds_alternative<PlayerPose>(message)) {
+    // ORM (orm_interest.hpp): a pose only to the sender's place.
+    std::vector<std::uint8_t> bytes;
+    if (encode(message, bytes) == Error::none) {
+      for (const auto& [to, other] : connections_) {
+        if (to == id || other.state != State::joined) continue;
+        if (!orm::pose_goes(c.scene, other.scene)) {
+          ++stats_.pose_other_place;
+          continue;
+        }
+        actions_.push_back(SendAction{to, channel, bytes});
+      }
+    }
+    ++stats_.relayed;
+    return;
+  }
   send_to_others(id, channel, message);
   ++stats_.relayed;
 }
@@ -1813,6 +1836,45 @@ std::optional<ConnectionId> Session::connection_of(std::uint8_t number) const {
   return std::nullopt;
 }
 
+bool Session::chat_within_rate(Connection& c, std::uint64_t now_us) {
+  if (config_.chat_count == 0) return true;
+  auto& times = c.chat_times;
+  while (!times.empty() && now_us >= times.front() && now_us - times.front() >= config_.chat_window_us) {
+    times.pop_front();
+  }
+  if (config_.chat_gap_us != 0 && !times.empty() &&
+      (now_us < times.back() || now_us - times.back() < config_.chat_gap_us)) {
+    return false;
+  }
+  if (times.size() >= config_.chat_count) return false;
+  times.push_back(now_us);
+  c.chat_drop_logged = false;
+  return true;
+}
+
+void Session::note_rate_limited(ConnectionId id, Connection& c, bool reliable, std::uint64_t now_us) {
+  // ORM (oot-remake docs/RIESGOS_RESUELTOS.md, "Red, kit y alojamiento"): a
+  // game over its rate (many of its own enemies moving at once, docs/
+  // ANCHO_DE_BANDA.md) has its messages dropped here; the log says so and
+  // its player is told. A dropped reliable one is said at once; unreliable
+  // ones after ten (a single burst over the line is normal). Once a minute.
+  constexpr std::uint64_t kEveryUs = 60'000'000;
+  constexpr std::uint32_t kUnreliableToTell = 10;
+  ++(reliable ? c.orm_limited_reliable : c.orm_limited_unreliable);
+  if (c.orm_limited_told_us != 0 && now_us - c.orm_limited_told_us < kEveryUs) return;
+  if (c.orm_limited_reliable == 0 && c.orm_limited_unreliable < kUnreliableToTell) return;
+  log("player " + std::to_string(c.number) + " (" + c.nickname + ") is over its message rate: " +
+      std::to_string(c.orm_limited_unreliable) + " samples or poses and " + std::to_string(c.orm_limited_reliable) +
+      " reliable messages dropped (limits " + std::to_string(config_.unreliable_per_second) + " and " +
+      std::to_string(config_.reliable_per_second) + " a second, " + std::to_string(config_.bytes_per_second) +
+      " bytes); told the player");
+  send(id, kChannelSession,
+       LinkNotice{LinkNoticeKind::over_rate, c.orm_limited_unreliable, c.orm_limited_reliable});
+  c.orm_limited_told_us = now_us == 0 ? 1 : now_us;
+  c.orm_limited_reliable = 0;
+  c.orm_limited_unreliable = 0;
+}
+
 bool Session::within_rate(Connection& c, std::uint8_t channel, std::size_t bytes,
                           std::uint64_t now_us) {
   double seconds = static_cast<double>(now_us - c.budget_time) / 1e6;
@@ -1928,25 +1990,18 @@ void Session::remove_player(ConnectionId id, LeaveReason reason, std::uint64_t n
     host_.reset();
     pvp_ = config_.pvp;
     pvp_set_by_ = 0;
+    election_.clear();  // ORM: the name picked by hand ends with the room
     flags_.clear();
     objects_.clear();
     grass_.clear();
     world_.clear();
     dead_.clear();
   } else if (host_ == id) {
-    // The remaining player with the lowest number takes over. Everyone is
-    // told on the progress channel, so the new host learns it hosts before
-    // any FLAG_SET relayed to it.
-    std::optional<ConnectionId> next;
-    for (const auto& [other, oc] : connections_) {
-      if (oc.state == State::joined && (!next || oc.number < connections_.at(*next).number)) {
-        next = other;
-      }
-    }
-    host_ = next;
-    const std::uint8_t number = connections_.at(*host_).number;
-    send_to_others(id, kChannelProgress, Host{number});
-    log("player " + std::to_string(number) + " hosts now");
+    // ORM one host (orm_host.cpp): the player picked by hand when here, else
+    // the best of the others by wish, game, link and number (upstream: the
+    // lowest number). Everyone is told on the progress channel, so the new
+    // host learns it hosts before any FLAG_SET relayed to it.
+    host_on_leave(now_us);
   }
 }
 
@@ -1976,6 +2031,7 @@ void Session::tick(std::uint64_t now_us) {
       } else if (now_us - c.last_ping >= config_.ping_interval_us) {
         c.last_ping = now_us;
         send(id, kChannelSession, Ping{now_us});
+        c.link.ping_sent(now_us);  // ORM one host: its PONG is measured
       }
     }
   }

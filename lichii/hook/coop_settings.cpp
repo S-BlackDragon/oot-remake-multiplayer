@@ -82,21 +82,68 @@ bool ValidHost(std::string_view host) {
 void Set(std::string_view key, std::string_view value, const std::string& where,
          Settings& settings, std::vector<std::string>& errors) {
     if (key == "server") {
-        std::string_view host = value;
-        if (const auto colon = value.rfind(':'); colon != std::string_view::npos) {
-            host = value.substr(0, colon);
-            const auto port = ParsePort(value.substr(colon + 1));
+        // `host`, `host:port`, `udp://host[:port]`, `ws://host[:port][/path]` or
+        // `wss://host[:port][/path]`.
+        std::string_view rest = value;
+        std::string_view scheme;
+        if (value.substr(0, 6) == "wss://") {
+            scheme = "wss";
+            rest = value.substr(6);
+        } else if (value.substr(0, 6) == "udp://") {
+            scheme = "udp";
+            rest = value.substr(6);
+        } else if (value.substr(0, 5) == "ws://") {
+            scheme = "ws";
+            rest = value.substr(5);
+        }
+        std::string_view path;
+        if (!scheme.empty()) {
+            if (const auto slash = rest.find('/'); slash != std::string_view::npos) {
+                path = rest.substr(slash);
+                rest = rest.substr(0, slash);
+            }
+        }
+        std::string_view host = rest;
+        std::optional<std::uint16_t> port;
+        if (const auto colon = rest.rfind(':'); colon != std::string_view::npos) {
+            host = rest.substr(0, colon);
+            port = ParsePort(rest.substr(colon + 1));
             if (!port) {
                 errors.push_back(where + ": bad port in server '" + std::string(value) + "'");
                 return;
             }
-            settings.port = *port;
         }
         if (!ValidHost(host)) {
             errors.push_back(where + ": bad server address '" + std::string(value) + "'");
             return;
         }
+        if (scheme == "udp" && !path.empty()) {
+            errors.push_back(where + ": a path needs ws:// or wss://");
+            return;
+        }
         settings.server = std::string(host);
+        if (!scheme.empty()) {
+            settings.transport = std::string(scheme);
+            settings.port = port ? *port
+                                 : (scheme == "wss" ? 443 : (scheme == "ws" ? 27511 : 27510));
+        } else if (port) {
+            settings.port = *port;
+        }
+        if (!path.empty()) {
+            settings.path = std::string(path);
+        }
+    } else if (key == "transport") {
+        if (value != "udp" && value != "ws" && value != "wss") {
+            errors.push_back(where + ": transport must be udp, ws or wss");
+            return;
+        }
+        settings.transport = std::string(value);
+    } else if (key == "path") {
+        if (value.empty() || value.front() != '/') {
+            errors.push_back(where + ": path must start with '/'");
+            return;
+        }
+        settings.path = std::string(value);
     } else if (key == "port") {
         const auto port = ParsePort(value);
         if (!port) {
@@ -172,12 +219,14 @@ void ApplyEnvironment(const std::function<std::optional<std::string>(const char*
         const char* key;
     } kVariables[] = {
         {"LICHII_COOP_SERVER", "server"},
+        {"LICHII_COOP_TRANSPORT", "transport"},
+        {"LICHII_COOP_PATH", "path"},
         {"LICHII_COOP_PORT", "port"},
         {"LICHII_COOP_NAME", "name"},
         {"LICHII_COOP_PASSWORD", "password"},
         {"LICHII_COOP_COLOR", "color"},
     };
-    // Server first, so LICHII_COOP_PORT wins over a port inside it.
+    // Server first, so the others win over what a URL inside it set.
     for (const auto& v : kVariables) {
         if (const auto value = get(v.variable)) {
             Set(v.key, Trim(*value), v.variable, settings, errors);

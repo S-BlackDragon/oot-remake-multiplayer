@@ -1,4 +1,5 @@
 #include "coop/protocol/codec.hpp"
+#include "coop/protocol/orm_messages.hpp"  // ORM: GROUP_SETTINGS
 
 #include <algorithm>
 #include <bit>
@@ -2251,6 +2252,14 @@ MessageType type_of(const Message& message) {
       MessageType::ocarina_note,
       MessageType::platform_clock,
       MessageType::platform_counter,
+      MessageType::revive,  // ORM from here (orm_types.hpp)
+      MessageType::group_defeat, MessageType::story_event, MessageType::player_look,
+      MessageType::object_pose, MessageType::chest_open, MessageType::orm_ocarina_note,
+      MessageType::group_settings,
+      MessageType::link_notice,
+      MessageType::host_choice,
+      MessageType::room_switch, MessageType::player_hit, MessageType::player_call,  // ORM orm/pvp
+      MessageType::player_rename,
   };
   static_assert(std::size(kTypes) == std::variant_size_v<Message>);
   return kTypes[message.index()];

@@ -140,11 +140,15 @@ void OnCalcFrame(CoopPuppet::Guest& guest, std::uint64_t main_base,
                  const std::vector<std::pair<std::uint8_t, std::uint64_t>>& puppets,
                  std::uint64_t now_ms);
 // Network thread: send the newest local pose when it is time.
-void Send(coop::net::Client& client, std::uint64_t now_ms);
+// ORM (coop_interest.h): `gap_ms` is the shortest time between two poses,
+// the native 1000 / kSendHz; nothing sends none (nobody in our place).
+void Send(coop::net::Client& client, std::uint64_t now_ms,
+          std::optional<std::uint64_t> gap_ms = 1000 / kSendHz);
 // What Send sends now: Link's pose, then each held piece that changed (or
 // every kPieceRefreshMs while it holds still). Empty when it is not time.
 std::vector<coop::protocol::PlayerPose> TakeOutgoing(std::uint64_t server_now_us,
-                                                     std::uint64_t now_ms);
+                                                     std::uint64_t now_ms,
+                                                     std::optional<std::uint64_t> gap_ms = 1000 / kSendHz);
 // Network thread: keep a received PLAYER_POSE.
 void OnEvent(const coop::net::Event& event, std::uint64_t now_ms);
 void Receive(const coop::protocol::PlayerPose& pose, std::uint64_t now_ms);

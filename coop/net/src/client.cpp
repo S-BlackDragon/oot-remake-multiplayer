@@ -1,11 +1,5 @@
 #include "coop/net/client.hpp"
 
-// ENet pulls in windows.h on Windows; keep its min and max macros out.
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <enet/enet.h>
-
 #include <algorithm>
 #include <bit>
 #include <chrono>
@@ -15,9 +9,10 @@
 #include <utility>
 #include <vector>
 
-#include "coop/net/enet_path.hpp"
-#include "coop/net/enet_waiting.hpp"
+#include "coop/net/transport.hpp"
 #include "coop/protocol/codec.hpp"
+#include "enet_transport.hpp"
+#include "ws_transport.hpp"
 
 namespace coop::net {
 
@@ -47,11 +42,6 @@ constexpr std::uint64_t ms_to_us(std::uint32_t ms) {
 
 // A REFUSED name taken is asked again no faster than this.
 constexpr std::uint32_t kNameTakenRetryFloorMs = 100;
-
-// The longest packet a message can fill: the 4-byte header and a body of
-// at most 65535 bytes, and what sealing adds (traffic_crypto.hpp). ENet
-// refuses anything longer before assembling it.
-constexpr std::size_t kMaxPacketBytes = 4 + 0xffff + proto::kSealOverheadBytes;
 
 // PONGs answer at most this many PINGs at once, then one per interval.
 constexpr std::uint64_t kPongBurst = 4;
@@ -84,12 +74,6 @@ using proto::valid_flag;
 FlagKey key_of(const proto::FlagEntry& flag) { return flag.key; }
 
 }  // namespace
-
-std::uint32_t packet_flags(std::uint8_t channel) {
-  return channel < proto::kChannelPlayerSamples
-             ? static_cast<std::uint32_t>(ENET_PACKET_FLAG_RELIABLE)
-             : static_cast<std::uint32_t>(ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT);
-}
 
 std::string_view to_string(State state) {
   switch (state) {
@@ -152,8 +136,7 @@ Client::Client(ClientConfig config) : config_(sanitised(std::move(config))) {}
 
 Client::~Client() {
   stop();
-  if (host_ != nullptr) enet_host_destroy(host_);
-  if (enet_started_) enet_deinitialize();
+  transport_.reset();
 }
 
 std::uint64_t Client::now_us() const {
@@ -173,26 +156,48 @@ std::uint64_t Client::to_client_time(std::uint64_t server_time_us) const {
   return apply_offset(server_time_us, -offset);
 }
 
+void Client::add_rtt(std::uint32_t round_trip_us) {
+  rtt_us_[rtt_next_] = round_trip_us;
+  rtt_next_ = (rtt_next_ + 1) % kRttWindow;
+  if (rtt_count_ < kRttWindow) ++rtt_count_;
+}
+
+RttStats Client::rtt() const {
+  RttStats stats;
+  stats.samples = static_cast<std::uint32_t>(rtt_count_);
+  if (rtt_count_ == 0) return stats;
+  std::array<std::uint32_t, kRttWindow> sorted{};
+  std::copy_n(rtt_us_.begin(), rtt_count_, sorted.begin());
+  std::sort(sorted.begin(), sorted.begin() + rtt_count_);
+  stats.min_us = sorted[0];
+  stats.max_us = sorted[rtt_count_ - 1];
+  const std::size_t middle = rtt_count_ / 2;
+  if (rtt_count_ % 2 == 0) {
+    stats.median_us = static_cast<std::uint32_t>(
+        (static_cast<std::uint64_t>(sorted[middle - 1]) + sorted[middle]) / 2);
+  } else {
+    stats.median_us = sorted[middle];
+  }
+  return stats;
+}
+
 bool Client::start() {
   if (state_ != State::idle) return false;
-  if (enet_initialize() != 0) return false;
-  enet_started_ = true;
-  host_ = enet_host_create(nullptr, 1, proto::kChannelCount, 0, 0);
-  if (host_ == nullptr) return false;
-  host_->maximumPacketSize = kMaxPacketBytes;
-  host_->maximumWaitingData = config_.max_waiting_bytes;
-  host_->mtu = std::clamp<std::uint32_t>(config_.mtu, ENET_PROTOCOL_MINIMUM_MTU,
-                                         ENET_PROTOCOL_MAXIMUM_MTU);  // issue 143
+  if (config_.transport == "ws" || config_.transport == "wss") {
+    transport_ = std::make_unique<WsTransport>(config_.transport == "wss");
+  } else {
+    transport_ = std::make_unique<EnetTransport>(config_.mtu, config_.max_waiting_bytes);  // issue 143
+  }
+  if (!transport_->start()) {
+    transport_.reset();
+    return false;
+  }
   begin_attempt();
   return true;
 }
 
 void Client::stop() {
-  if (peer_ != nullptr) {
-    // Sends the goodbye at once and forgets the peer; no reply is awaited.
-    enet_peer_disconnect_now(peer_, 0);
-    peer_ = nullptr;
-  }
+  if (transport_) transport_->disconnect_now();
   if (state_ != State::idle) state_ = State::stopped;
   players_.clear();
   clear_shared();
@@ -204,37 +209,26 @@ void Client::begin_attempt() {
   cipher_.reset();
   key_pair_.reset();
   hello_packet_.clear();
-  path_mark_ = PathMark{};
   last_receive_us_ = 0;
   link_ = LinkInfo{};
-  ENetAddress address{};
-  address.port = config_.port;
-  if (!address_known_) {
-    // May block on a DNS name; an IP is read at once. Kept once it works.
-    if (enet_address_set_host(&address, config_.host.c_str()) != 0) {
-      state_ = State::connecting;
-      end_attempt(DropReason::no_route);
-      return;
-    }
-    address_host_ = address.host;
-    address_known_ = true;
-  }
-  address.host = address_host_;
-  peer_ = enet_host_connect(host_, &address, proto::kChannelCount, 0);
-  if (peer_ == nullptr) {
+  if (!transport_) {
     state_ = State::connecting;
     end_attempt(DropReason::no_route);
     return;
   }
-  enet_peer_timeout(peer_, 0, config_.timeout_ms, config_.timeout_ms);
+  // May block on a DNS name; an IP is read at once. Kept once it works.
+  if (!transport_->resolve(config_.host)) {
+    state_ = State::connecting;
+    end_attempt(DropReason::no_route);
+    return;
+  }
+  transport_->connect(config_.host, config_.port, config_.path,
+                      config_.timeout_ms);
   state_ = State::connecting;
 }
 
 void Client::end_attempt(DropReason reason) {
-  if (peer_ != nullptr) {
-    enet_peer_disconnect_now(peer_, 0);
-    peer_ = nullptr;
-  }
+  if (transport_) transport_->disconnect_now();
   const bool was_connected = state_ == State::connected;
   // Only a REFUSED name taken keeps the retry window going; any other end
   // of an attempt closes it, so a later name taken gets its full window.
@@ -266,21 +260,21 @@ void Client::end_attempt(DropReason reason) {
 }
 
 void Client::service(std::uint32_t wait_ms) {
-  if (host_ == nullptr || state_ == State::idle || state_ == State::stopped ||
+  if (!transport_ || state_ == State::idle || state_ == State::stopped ||
       state_ == State::refused) {
     return;
   }
 
-  ENetEvent event;
   std::uint32_t wait = wait_ms;
   // Bounded, so a flood from the server cannot keep service() from returning.
-  for (std::uint32_t handled = 0; handled < config_.max_events_per_service &&
-                                  enet_host_service(host_, &event, wait) > 0;
+  for (std::uint32_t handled = 0; handled < config_.max_events_per_service;
        ++handled) {
+    TransportEvent event = transport_->service(wait);
     wait = 0;
-    switch (event.type) {
-      case ENET_EVENT_TYPE_CONNECT:
-        if (event.peer == peer_ && state_ == State::connecting) {
+    if (event.kind == TransportEventKind::none) break;
+    switch (event.kind) {
+      case TransportEventKind::connected:
+        if (state_ == State::connecting) {
           proto::Hello hello = config_.hello;
           last_receive_us_ = now_us();  // the server answered the connect
           // The token of our last place, shown before HELLO: with it the
@@ -301,55 +295,48 @@ void Client::service(std::uint32_t wait_ms) {
               send_packet(hello_packet_, proto::channel_of(hello))) {
             hello_sent_us_ = now_us();
             challenge_answered_ = false;
+            server_protocol_.reset();
             state_ = State::handshaking;
           } else {
             end_attempt(DropReason::connection_lost);
           }
         }
         break;
-      case ENET_EVENT_TYPE_RECEIVE:
-        if (event.peer == peer_) {
-          last_receive_us_ = now_us();
-          if (cipher_ != nullptr) {
-            // Encrypted: only what opens with the key counts. The one plain
-            // answer left is REFUSED 6, wrong password, which the server
-            // sends before it has keys (any other reason comes sealed) (anyone on the path could also just
-            // drop our packets, so it gives nothing away).
-            std::vector<std::uint8_t> plain;
-            const std::span<const std::uint8_t> raw(event.packet->data,
-                                                    event.packet->dataLength);
-            proto::Message refused;
-            if (cipher_->open(event.channelID, raw, plain) == proto::OpenError::none) {
-              on_receive(plain.data(), plain.size(), event.channelID);
-            } else if (state_ == State::handshaking &&
-                       event.channelID == proto::kChannelSession &&
-                       proto::decode(raw, refused) == proto::Error::none &&
-                       std::holds_alternative<proto::Refused>(refused) &&
-                       std::get<proto::Refused>(refused).reason ==
-                           proto::RefuseReason::bad_password) {
-              on_receive(raw.data(), raw.size(), event.channelID);
-            } else {
-              ++rejected_;
-            }
+      case TransportEventKind::received:
+        last_receive_us_ = now_us();
+        if (cipher_ != nullptr) {
+          // Encrypted: only what opens with the key counts. The one plain
+          // answer left is REFUSED 6, wrong password, which the server
+          // sends before it has keys (any other reason comes sealed) (anyone on the path could also just
+          // drop our packets, so it gives nothing away). ORM: the same for every
+          // transport; the WebSocket frame carries the channel the seal is keyed with.
+          std::vector<std::uint8_t> plain;
+          const std::span<const std::uint8_t> raw(event.data.data(), event.data.size());
+          proto::Message refused;
+          if (cipher_->open(event.channel, raw, plain) == proto::OpenError::none) {
+            on_receive(plain.data(), plain.size(), event.channel);
+          } else if (state_ == State::handshaking &&
+                     event.channel == proto::kChannelSession &&
+                     proto::decode(raw, refused) == proto::Error::none &&
+                     std::holds_alternative<proto::Refused>(refused) &&
+                     std::get<proto::Refused>(refused).reason ==
+                         proto::RefuseReason::bad_password) {
+            on_receive(raw.data(), raw.size(), event.channel);
           } else {
-            on_receive(event.packet->data, event.packet->dataLength,
-                       event.channelID);
+            ++rejected_;
           }
-        }
-        enet_packet_destroy(event.packet);
-        break;
-      case ENET_EVENT_TYPE_DISCONNECT:
-        if (event.peer == peer_) {
-          peer_ = nullptr;  // ENet has already reset it
-          const bool to_small = event.data == kDisconnectSmallDatagrams;
-          if (to_small) use_small_datagrams();
-          if (state_ == State::connecting || state_ == State::handshaking ||
-              state_ == State::connected) {
-            end_attempt(to_small ? DropReason::small_path : DropReason::connection_lost);
-          }
+        } else {
+          on_receive(event.data.data(), event.data.size(), event.channel);
         }
         break;
-      case ENET_EVENT_TYPE_NONE:
+      case TransportEventKind::disconnected:
+        if (event.small_path) use_small_datagrams();
+        if (state_ == State::connecting || state_ == State::handshaking ||
+            state_ == State::connected) {
+          end_attempt(event.small_path ? DropReason::small_path : DropReason::connection_lost);
+        }
+        break;
+      case TransportEventKind::none:
         break;
     }
     if (state_ == State::refused || state_ == State::stopped) return;
@@ -364,6 +351,15 @@ void Client::service(std::uint32_t wait_ms) {
       }
       break;
     case State::connected:
+      // Nothing from the server for timeout_ms (it PINGs every 250 ms): the
+      // link is gone even if the wire has not said so. A half-open WebSocket
+      // (the room proxy or a NAT forgot it, the socket did not) never reports
+      // a disconnect; ENet's own timeout covers only UDP (docs/REVISION_RED.md).
+      if (last_receive_us_ != 0 &&
+          elapsed(now, last_receive_us_) >= ms_to_us(config_.timeout_ms)) {
+        end_attempt(DropReason::connection_lost);
+        break;
+      }
       if (now >= next_ping_us_) {
         send_raw(proto::Ping{now}, proto::kChannelSession);
         next_ping_us_ = now + ms_to_us(config_.ping_interval_ms);
@@ -378,28 +374,42 @@ void Client::service(std::uint32_t wait_ms) {
     case State::stopped:
       break;
   }
-  if (peer_ != nullptr) {
+  if (state_ == State::connecting || state_ == State::handshaking ||
+      state_ == State::connected) {
     // ENet forgets to take thrown-away fragments off its count; past the cap
-    // it would refuse (and never acknowledge) the server's packets.
-    link_.mended_bytes += mend_waiting_data(*peer_);
-    link_.waiting_bytes = static_cast<std::uint32_t>(
-        std::min<std::size_t>(peer_->totalWaitingData, 0xffffffffu));
-    link_.round_trip_ms = peer_->roundTripTime;
-    link_.loss_percent = static_cast<std::uint32_t>(
-        static_cast<std::uint64_t>(peer_->packetLoss) * 100 / ENET_PEER_PACKET_LOSS_SCALE);
-    link_.mtu = peer_->mtu;
+    // it would refuse (and never acknowledge) the server's packets (issue 175).
+    link_.mended_bytes += transport_->mend_waiting_data();
+    TransportStats stats;
+    if (transport_->stats(stats)) {
+      if (stats.has_round_trip) {  // ORM: the WebSocket wire has none of these
+        link_.round_trip_ms = stats.round_trip_ms;
+        link_.loss_percent = stats.loss_percent;
+        link_.mtu = stats.mtu;
+        link_.waiting_bytes = stats.waiting_bytes;
+      }
+      link_.send_queued_bytes = stats.send_queued_bytes;
+      link_.send_queued_frames = stats.send_queued_frames;
+      link_.send_dropped_frames = stats.send_dropped_frames;
+    }
+    // Upstream's small path check (enet_path.hpp), through the transport: ENet only.
     if ((state_ == State::handshaking || state_ == State::connected) &&
-        full_datagrams_lost(path_mark_, *peer_, host_->serviceTime)) {
+        transport_->full_datagrams_lost()) {
       use_small_datagrams();
       end_attempt(DropReason::small_path);
     }
   }
-  enet_host_flush(host_);
+  transport_->flush();
+}
+
+std::vector<proto::LinkNotice> Client::take_link_notices() {
+  std::vector<proto::LinkNotice> out;
+  out.swap(link_notices_);
+  return out;
 }
 
 void Client::use_small_datagrams() {
   small_datagrams_ = true;
-  if (host_ != nullptr && host_->mtu > kSmallDatagramBytes) host_->mtu = kSmallDatagramBytes;
+  if (transport_) transport_->use_small_datagrams();  // ENet's smallest from now on; nothing on WebSocket
 }
 
 LinkInfo Client::link() const {
@@ -460,11 +470,13 @@ void Client::on_receive(const std::uint8_t* data, std::size_t size,
         // (someone on the path may have taken the key out).
         refuse_unencrypted();
       }
-    } else if (const auto* refused = std::get_if<proto::Refused>(&message)) {
-      if (peer_ != nullptr) {
-        enet_peer_disconnect_now(peer_, 0);
-        peer_ = nullptr;
+    } else if (const auto* notice = std::get_if<proto::LinkNotice>(&message)) {
+      // ORM: our relay says its protocol before refusing a different one.
+      if (notice->kind == proto::LinkNoticeKind::server_protocol && notice->a <= 0xffffu) {
+        server_protocol_ = static_cast<std::uint16_t>(notice->a);
       }
+    } else if (const auto* refused = std::get_if<proto::Refused>(&message)) {
+      if (transport_) transport_->disconnect_now();
       // Our own crashed build may still hold the name for a moment (see
       // name_taken_retry_ms): ask again before giving up.
       if (refused->reason == proto::RefuseReason::name_taken &&
@@ -514,6 +526,10 @@ void Client::on_connected_message(proto::Message message, std::uint8_t channel) 
     if (auto sample = clock_sample(pong->ping_sender_time_us,
                                    pong->receiver_time_us, now)) {
       clock_.add(*sample);
+      ++pong_count_;
+      add_rtt(static_cast<std::uint32_t>(
+          std::min<std::uint64_t>(now - pong->ping_sender_time_us,
+                                  std::numeric_limits<std::uint32_t>::max())));
     } else {
       ++rejected_;
     }
@@ -530,6 +546,20 @@ void Client::on_connected_message(proto::Message message, std::uint8_t channel) 
       std::holds_alternative<proto::JoinChallenge>(message)) {
     ++rejected_;  // the handshake is over
     return;
+  }
+  if (const auto* notice = std::get_if<proto::LinkNotice>(&message)) {
+    // ORM: for the game to tell the player (take_link_notices()).
+    if (link_notices_.size() >= kMaxLinkNotices) link_notices_.erase(link_notices_.begin());
+    link_notices_.push_back(*notice);
+    return;
+  }
+
+  // ORM orm/pvp: a name the server took (ours too: kept for the next HELLO,
+  // so a reconnection comes back under it). Handed on as a message as well.
+  if (const auto* renamed = std::get_if<proto::PlayerRename>(&message);
+      renamed != nullptr && renamed->result == proto::RenameResult::ok) {
+    if (Player* known = player_entry(renamed->player_number)) known->nickname = renamed->nickname;
+    if (renamed->player_number == player_number_) config_.hello.nickname = renamed->nickname;
   }
 
   std::optional<Event> room;
@@ -716,10 +746,7 @@ bool Client::send_chat(std::string_view text) {
 }
 
 void Client::refuse_unencrypted() {
-  if (peer_ != nullptr) {
-    enet_peer_disconnect_now(peer_, 0);
-    peer_ = nullptr;
-  }
+  if (transport_) transport_->disconnect_now();
   state_ = State::refused;
   Event event;
   event.kind = EventKind::refused;
@@ -747,13 +774,16 @@ bool Client::answer_challenge(const proto::JoinChallenge& challenge,
 }
 
 bool Client::send_raw(const proto::Message& message, std::uint8_t channel) {
+  if (!transport_) return false;
   std::vector<std::uint8_t> bytes;
   if (proto::encode(message, bytes) != proto::Error::none) return false;
   return send_packet(bytes, channel);
 }
 
 bool Client::send_packet(std::span<const std::uint8_t> plain, std::uint8_t channel) {
-  if (peer_ == nullptr) return false;
+  if (!transport_) return false;
+  // Sealed above the transport (ORM): ENet, WebSocket and TLS carry the same
+  // sealed packet on the same channel (docs/protocol.md "Encrypted traffic").
   std::optional<std::vector<std::uint8_t>> sealed;
   std::span<const std::uint8_t> bytes = plain;
   if (cipher_ != nullptr) {
@@ -761,13 +791,8 @@ bool Client::send_packet(std::span<const std::uint8_t> plain, std::uint8_t chann
     if (!sealed) return false;
     bytes = *sealed;
   }
-  ENetPacket* packet =
-      enet_packet_create(bytes.data(), bytes.size(), packet_flags(channel));
-  if (packet == nullptr) return false;
-  if (enet_peer_send(peer_, channel, packet) != 0) {
-    enet_packet_destroy(packet);
-    return false;
-  }
+  if (!transport_->send(channel, bytes.data(), bytes.size())) return false;
+  link_.sent_bytes += bytes.size();  // ORM orm/pvp: /red, /stats
   link_.largest_sent = std::max<std::uint32_t>(link_.largest_sent,
                                                static_cast<std::uint32_t>(bytes.size()));
   return true;

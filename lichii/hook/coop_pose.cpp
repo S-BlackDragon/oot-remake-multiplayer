@@ -340,9 +340,9 @@ struct State {
         std::uint64_t ms = 0;
     };
     std::map<std::uint32_t, PieceSent> pieces_sent;
-    // Received, per player 1 to 4, one track per skeleton: Link's body and
+    // Received, per player 1 to kMaxPlayers, one track per skeleton: Link's body and
     // each held piece arrive as poses of their own skeleton.
-    std::array<std::map<std::uint32_t, Track>, 5> tracks;
+    std::array<std::map<std::uint32_t, Track>, proto::kMaxPlayers + 1> tracks;
     // What was last written to each puppet, to see whether the game keeps it.
     std::vector<Written> written_last;
     // Counters for the debug line.
@@ -646,12 +646,13 @@ std::vector<proto::PoseBone> Encode(const Pose& pose) {
 
 }  // namespace
 
-std::vector<proto::PlayerPose> TakeOutgoing(std::uint64_t server_now_us, std::uint64_t now_ms) {
+std::vector<proto::PlayerPose> TakeOutgoing(std::uint64_t server_now_us, std::uint64_t now_ms,
+                                            std::optional<std::uint64_t> gap_ms) {
     std::vector<proto::PlayerPose> out;
     State& s = S();
     std::lock_guard lock(s.mutex);
-    if (!s.outbox || s.outbox_serial == s.sent_serial ||
-        now_ms - s.last_send_ms < 1000 / kSendHz) {
+    if (!gap_ms || !s.outbox || s.outbox_serial == s.sent_serial ||
+        now_ms - s.last_send_ms < *gap_ms) {  // ORM: the gap from coop_interest.h
         return out;
     }
     s.sent_serial = s.outbox_serial;
@@ -683,8 +684,8 @@ std::vector<proto::PlayerPose> TakeOutgoing(std::uint64_t server_now_us, std::ui
     return out;
 }
 
-void Send(coop::net::Client& client, std::uint64_t now_ms) {
-    for (const proto::PlayerPose& m : TakeOutgoing(client.server_now_us(), now_ms)) {
+void Send(coop::net::Client& client, std::uint64_t now_ms, std::optional<std::uint64_t> gap_ms) {
+    for (const proto::PlayerPose& m : TakeOutgoing(client.server_now_us(), now_ms, gap_ms)) {
         client.send(m);
     }
 }

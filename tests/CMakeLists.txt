@@ -58,6 +58,8 @@ add_executable(coop_tests
   lichii/story_test.cpp
   lichii/quests_test.cpp
   lichii/pose_test.cpp
+  lichii/interest_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_interest.cpp
+  lichii/npc_pose_test.cpp
   lichii/world_test.cpp
   lichii/ocarina_test.cpp
   lichii/ocarina_sound_test.cpp

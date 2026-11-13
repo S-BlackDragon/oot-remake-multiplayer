@@ -161,10 +161,13 @@ struct Harness {
     return {};
   }
 
+  // ORM one host: HOST_CHOICE (the relay's word after each HOST) is left out
+  // here, so upstream's counts and orders stay; tests/server/host_choice_test.cpp
+  // checks it.
   std::vector<Sent> to(ConnectionId id) const {
     std::vector<Sent> out;
     for (const Sent& s : sent) {
-      if (s.to == id) out.push_back(s);
+      if (s.to == id && !std::holds_alternative<HostChoice>(s.message)) out.push_back(s);
     }
     return out;
   }

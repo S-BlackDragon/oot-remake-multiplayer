@@ -56,7 +56,7 @@ std::optional<std::uint16_t> hello_protocol_version(
 // that side may send this type (may_send), on this channel
 // (allowed_on_channel), and the player field of PLAYER_STATUS, CHAT,
 // PLAYER_SAMPLE, JOIN_PARTNER, FLAG_SET, FLAG_STATE and PLAYER_EQUIP is 0 from a client and
-// 1 to 4 from the server; a JOIN_PARTNER from the server also names a player
+// 1 to kMaxPlayers from the server; a JOIN_PARTNER from the server also names a player
 // other than its sender. The server still knows who the client is from the
 // connection, never from the message. Who is host (FLAG_STATE) is for the
 // server and client to check, not the codec.
@@ -67,7 +67,7 @@ Error check_received(const Message& message, Sender from, std::uint8_t channel);
 std::optional<std::uint8_t> sender_of(const Message& message);
 
 // For the server, before relaying a message with a player field (above): writes
-// the sending player's number (1 to 4) into the player field. False, and the
+// the sending player's number (1 to kMaxPlayers) into the player field. False, and the
 // message unchanged, for any other message, a number out of range, or a
 // JOIN_PARTNER whose other player is that same number.
 bool set_sender(Message& message, std::uint8_t player);

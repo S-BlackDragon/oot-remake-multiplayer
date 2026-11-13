@@ -12,6 +12,8 @@ Session::Session(net::Client& client, SessionSettings settings)
       client_(client),
       on_event_(std::move(settings.on_event)),
       presence_(settings.presence) {
+  burst_.set_window_us(settings.flag_burst_us);
+  clock_ = settings.clock;
   sharing_ = settings.shared.has_value();
   if (settings.shared) {
     watcher_.emplace(std::move(*settings.shared), FlagRole::player);
@@ -20,8 +22,13 @@ Session::Session(net::Client& client, SessionSettings settings)
   }
 }
 
+std::uint64_t Session::now_us() const {
+  return clock_ ? clock_() : frames_ * GameTicks::kTickUs;
+}
+
 FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStore* flags) {
   FrameReport report;
+  ++frames_;
   std::vector<Inbound> inbox;
   {
     std::lock_guard lock(net_mutex_);
@@ -30,6 +37,7 @@ FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStor
     inbox.swap(inbox_);
   }
 
+  std::vector<Outbound> out;
   // What the network thread handed over, in the order it came. receive()
   // only queues; the game is touched below.
   for (auto& in : inbox) {
@@ -37,9 +45,15 @@ FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStor
       switch (*control) {
         case Control::reset:
           reset_sampler_ = true;
+          // ORM: what a burst held is dropped, not sent: the watcher sends a
+          // player's unanswered changes again after a reconnect (a count
+          // delta sent twice would count twice), and a host its whole table.
+          burst_ = FlagBurst(burst_.window_us());
           if (watcher_) watcher_->reset();
           break;
         case Control::become_host:
+          // ORM: what a burst held goes first, as it would have before the change.
+          if (auto held = burst_.flush(now_us())) out.emplace_back(FlagChanges{std::move(*held)});
           if (watcher_) {
             if (watcher_->role() != FlagRole::host) watcher_->set_role(FlagRole::host);
             // Also when we were host already: after a reconnect the server
@@ -48,6 +62,7 @@ FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStor
           }
           break;
         case Control::become_player:
+          if (auto held = burst_.flush(now_us())) out.emplace_back(FlagChanges{std::move(*held)});
           // Only on a real change: set_role drops a snapshot being held.
           if (watcher_ && watcher_->role() != FlagRole::player) {
             watcher_->set_role(FlagRole::player);
@@ -59,7 +74,6 @@ FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStor
     }
   }
 
-  std::vector<Outbound> out;
   if (report.connected) {
     if (std::exchange(reset_sampler_, false)) sampler_.reset();
     for (const Outgoing& m : sampler_.frame(reading, report.server_now_us)) {
@@ -72,7 +86,9 @@ FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStor
       // No Link to read: the game is loading (FlagWatcher::set_loading).
       watcher_->set_loading(!reading.has_value());
       watcher_->set_scene(scene_readable_);
-      queue_flags(watcher_->frame(*flags), out);
+      queue_flags(watcher_->frame(*flags), out, now_us());
+    } else if (auto held = burst_.push({}, now_us())) {
+      out.emplace_back(FlagChanges{std::move(*held)});  // ORM: a burst's window ended
     }
   }
   if (watcher_) {
@@ -97,10 +113,12 @@ FrameReport Session::frame(const std::optional<PlayerReading>& reading, FlagStor
   return report;
 }
 
-void Session::queue_flags(const std::vector<Outgoing>& out, std::vector<Outbound>& to) {
+void Session::queue_flags(const std::vector<Outgoing>& out, std::vector<Outbound>& to,
+                          std::uint64_t now_us) {
   FlagChanges changes;
   FlagTable table;
   bool has_table = false;
+  std::vector<protocol::FlagReset> resets;
   for (const Outgoing& m : out) {
     protocol::Message message;
     if (protocol::decode(m.bytes, message) != protocol::Error::none) continue;
@@ -110,14 +128,27 @@ void Session::queue_flags(const std::vector<Outgoing>& out, std::vector<Outbound
       changes.flags.insert(changes.flags.end(), state->flags.begin(), state->flags.end());
     } else if (auto* reset = std::get_if<protocol::FlagReset>(&message)) {
       // The host's save load: sent as FLAG_RESET, in its own message.
-      to.emplace_back(protocol::Message{std::move(*reset)});
+      resets.push_back(std::move(*reset));
     } else if (auto* part = std::get_if<protocol::FlagSnapshot>(&message)) {
       // The client splits the table again; it wants it whole.
       table.flags.insert(table.flags.end(), part->flags.begin(), part->flags.end());
       has_table = true;
     }
   }
-  if (!changes.flags.empty()) to.emplace_back(std::move(changes));
+  // ORM (flag_burst.hpp): changes within the window of the last message are
+  // held. A FLAG_RESET or the whole table goes in order: what was held goes
+  // before it, and this frame's changes (after the resets, as before) at once.
+  if (!resets.empty() || has_table) {
+    if (auto held = burst_.flush(now_us)) to.emplace_back(FlagChanges{std::move(*held)});
+    for (auto& reset : resets) to.emplace_back(protocol::Message{std::move(reset)});
+    if (auto go = burst_.push(changes.flags, now_us)) {
+      to.emplace_back(FlagChanges{std::move(*go)});
+    } else if (auto now = burst_.flush(now_us)) {
+      to.emplace_back(FlagChanges{std::move(*now)});
+    }
+  } else if (auto go = burst_.push(changes.flags, now_us)) {
+    to.emplace_back(FlagChanges{std::move(*go)});
+  }
   if (has_table) to.emplace_back(std::move(table));
 }
 

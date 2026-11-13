@@ -23,6 +23,7 @@
 
 #include "coop/protocol/codec.hpp"
 #include "coop/protocol/messages.hpp"
+#include "host_choice.hpp"  // ORM: one host for the room
 #include "world.hpp"
 
 namespace coop::server {
@@ -215,6 +216,11 @@ struct SessionConfig {
   // A made enemy its owner no longer lists, with no OBJECT_REMOVE, is let
   // go of after this long.
   std::uint64_t orphan_us = 1'000'000;
+  // ORM one host (host_choice.hpp, oot-remake docs/PARTIDA_SALA.md): the
+  // choice's rules, and how often tick looks at it (0: the host changes only
+  // when it leaves, as upstream, and HOST_CHOICE is still answered).
+  HostRules host;
+  std::uint64_t host_check_us = 1'000'000;
   // Called with one line for each join, leave and refusal. May be empty.
   std::function<void(const std::string&)> log;
 };
@@ -339,6 +345,21 @@ struct Stats {
   std::uint64_t dead_told = 0;            // a placed enemy's kill told to a game that came later
   std::uint64_t dead_respawned = 0;       // a witness's game listed a killed enemy again
   std::uint64_t dead_unkept = 0;          // a kill not kept: the scene's list was full
+  // ORM enemigos (server/enemies.cpp).
+  std::uint64_t downed_handed = 0;     // a downed owner's object asked for a player standing
+  std::uint64_t fight_near_moved = 0;  // an enemy in a fight asked for the player near it
+  std::uint64_t dead_kept_inside = 0;  // a respawn told dead: another player stayed in the room
+  // ORM one host (orm_host.cpp): changes of host by why (the first player
+  // in is not counted), picks refused, wishes taken, and HOST_CHOICE dropped
+  // (a told from a client, an unknown kind, a pick over host_pick_count).
+  std::uint64_t host_left = 0;
+  std::uint64_t host_measured = 0;
+  std::uint64_t host_unfit = 0;
+  std::uint64_t host_picked = 0;
+  std::uint64_t host_wished = 0;
+  std::uint64_t host_picks_refused = 0;
+  std::uint64_t host_wishes = 0;
+  std::uint64_t host_choice_dropped = 0;
 
   std::uint64_t errors(protocol::Error e) const {
     return by_error[static_cast<std::size_t>(e)];
@@ -384,6 +405,10 @@ class Session {
   std::optional<std::uint8_t> host() const;
   // Whether players hurt each other now (config.pvp, then the host's PVP_MODE).
   bool pvp() const { return pvp_; }
+  // ORM one host: the name picked by hand (empty: the measures decide), and
+  // a player's measured round trip to the relay (none: not yet, or not here).
+  const std::string& host_pinned() const { return election_.pinned(); }
+  std::optional<double> round_trip_ms(std::uint8_t number) const;
   // Flags in the server's table.
   std::size_t flag_count() const { return flags_.size(); }
   // Connections from `address` still waiting for HELLO.
@@ -415,6 +440,11 @@ class Session {
     double unreliable_budget = 0;
     double byte_budget = 0;
     std::uint64_t budget_time = 0;
+    // ORM (oot-remake docs/RIESGOS_RESUELTOS.md): its messages dropped by the
+    // rate limits since it was last told, and when it was (0: never).
+    std::uint32_t orm_limited_reliable = 0;
+    std::uint32_t orm_limited_unreliable = 0;
+    std::uint64_t orm_limited_told_us = 0;
     std::optional<std::uint32_t> address;
     // While awaiting_proof: the HELLO to admit and the nonce it was sent.
     std::optional<protocol::Hello> pending_hello;
@@ -512,6 +542,43 @@ class Session {
   void on_player_message(ConnectionId id, Connection& c, std::uint8_t channel,
                          protocol::Message& message, std::size_t bytes, std::uint64_t now_us);
   void on_join_partner(ConnectionId id, Connection& c, protocol::JoinPartner& j);
+  void on_revive(Connection& c, protocol::Revive& r, std::uint64_t now_us);
+  void on_story_event(ConnectionId id, Connection& c, protocol::StoryEvent& s,
+                      std::uint64_t now_us);
+  void send_story(ConnectionId to);
+  void on_player_look(ConnectionId id, Connection& c, const protocol::PlayerLook& look);
+  void send_looks(ConnectionId to);
+  void send_statuses(ConnectionId to);
+  // ORM GROUP_SETTINGS (orm_session.cpp).
+  void on_group_settings(ConnectionId id, Connection& c, const protocol::GroupSettings& settings);
+  void send_group_settings(ConnectionId to);
+  // ORM orm/pvp (orm_session.cpp, oot-remake docs/COMANDOS.md).
+  void on_room_switch(Connection& c, const protocol::RoomSwitch& m, std::uint64_t now_us);
+  void send_room_switches(ConnectionId to);
+  void on_player_hit(ConnectionId id, Connection& c, protocol::PlayerHit& m, std::uint64_t now_us);
+  void on_player_call(ConnectionId id, Connection& c, protocol::PlayerCall& m, std::uint64_t now_us);
+  void on_player_rename(ConnectionId id, Connection& c, const protocol::PlayerRename& m,
+                        std::uint64_t now_us);
+  // A player fell to PvP within pvp_down_window_us of a hit (on_status).
+  void note_pvp_down(Connection& c, std::uint64_t now_us);
+  void on_object_pose(ConnectionId id, Connection& c, std::uint8_t channel,
+                      protocol::ObjectPose& pose, std::uint64_t now_us);
+  void on_ocarina_note(ConnectionId id, Connection& c, protocol::OrmOcarinaNote& note,
+                       std::uint64_t now_us);
+  // ORM one host (orm_host.cpp).
+  void on_host_choice(ConnectionId id, Connection& c, const protocol::HostChoice& m,
+                      std::uint64_t now_us);
+  // Every joined player as the choice sees it.
+  std::vector<HostCandidate> host_candidates(std::uint64_t now_us) const;
+  // tick: the move the choice asks for, if any.
+  void run_host_choice(std::uint64_t now_us);
+  // A player joined: the first one hosts; the joiner learns why the host hosts.
+  void host_on_join(ConnectionId id, std::uint64_t now_us);
+  // The host left (already out of connections_): the best of the others.
+  void host_on_leave(std::uint64_t now_us);
+  // Makes `move` (HOST to everyone, then HOST_CHOICE told) and logs it.
+  void set_host(const HostMove& move, std::uint64_t now_us);
+  protocol::HostChoice host_told() const;
   void on_flag_set(Connection& c, protocol::Message& message);
   void on_flag_state(ConnectionId id, Connection& c, protocol::Message& message);
   void on_flag_snapshot(ConnectionId id, Connection& c, const protocol::FlagSnapshot& part);
@@ -642,6 +709,13 @@ class Session {
   // the session empties. `pvp_set_by_` is PVP_MODE's set_by (0: the server).
   bool pvp_ = false;
   std::uint8_t pvp_set_by_ = 0;
+  // ORM one host (host_choice.hpp): the choice, why the host hosts and who
+  // picked it, its average as measured when it took over, the last check.
+  HostElection election_;
+  protocol::HostWhy host_why_ = protocol::HostWhy::first;
+  std::uint8_t host_by_ = 0;
+  std::optional<double> host_score_ms_;
+  std::uint64_t host_checked_at_ = 0;
   // Every shared flag value the host has sent, by key. Kept when
   // the host leaves; forgotten when the session empties.
   std::map<protocol::FlagKey, protocol::FlagEntry> flags_;

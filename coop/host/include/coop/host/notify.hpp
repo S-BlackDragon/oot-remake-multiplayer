@@ -39,7 +39,7 @@ class Notifier {
   static constexpr std::size_t kMaxLines = 4;      // live lines in a window
   static constexpr std::uint64_t kWindowMs = 3000;
 
-  // The name of player n (1 to 4) as the chat shows it.
+  // The name of player n (1 to kMaxPlayers) as the chat shows it.
   using PlayerName = std::function<std::string(std::uint8_t)>;
   // What a flag the item table does not know means, as words after the
   // player's name ("opened a chest"), or nothing: from the game's own tables.
