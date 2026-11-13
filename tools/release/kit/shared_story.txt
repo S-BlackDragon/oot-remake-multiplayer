@@ -1,0 +1,289 @@
+# ORM story cutscenes for everyone (LICHII_ORM_STORY_EVENTS=1): the story events that play on
+# every game in the same scene when one player's game starts them. One event a line, by
+# the name the game gives it; HavePlayedEvent.<event> is always shared, and each flag after
+# the name is shared with it too: the HavePlayedEvent.Dm_* of the timelines it plays, the
+# Bools it sets at its end, and as step:Name=Value,... the story steps (Enum flags, every
+# value in GameDataList order) it moves; a step only moves forward. The word solo after the name:
+# only who starts it sees it (ZMP D-067: the cutscene after a blue warp is the warper's),
+# its flags are shared all the same. near=M after the name: only the games whose Link is
+# within M m of where its starter stood see it (ZMP D-188: a cutscene of one room of a
+# scene, the trials of Ganon's Castle, is that room's); its flags are shared all the same.
+#
+# The whole game, child and adult, read from the romfs (oot-remake/tools/romfs: the
+# EventSetting table names each event's flow and entry point, the flows say what it plays
+# and moves, GameDataList has every name). Each comment says the flow and what its
+# branches may play and move. Not listed: the boss rooms' intros and deaths, Ganondorf's and
+# Ganon's too (the boss-room sync plays them; oot-remake docs/FINAL.md), dungeon mechanism cutscenes (Poe sisters, water levels,
+# rooms that spin), minigames, the horse (each player's), Gerudo guards taking one Link to
+# the cell (only that Link goes), chests and item gets, the boss rush.
+# ---- Kokiri Forest (child)
+# Saria greets Link at his house (Npc_Kokiri_Saria_Child; plays Dm_Kokiri_0060).
+KokiriForest_StopInFrontOfLinkHouse HavePlayedEvent.Dm_Kokiri_0060
+# Meeting the Great Deku Tree; the end opens its mouth (Meet_DekuTree; plays Dm_Kokiri_0070, Dm_Kokiri_0075; moves Meet_DekuTree to Complete, Get_StoneOfForest to GoInside).
+KokiriForest_Meet_DekuTree_MeetDekuTree_01 HavePlayedEvent.Dm_Kokiri_0070 HavePlayedEvent.Dm_Kokiri_0075 KokiriForest_Meet_DekuTree_OpenDekuTreeMouth step:Step_Meet_DekuTree=NotReady,Ready,Step01,Step02,Step03,Complete step:Step_Get_StoneOfForest=NotReady,Ready,GoInside,MeetBoss,GoToBossRoom,DefeatBoss,GoToWarpPoint,Complete
+# Arriving inside the Deku Tree the first time (Dm_SY_BancChangeArrive; plays Dm_Deku_0000; moves Get_StoneOfForest to MeetBoss).
+InsideTheDekuTree_Arrive HavePlayedEvent.Dm_Deku_0000 step:Step_Get_StoneOfForest=NotReady,Ready,GoInside,MeetBoss,GoToBossRoom,DefeatBoss,GoToWarpPoint,Complete
+# After Gohma's blue warp: the Deku Tree dies, Kokiri Emerald [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Kokiri_0080, Dm_Kokiri_0095, Dm_Kokiri_0090, Dm_Kokiri_0130, Dm_Kokiri_0140; moves Get_StoneOfForest to Complete, Goto_HyruleCastle to Step01).
+KokiriForest_WarpFromInsideTheDekuTree solo HavePlayedEvent.Dm_Kokiri_0080 HavePlayedEvent.Dm_Kokiri_0095 HavePlayedEvent.Dm_Kokiri_0090 HavePlayedEvent.Dm_Kokiri_0130 HavePlayedEvent.Dm_Kokiri_0140 step:Step_Get_StoneOfForest=NotReady,Ready,GoInside,MeetBoss,GoToBossRoom,DefeatBoss,GoToWarpPoint,Complete step:Step_Goto_HyruleCastle=NotReady,Ready,Step01,Step02,Step02_01,Step03,Step03_01,Step03_02,Step04,Complete
+# Back from the Tree: Mido and the Kokiri (Npc_Kokiri_Mido_Child; plays Dm_Kokiri_0145).
+KokiriForest_Get_StoneOfForest_Completed_Event HavePlayedEvent.Dm_Kokiri_0145
+# Saria on the bridge gives the Fairy Ocarina (Goto_HyruleCastle; plays Dm_Kokiri_0150, Dm_Kokiri_0155).
+KokiriForest_ArriveLostWood HavePlayedEvent.Dm_Kokiri_0150 HavePlayedEvent.Dm_Kokiri_0155
+
+# ---- Hyrule Field, Castle Town, Hyrule Castle (child)
+# Kaepora Gaebora outside the forest (Goto_HyruleCastle; plays Dm_HrlField_0000, Dm_HrlField_0005, Dm_HrlField_0010; moves Goto_HyruleCastle to Step02).
+HyruleField_Goto_HyruleCastle_Kaepora HavePlayedEvent.Dm_HrlField_0000 HavePlayedEvent.Dm_HrlField_0005 HavePlayedEvent.Dm_HrlField_0010 step:Step_Goto_HyruleCastle=NotReady,Ready,Step01,Step02,Step02_01,Step03,Step03_01,Step03_02,Step04,Complete
+# Castle Town, the first time across the drawbridge (Dm_SY_BancChangeArrive; plays Dm_HrlCastle_0005; moves Goto_HyruleCastle to Step02_01).
+Dm_SY_BancChangeArrive_Market HavePlayedEvent.Dm_HrlCastle_0005 step:Step_Goto_HyruleCastle=NotReady,Ready,Step01,Step02,Step02_01,Step03,Step03_01,Step03_02,Step04,Complete
+# The road up to the castle, the first time: Kaepora again (Dm_HrlCastle_0000).
+Dm_HrlCastle_0000
+# Talon wakes up (the cucco) (Goto_HyruleCastle; plays Dm_HrlCastle_0020; moves Goto_HyruleCastle to Step04).
+HyruleCastle_Taron_WakeUp HavePlayedEvent.Dm_HrlCastle_0020 step:Step_Goto_HyruleCastle=NotReady,Ready,Step01,Step02,Step02_01,Step03,Step03_01,Step03_02,Step04,Complete
+# Zelda in the courtyard: the letter, Impa (Goto_HyruleCastle; plays Dm_HrlCastle_0030, Dm_HrlCastle_0035, Dm_HrlCastle_0045, Dm_HrlCastle_0050, Dm_HrlCastle_0060; moves Goto_HyruleCastle to Complete, DoorOfTime to Step01).
+HyruleCastle_Goto_HyruleCastle_MeetZelda HavePlayedEvent.Dm_HrlCastle_0030 HavePlayedEvent.Dm_HrlCastle_0035 HavePlayedEvent.Dm_HrlCastle_0045 HavePlayedEvent.Dm_HrlCastle_0050 HavePlayedEvent.Dm_HrlCastle_0060 step:Step_Goto_HyruleCastle=NotReady,Ready,Step01,Step02,Step02_01,Step03,Step03_01,Step03_02,Step04,Complete step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete
+# Impa teaches Zelda's Lullaby (the game names it by hashes) (DoorOfTime; plays Dm_MelodyGet_Zelda).
+3906666092_3949112793_2073510616_D_T HavePlayedEvent.Dm_MelodyGet_Zelda
+# Lon Lon Ranch, the first time (Entry_LonLonRanch; plays Dm_LonLon_0010).
+Entry_LonLonRanch HavePlayedEvent.Dm_LonLon_0010
+# Malon teaches Epona's Song (SubEvent_GetEponaSong; plays Dm_MelodyGet_Epona).
+Get_EponaSong HavePlayedEvent.Dm_MelodyGet_Epona
+# Hyrule Field cutscene (asked for by a field placement) (Dm_HrlField_0030).
+Dm_HrlField_0030
+# Hyrule Field cutscene (asked for by a field placement) (Dm_HrlField_0040).
+Dm_HrlField_0040
+# Kaepora at the way to Lake Hylia (Dm_HrlField_0050).
+Dm_HrlField_0050
+
+# ---- Kakariko, Graveyard, Death Mountain, Goron City (child)
+# The Graveyard, the first time (Dm_Graveyard_0000).
+Dm_Graveyard_0000
+# Song of Storms in the windmill: the well is drained (Npc_Hylia_009_Child; plays Dm_Kakariko_0050; moves SubEvent_GetStormSong to step03).
+PlayStormSong_fromBancLogic HavePlayedEvent.Dm_Kakariko_0050 KakarikoVillage_Npc_Hylia_009_Child_DeleteWaterPlane KakarikoVillage_DeleteDummyLadder step:Step_SubEvent_GetStormSong=NotReady,Ready,ReadyForGetStormSong,step02,step03,BeforeBossRoom,step04,step05,Complete
+# The same, played inside the windmill (Npc_Hylia_009_Child; plays Dm_Kakariko_0050; moves SubEvent_GetStormSong to step03).
+PlayStormSong_InWindmill HavePlayedEvent.Dm_Kakariko_0050 KakarikoVillage_Npc_Hylia_009_Child_DeleteWaterPlane KakarikoVillage_DeleteDummyLadder step:Step_SubEvent_GetStormSong=NotReady,Ready,ReadyForGetStormSong,step02,step03,BeforeBossRoom,step04,step05,Complete
+# Zelda's Lullaby on the Royal Tomb: the tomb opens (GimmickFlow_RoyalFamilyTomb; plays Dm_Graveyard_0010; moves SubEvent_GetMelodySun to GetMelodySun).
+RoyalFamilyTomb_BlowOcarina HavePlayedEvent.Dm_Graveyard_0010 GraveYard_RoyalFamilyTomb_Open GraveYard_RoyalFamilyTomb_Breaked step:Step_SubEvent_GetMelodySun=NotReady,Ready,GetMelodySun,Complete
+# The Sun's Song on the tomb's wall (GimmickFlow_RoyalFamilyTomb; plays Dm_MelodyGet_Sun, Dm_MelodyGet_Sun_03; moves SubEvent_GetMelodySun to Complete).
+Obj_Graveyard_Monument_A_02 HavePlayedEvent.Dm_MelodyGet_Sun HavePlayedEvent.Dm_MelodyGet_Sun_03 RoyalFamilyTomb_MelodyGet_Clear step:Step_SubEvent_GetMelodySun=NotReady,Ready,GetMelodySun,Complete
+# Death Mountain Trail, the first time (Dm_SY_BancChangeArrive; plays Dm_DeathMtTrail_0000; moves Get_StoneOfFire to DeathMtTrailNpc).
+DeathMountainTrail_Arrive HavePlayedEvent.Dm_DeathMtTrail_0000 step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete
+# Death Mountain Trail cutscene (child) (Dm_DeathMtTrail_0005).
+Dm_DeathMtTrail_0005
+# Goron City, the first time (Dm_SY_BancChangeArrive; plays Dm_Goron_0000; moves Get_StoneOfFire to GoronCityDarniaroomNpcTalk01).
+GoronCity_InitDemo_Arrive HavePlayedEvent.Dm_Goron_0000 step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete
+# Meeting Darunia (Get_StoneOfFire; plays Dm_Goron_0020; moves Get_StoneOfFire to DarniaRoomKokiriTalk).
+Get_StoneOfFire_MeetDarnia HavePlayedEvent.Dm_Goron_0020 step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete
+# Saria in the Lost Woods (Saria's Song) (Dm_SY_BancChangeArrive; plays Dm_LostWood_0000; moves Get_StoneOfFire to SariaMelodyGet).
+Get_StoneOfFire_ArriveFromKokiri HavePlayedEvent.Dm_LostWood_0000 step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete
+# Saria teaches Saria's Song in the meadow (SacredForestMeadow; plays Dm_MelodyGet_Saria; moves Get_StoneOfFire to SariaMelodyPlay).
+SacredForestMeadow_Field_MelodyGet_Saria HavePlayedEvent.Dm_MelodyGet_Saria step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete
+# Saria's Song for Darunia: he dances, the cavern opens (Get_StoneOfFire; plays Dm_Goron_0028, Dm_Goron_0025, Dm_Goron_0030; moves Get_StoneOfFire to DodongoCavernOpne).
+Meet_Darunia_PlayOcarina HavePlayedEvent.Dm_Goron_0028 HavePlayedEvent.Dm_Goron_0025 HavePlayedEvent.Dm_Goron_0030 step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete
+# Dodongo's Cavern opens (Get_StoneOfFire; plays Dm_DeathMtTrail_0010).
+Get_StoneOfFire_DodongoCavernOpne HavePlayedEvent.Dm_DeathMtTrail_0010
+# Inside Dodongo's Cavern, the first time (Dm_DodongoCave_0000).
+Dm_DodongoCave_0000
+# After King Dodongo's blue warp: Darunia gives the Goron Ruby [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_DeathMtTrail_0020, Dm_DeathMtTrail_0025, Dm_DeathMtTrail_0027; moves Get_StoneOfFire to Complete, DoorOfTime to Step2_2, Meet_GreatFairy to GoToTopOfMountain).
+Get_StoneOfFire_Complete solo HavePlayedEvent.Dm_DeathMtTrail_0020 HavePlayedEvent.Dm_DeathMtTrail_0025 HavePlayedEvent.Dm_DeathMtTrail_0027 Get_StoneOfFire_TektiteDelete IsHyruleFieldBridgeClose step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete step:Step_Meet_GreatFairy=NotReady,Ready,GoToTopOfMountain,GoToFountain,GetFairyBreath,GoToHyruleCastle,Complete
+
+# ---- Zora's River, Zora's Domain, Jabu-Jabu (child)
+# Kaepora at Zora's River (Get_StoneOfWater; plays Dm_ZoraRiver_0000; moves Get_StoneOfWater to Step02).
+Get_StoneOfWater_TalkKaepora_ZoraRiver HavePlayedEvent.Dm_ZoraRiver_0000 step:Step_Get_StoneOfWater=NotReady,Ready,Step01,Step02,Step03,Step03_Impa,Step04,Step05,Step05_01,Step06,Step07,Step08,Step09,Step10,Step11,Step12,Step13,Step13_01,Step14,Complete
+# Zora's River cutscene (Dm_ZoraRiver_0005).
+Dm_ZoraRiver_0005
+# Zelda's Lullaby at the waterfall: it opens (Get_StoneOfWater; plays Dm_ZoraRiver_0010).
+Get_StoneOfWater_WaterfallSplit HavePlayedEvent.Dm_ZoraRiver_0010 Zorariver_TheWaterfallsplits
+# Zora's Domain, the first time (Dm_SY_BancChangeArrive; plays Dm_Zora_0000; moves Get_StoneOfWater to Step03).
+Goto_ZoraDomain HavePlayedEvent.Dm_Zora_0000 step:Step_Get_StoneOfWater=NotReady,Ready,Step01,Step02,Step03,Step03_Impa,Step04,Step05,Step05_01,Step06,Step07,Step08,Step09,Step10,Step11,Step12,Step13,Step13_01,Step14,Complete
+# Ruto's letter for King Zora: he moves (Get_StoneOfWater; plays Dm_Zora_0010; moves Get_StoneOfWater to Step07).
+Get_StoneOfWater_ShowLetter HavePlayedEvent.Dm_Zora_0010 step:Step_Get_StoneOfWater=NotReady,Ready,Step01,Step02,Step03,Step03_Impa,Step04,Step05,Step05_01,Step06,Step07,Step08,Step09,Step10,Step11,Step12,Step13,Step13_01,Step14,Complete
+# The fish for Jabu-Jabu: he swallows Link (Get_StoneOfWater; plays Dm_ZoraFountain_0010).
+Get_StoneOfWater_JabuJabuEat HavePlayedEvent.Dm_ZoraFountain_0010 GaveFishToJabJab
+# Inside Jabu-Jabu (Get_StoneOfWater; plays Dm_InsideJabu_Jabu_0000; moves Get_StoneOfWater to Step09).
+Get_StoneOfWater_ArriveJabuJabuBelly HavePlayedEvent.Dm_InsideJabu_Jabu_0000 step:Step_Get_StoneOfWater=NotReady,Ready,Step01,Step02,Step03,Step03_Impa,Step04,Step05,Step05_01,Step06,Step07,Step08,Step09,Step10,Step11,Step12,Step13,Step13_01,Step14,Complete
+# Meeting Ruto (Get_StoneOfWater; plays Dm_InsideJabu_Jabu_0010; moves Get_StoneOfWater to Step10).
+Get_StoneOfWater_MeetRuto HavePlayedEvent.Dm_InsideJabu_Jabu_0010 step:Step_Get_StoneOfWater=NotReady,Ready,Step01,Step02,Step03,Step03_Impa,Step04,Step05,Step05_01,Step06,Step07,Step08,Step09,Step10,Step11,Step12,Step13,Step13_01,Step14,Complete
+# Ruto finds the stone's room (Get_StoneOfWater; plays Dm_InsideJabu_Jabu_0020).
+Get_StoneOfWater_DiscoveryStone HavePlayedEvent.Dm_InsideJabu_Jabu_0020
+# Ruto takes the stone (Get_StoneOfWater; plays Dm_InsideJabu_Jabu_0030; moves Get_StoneOfWater to Step12).
+Get_StoneOfWater_RutoGetStone HavePlayedEvent.Dm_InsideJabu_Jabu_0030 step:Step_Get_StoneOfWater=NotReady,Ready,Step01,Step02,Step03,Step03_Impa,Step04,Step05,Step05_01,Step06,Step07,Step08,Step09,Step10,Step11,Step12,Step13,Step13_01,Step14,Complete
+# After Barinade's blue warp: Ruto gives the Zora Sapphire [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_ZoraFountain_0020, Dm_ZoraFountain_0030; moves Get_StoneOfWater to Complete, DoorOfTime to Step2_2).
+Get_StoneOfWater_Complete solo HavePlayedEvent.Dm_ZoraFountain_0020 HavePlayedEvent.Dm_ZoraFountain_0030 IsHyruleFieldBridgeClose step:Step_Get_StoneOfWater=NotReady,Ready,Step01,Step02,Step03,Step03_Impa,Step04,Step05,Step05_01,Step06,Step07,Step08,Step09,Step10,Step11,Step12,Step13,Step13_01,Step14,Complete step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete
+
+# ---- Temple of Time and the escape (child; the age change itself is D-R17)
+# Zelda and Impa flee from the castle (DoorOfTime; plays Dm_HrlField_0020; moves DoorOfTime to Step02, Get_StoneOfFire to KakarikoVillageNpc).
+HyruleField_DoorOfTime_SendOff HavePlayedEvent.Dm_HrlField_0020 step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete step:Step_Get_StoneOfFire=NotReady,Ready,KakarikoVillageNpc,KakarikoVillageLetter,DeathMtTrailIn,DeathMtTrailNpc,GoronCityIn,GoronCityDarniaroomNpcTalk01,GoronCityDarniaroomOpen,GoronCityDarniaTalk,DarniaRoomKokiriTalk,KokiriForestNPCTalk,KokiriForestFire,KokiriForestIn,SariaMelodyGet,SariaMelodyPlay,DodongoCavernOpne,DungeonStart,BossBattle,EscapeDungeon,Complete
+# The Temple of Time, the first time (Dm_TimeTemple_0000).
+Dm_TimeTemple_0000
+# The Master Sword's pedestal (DoorOfTime; plays Dm_TimeTemple_0020).
+DoorOfTime_DiscoverySword HavePlayedEvent.Dm_TimeTemple_0020
+# Ganondorf chases Zelda across the drawbridge (DoorOfTime; plays Dm_HrlField_0060; moves DoorOfTime to Step04).
+HyruleField_DoorOfTime_Escape HavePlayedEvent.Dm_HrlField_0060 IsHyruleFieldBridgeClose step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete
+# The Ocarina of Time and the Song of Time (DoorOfTime; plays Dm_MelodyGet_Time; moves DoorOfTime to Step05).
+HyruleField_DoorOfTime_GetOcarinaOfTime HavePlayedEvent.Dm_MelodyGet_Time step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete
+# The Door of Time opens (DoorOfTime; plays Dm_TimeTemple_0010; moves DoorOfTime to Step06).
+Market_Child_DoorOfTime_OpenDoor HavePlayedEvent.Dm_TimeTemple_0010 Market_Child_TimeTempleDoor_Opened step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete
+# Link draws the Master Sword (the age change, D-R17) (DoorOfTime; plays Dm_TimeTemple_0030, Dm_TimeTemple_0080).
+Market_Child_DoorOfTime_Draw HavePlayedEvent.Dm_TimeTemple_0030 HavePlayedEvent.Dm_TimeTemple_0080
+# Ganondorf enters the Sacred Realm (DoorOfTime; plays Dm_TimeTemple_0040).
+SageRoom_MeetGanondorf HavePlayedEvent.Dm_TimeTemple_0040
+# Rauru in the Chamber of Sages (DoorOfTime; plays Dm_SageRoom_0000, Dm_SageRoom_0005; moves DoorOfTime to Complete).
+SageRoom_MeetRauru HavePlayedEvent.Dm_SageRoom_0000 HavePlayedEvent.Dm_SageRoom_0005 step:Step_DoorOfTime=NotReady,Ready,Step01,Step02,Step2_1,Srep2_1_1,Step2_2,Step03,Step04,Step05,Step06,Complete
+# The sword back in: child to adult (D-R17) (Market_Child_Field_ChildToAdult; plays Dm_TimeTemple_0080).
+Market_Child_Field_ChildToAdult HavePlayedEvent.Dm_TimeTemple_0080
+# The sword out: adult to child (D-R17) (Market_Adult_Field_AdultToChild; plays Dm_TimeTemple_0070).
+Market_Adult_Field_AdultToChild HavePlayedEvent.Dm_TimeTemple_0070
+
+# ---- Adult: Sheik, the Forest
+# Sheik meets adult Link in the Temple of Time (AllSage; plays Dm_TimeTemple_0050, Dm_TimeTemple_0055; moves SageOfLight to Complete, AllSage to Step01, SageOfForest to Step01).
+Market_Adult_AllSage_Start HavePlayedEvent.Dm_TimeTemple_0050 HavePlayedEvent.Dm_TimeTemple_0055 step:Step_SageOfLight=NotReady,Ready,Complete step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete step:Step_SageOfForest=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step06_1_0,Step06_1_1,Step06_1_2,Step06_2,Step07,Step08,Step09,Complete
+# Temple of Time cutscene (adult) (Dm_TimeTemple_0065).
+Dm_TimeTemple_0065
+# The Sacred Forest Meadow, the first time (Dm_SY_BancChangeArrive; plays Dm_LostWood_0010).
+Dm_SY_BancChangeArrive_LostWood HavePlayedEvent.Dm_LostWood_0010
+# The Moblin with the club (SacredForestMeadow; plays Dm_SacredForest_0000).
+SacredForestMeadow_Field_Moblin_Club HavePlayedEvent.Dm_SacredForest_0000
+# Sheik teaches the Minuet of Forest (SageOfForest; plays Dm_MelodyGet_Forest).
+ForestTemple_SageOfForest_MelodyGet HavePlayedEvent.Dm_MelodyGet_Forest
+# Mido lets Link through (SageOfForest; plays Dm_LostWood_0015, Dm_LostWood_0021, Dm_LostWood_0025).
+ForestTemple_SageOfForest_BlockerMove HavePlayedEvent.Dm_LostWood_0015 HavePlayedEvent.Dm_LostWood_0021 HavePlayedEvent.Dm_LostWood_0025
+# Forest Temple, the entrance (Dm_ForestTemple_0000; moves SageOfForest to Step05).
+Dm_ForestTemple_0000 step:Step_SageOfForest=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step06_1_0,Step06_1_1,Step06_1_2,Step06_2,Step07,Step08,Step09,Complete
+# Saria awakens as a sage [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Awake_Forest, Dm_Awake_Forest_Get).
+ForestTemple_SageOfForest_SageRoom solo HavePlayedEvent.Dm_Awake_Forest HavePlayedEvent.Dm_Awake_Forest_Get
+# The Deku Tree Sprout [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Kokiri_0158, Dm_Kokiri_0160, Dm_Kokiri_0162; moves SageOfForest to Complete, AllSage to Step01_00).
+ForestTemple_SageOfForest_EscapeFromTempleOutSide solo HavePlayedEvent.Dm_Kokiri_0158 HavePlayedEvent.Dm_Kokiri_0160 HavePlayedEvent.Dm_Kokiri_0162 step:Step_SageOfForest=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step06_1_0,Step06_1_1,Step06_1_2,Step06_2,Step07,Step08,Step09,Complete step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete
+
+# ---- Adult: Death Mountain and the Fire Temple
+# Death Mountain Trail cutscene (adult) (Dm_DeathMtTrail_0006).
+Dm_DeathMtTrail_0006
+# Death Mountain Trail cutscene (adult) (Dm_DeathMtTrail_0007).
+Dm_DeathMtTrail_0007
+# Death Mountain Crater, the first time (Dm_SY_BancChangeArrive; plays Dm_DeathMtCrater_0000).
+GoTo_DeathMountainCrater_FromGoronCity HavePlayedEvent.Dm_DeathMtCrater_0000
+# Sheik teaches the Bolero of Fire (SageOfFire; plays Dm_MelodyGet_Fire).
+SageOfFire_MelodyGetFire HavePlayedEvent.Dm_MelodyGet_Fire
+# Darunia in the Fire Temple (SageOfFire; plays Dm_FireTemple_0000, Dm_FireTemple_0010; moves SageOfFire to GetBossKey).
+Demo_FireTemple_MeetAgainDarniaEvent HavePlayedEvent.Dm_FireTemple_0000 HavePlayedEvent.Dm_FireTemple_0010 FireTemple_Room02_CreateChain step:Step_SageOfFire=NotReady,Ready,StopDaruniaJr,TalkDaruniaJr,MoveStatue,EnterCrater,MeetSheik,EnterTemple,MeetDarunia,GetBossKey,MeetBoss,DefeatBoss,GoToWarpPoint,Complete
+# Darunia awakens as a sage [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Awake_Fire, Dm_Awake_Fire_Get).
+FireTemple_SageOfFire_SageRoom solo HavePlayedEvent.Dm_Awake_Fire HavePlayedEvent.Dm_Awake_Fire_Get
+# After Volvagia: back in the crater [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_DeathMtCrater_0010; moves SageOfFire to Complete, AllSage to Step01_00_01).
+Demo_SageOfFire_Arrive_FireBolero solo HavePlayedEvent.Dm_DeathMtCrater_0010 step:Step_SageOfFire=NotReady,Ready,StopDaruniaJr,TalkDaruniaJr,MoveStatue,EnterCrater,MeetSheik,EnterTemple,MeetDarunia,GetBossKey,MeetBoss,DefeatBoss,GoToWarpPoint,Complete step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete
+# After Volvagia: Kakariko [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Kakariko_0025).
+FireTemple_SageOfFire_Kakariko solo HavePlayedEvent.Dm_Kakariko_0025
+
+# ---- Adult: Lake Hylia, Zora's Domain, the Ice Cavern, the Water Temple
+# Lake Hylia drained (Dm_SY_BancChangeArrive; plays Dm_LakeHrl_0000).
+Goto_LakeHylia HavePlayedEvent.Dm_LakeHrl_0000
+# Kaepora at Lake Hylia, from the valley (Dm_LakeHrl_0003).
+Dm_LakeHrl_0003
+# Kaepora at Lake Hylia, from Zora's Domain (Dm_LakeHrl_0005).
+Dm_LakeHrl_0005
+# Zora's Fountain frozen (Dm_SY_BancChangeArrive; plays Dm_ZoraFountain_0000).
+FromZoraDomain_arriveZoraFountain HavePlayedEvent.Dm_ZoraFountain_0000
+# Sheik teaches the Serenade of Water (SageOfWater; plays Dm_MelodyGet_Water; moves SageOfWater to Step04).
+SageOfWater_MelodyGet_Water HavePlayedEvent.Dm_MelodyGet_Water step:Step_SageOfWater=NotReady,Ready,Step00,Step01,Step03,Step04,Step05,Step06,Step07,Step07_00,Step07_1,Step07_1_Safety,Step07_2,Step08,Complete
+# The Water Temple's entrance (Dm_WaterTemple_0000).
+Dm_WaterTemple_0000 WaterTemple_EmitGatePillar
+# Ruto in the Water Temple (SageOfWater; plays Dm_WaterTemple_0010, Dm_WaterTemple_0015; moves SageOfWater to Step07).
+Demo_WaterTemple_MeetAgainRutoEvent HavePlayedEvent.Dm_WaterTemple_0010 HavePlayedEvent.Dm_WaterTemple_0015 step:Step_SageOfWater=NotReady,Ready,Step00,Step01,Step03,Step04,Step05,Step06,Step07,Step07_00,Step07_1,Step07_1_Safety,Step07_2,Step08,Complete
+# Ruto awakens as a sage [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Awake_Water, Dm_Awake_Water_Get).
+SageOfWater_SageRoom solo HavePlayedEvent.Dm_Awake_Water HavePlayedEvent.Dm_Awake_Water_Get
+# After Morpha: the lake fills again [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_LakeHrl_0020; moves SageOfWater to Complete, AllSage to Step01_00_01).
+Demo_SageOfWater_Arrive_WaterSerenade solo HavePlayedEvent.Dm_LakeHrl_0020 SageOfWater_Icedelete step:Step_SageOfWater=NotReady,Ready,Step00,Step01,Step03,Step04,Step05,Step06,Step07,Step07_00,Step07_1,Step07_1_Safety,Step07_2,Step08,Complete step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete
+
+# ---- Adult: Kakariko burning, the Shadow Temple
+# Kakariko burns; Sheik and the shadow (Dm_SY_BancChangeArrive; plays Dm_Kakariko_0030).
+KakarikoVillage_Arrive HavePlayedEvent.Dm_Kakariko_0030 KakarikoVillage_Burning_Start
+# Sheik tells Impa's story (Dm_SY_BancChangeArrive; plays Dm_Kakariko_0040).
+KakarikoVillage_FlashbackScenes HavePlayedEvent.Dm_Kakariko_0040
+# Sheik teaches the Nocturne of Shadow (Dm_SY_BancChangeArrive; plays Dm_MelodyGet_Shadow; moves SageOfShadow to GoToDungeon).
+KakarikoVillage_MelodyGet_Shadow HavePlayedEvent.Dm_MelodyGet_Shadow step:Step_SageOfShadow=NotReady,Ready,GoToDungeon,GotGlassTruth,GetGlassTruth,MeetBoss,BattleOnShip,BeforeBossRoom,DefeatBoss,GoToWarpPoint,Complete
+# The Shadow Temple opens (Din's Fire) (Dm_ShadowTemple_0000).
+Dm_ShadowTemple_0000 GraveYard_Field_ShadowTemple_ShutterOpen
+# Impa awakens as a sage [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Awake_Shadow, Dm_Awake_Shadow_Get, Dm_SageRoom_0010; moves AllSage to Step02).
+ShadowTemple_SageOfShadow_SageRoom solo HavePlayedEvent.Dm_Awake_Shadow HavePlayedEvent.Dm_Awake_Shadow_Get HavePlayedEvent.Dm_SageRoom_0010 step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete
+# After Bongo Bongo: the Graveyard [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Graveyard_0030; moves SageOfShadow to Complete, AllSage to Step01_00_03).
+ShadowTemple_Warp_Graveyard solo HavePlayedEvent.Dm_Graveyard_0030 step:Step_SageOfShadow=NotReady,Ready,GoToDungeon,GotGlassTruth,GetGlassTruth,MeetBoss,BattleOnShip,BeforeBossRoom,DefeatBoss,GoToWarpPoint,Complete step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete
+
+# ---- Gerudo Valley, the fortress, the desert, the Spirit Temple (child and adult)
+# Gerudo Valley, the first time (Dm_GerudoValley_0000).
+Dm_GerudoValley_0000
+# Gerudo's Fortress, the first time (Dm_Gerudo_0000).
+Dm_Gerudo_0000
+# The fourth carpenter free: the Gerudo membership card (SageOfSpirit; plays Dm_Gerudo_0025; moves SageOfSpirit to Step02).
+Meet_FourCarpenter_ClearEvent HavePlayedEvent.Dm_Gerudo_0025 step:Step_SageOfSpirit=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step05_01,Step05_02,Step05_03,Step06,Step07,Step07_pre00,Step07_00,Step08,Step08_01,Step09,Step09_01,Step10,Complete
+# The Desert Colossus, the first time (Dm_SY_BancChangeArrive; plays Dm_DesertColossus_0000; moves SageOfSpirit to Step04).
+FromWasteland_ArriveColossus HavePlayedEvent.Dm_DesertColossus_0000 step:Step_SageOfSpirit=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step05_01,Step05_02,Step05_03,Step06,Step07,Step07_pre00,Step07_00,Step08,Step08_01,Step09,Step09_01,Step10,Complete
+# Sheik teaches the Requiem of Spirit (Dm_MelodyGet_Spilit).
+Dm_MelodyGet_Spilit
+# Child Link meets Nabooru (SageOfSpirit; plays Dm_DesertColossus_0020, Dm_DesertColossus_0025; moves SageOfSpirit to Step06).
+SageOfSpirit_MeetNabooru HavePlayedEvent.Dm_DesertColossus_0020 HavePlayedEvent.Dm_DesertColossus_0025 step:Step_SageOfSpirit=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step05_01,Step05_02,Step05_03,Step06,Step07,Step07_pre00,Step07_00,Step08,Step08_01,Step09,Step09_01,Step10,Complete
+# Twinrova take Nabooru away (SageOfSpirit; plays Dm_DesertColossus_0030; moves SageOfSpirit to Step07).
+SageOfSpirit_NaboorIsTakenAway HavePlayedEvent.Dm_DesertColossus_0030 step:Step_SageOfSpirit=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step05_01,Step05_02,Step05_03,Step06,Step07,Step07_pre00,Step07_00,Step08,Step08_01,Step09,Step09_01,Step10,Complete
+# The Iron Knuckle (Nabooru) appears (not one of the 8 boss rooms) (SageOfSpirit; plays Dm_SpiritTemple_0010; moves SageOfSpirit to Step08).
+SageOfSpirit_MiddleBossStart HavePlayedEvent.Dm_SpiritTemple_0010 step:Step_SageOfSpirit=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step05_01,Step05_02,Step05_03,Step06,Step07,Step07_pre00,Step07_00,Step08,Step08_01,Step09,Step09_01,Step10,Complete
+# The Iron Knuckle falls: it is Nabooru (SageOfSpirit; plays Dm_SpiritTemple_0020; moves SageOfSpirit to Step08_01).
+SageOfSpirit_MiddleBossEnd HavePlayedEvent.Dm_SpiritTemple_0020 SpiritTemple_Room33_ChairBroken step:Step_SageOfSpirit=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step05_01,Step05_02,Step05_03,Step06,Step07,Step07_pre00,Step07_00,Step08,Step08_01,Step09,Step09_01,Step10,Complete
+# To the Temple of Time for the adult side (SageOfSpirit; plays Dm_TimeTemple_0086).
+SageOfSpirit_WalkBackTimeTemple HavePlayedEvent.Dm_TimeTemple_0086
+# Nabooru awakens as a sage [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_Awake_Spirit, Dm_Awake_Spirit_Get, Dm_SageRoom_0010; moves SageOfSpirit to Complete, AllSage to Step02).
+SpiritTemple_SageOfSpirit_SageRoom solo HavePlayedEvent.Dm_Awake_Spirit HavePlayedEvent.Dm_Awake_Spirit_Get HavePlayedEvent.Dm_SageRoom_0010 step:Step_SageOfSpirit=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step05_01,Step05_02,Step05_03,Step06,Step07,Step07_pre00,Step07_00,Step08,Step08_01,Step09,Step09_01,Step10,Complete step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete
+# After Twinrova: the Colossus [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_DesertColossus_0040).
+SpiritTemple_Level_Room_34_Escape solo HavePlayedEvent.Dm_DesertColossus_0040
+
+# ---- The sages, Zelda, Ganon's Castle, the end
+# Sheik teaches the Prelude of Light (AllSage; plays Dm_MelodyGet_Shine).
+Market_Adult_Field_GetLightPrelude HavePlayedEvent.Dm_MelodyGet_Shine
+# Sheik is Zelda: the Light Arrows; Ganondorf takes her (AllSage; plays Dm_TimeTemple_0090, Dm_TimeTemple_0095, Dm_TimeTemple_0110, Dm_TimeTemple_0115, Dm_TimeTemple_0125, Dm_TimeTemple_0130, Dm_TimeTemple_0135; moves AllSage to Complete, Defeat_Ganon to Step01).
+Market_Adult_Field_GetArrowLight HavePlayedEvent.Dm_TimeTemple_0090 HavePlayedEvent.Dm_TimeTemple_0095 HavePlayedEvent.Dm_TimeTemple_0110 HavePlayedEvent.Dm_TimeTemple_0115 HavePlayedEvent.Dm_TimeTemple_0125 HavePlayedEvent.Dm_TimeTemple_0130 HavePlayedEvent.Dm_TimeTemple_0135 step:Step_AllSage=NotReady,Ready,Step01,Step01_00,Step01_00_01,Step01_00_02,Step01_00_03,Step01_01,Step01_02,Step02,Complete step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# Ganon's Castle, the first time (Dm_SY_BancChangeArrive; plays Dm_GanonCastle_0000).
+GanonCastle_Adult_Field_EntryGanonCastle HavePlayedEvent.Dm_GanonCastle_0000
+# The sages' rainbow bridge (Defeat_Ganon; plays Dm_InsideGanonCastle_0000; moves Defeat_Ganon to Step02).
+GanonCastle_Adult_Field_Rainbow HavePlayedEvent.Dm_InsideGanonCastle_0000 step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The tower's barrier (Defeat_Ganon; plays Dm_InsideGanonCastle_0003; moves Defeat_Ganon to Step03).
+GanonCastle_Dungeon_SeeTowerBarrier HavePlayedEvent.Dm_InsideGanonCastle_0003 step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The Forest trial: its barrier falls [near: only who is within 30 m of who starts it, the trial's room (ZMP D-188)] (Defeat_Ganon; plays Dm_InsideGanonCastle_0020, Dm_InsideGanonCastle_0025, Dm_InsideGanonCastle_0090; moves Defeat_Ganon to Step04).
+InsideGanonCastle_Dungeon_BarrierRemove_Forest near=30 HavePlayedEvent.Dm_InsideGanonCastle_0020 HavePlayedEvent.Dm_InsideGanonCastle_0025 HavePlayedEvent.Dm_InsideGanonCastle_0090 InsideGanonCastle_Dungeon_BarrierRemove_Forest InsideGanonCastle_IsAllBarrierClear step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The Fire trial: its barrier falls [near: only who is within 30 m of who starts it, the trial's room (ZMP D-188)] (Defeat_Ganon; plays Dm_InsideGanonCastle_0050, Dm_InsideGanonCastle_0055, Dm_InsideGanonCastle_0090; moves Defeat_Ganon to Step04).
+InsideGanonCastle_Dungeon_BarrierRemove_Fire near=30 HavePlayedEvent.Dm_InsideGanonCastle_0050 HavePlayedEvent.Dm_InsideGanonCastle_0055 HavePlayedEvent.Dm_InsideGanonCastle_0090 InsideGanonCastle_Dungeon_BarrierRemove_Fire InsideGanonCastle_IsAllBarrierClear step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The Water trial: its barrier falls [near: only who is within 30 m of who starts it, the trial's room (ZMP D-188)] (Defeat_Ganon; plays Dm_InsideGanonCastle_0030, Dm_InsideGanonCastle_0032, Dm_InsideGanonCastle_0090; moves Defeat_Ganon to Step04).
+InsideGanonCastle_Dungeon_BarrierRemove_Water near=30 HavePlayedEvent.Dm_InsideGanonCastle_0030 HavePlayedEvent.Dm_InsideGanonCastle_0032 HavePlayedEvent.Dm_InsideGanonCastle_0090 InsideGanonCastle_Dungeon_BarrierRemove_Water InsideGanonCastle_IsAllBarrierClear step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The Shadow trial: its barrier falls [near: only who is within 30 m of who starts it, the trial's room (ZMP D-188)] (Defeat_Ganon; plays Dm_InsideGanonCastle_0010, Dm_InsideGanonCastle_0015, Dm_InsideGanonCastle_0090; moves Defeat_Ganon to Step04).
+InsideGanonCastle_Dungeon_BarrierRemove_Shadow near=30 HavePlayedEvent.Dm_InsideGanonCastle_0010 HavePlayedEvent.Dm_InsideGanonCastle_0015 HavePlayedEvent.Dm_InsideGanonCastle_0090 InsideGanonCastle_Dungeon_BarrierRemove_Shadow InsideGanonCastle_IsAllBarrierClear step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The Spirit trial: its barrier falls [near: only who is within 30 m of who starts it, the trial's room (ZMP D-188)] (Defeat_Ganon; plays Dm_InsideGanonCastle_0080, Dm_InsideGanonCastle_0085, Dm_InsideGanonCastle_0090; moves Defeat_Ganon to Step04).
+InsideGanonCastle_Dungeon_BarrierRemove_Spirit near=30 HavePlayedEvent.Dm_InsideGanonCastle_0080 HavePlayedEvent.Dm_InsideGanonCastle_0085 HavePlayedEvent.Dm_InsideGanonCastle_0090 InsideGanonCastle_Dungeon_BarrierRemove_Spirit InsideGanonCastle_IsAllBarrierClear step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The Light trial: its barrier falls [near: only who is within 30 m of who starts it, the trial's room (ZMP D-188)] (Defeat_Ganon; plays Dm_InsideGanonCastle_0070, Dm_InsideGanonCastle_0075, Dm_InsideGanonCastle_0090; moves Defeat_Ganon to Step04).
+InsideGanonCastle_Dungeon_BarrierRemove_Light near=30 HavePlayedEvent.Dm_InsideGanonCastle_0070 HavePlayedEvent.Dm_InsideGanonCastle_0075 HavePlayedEvent.Dm_InsideGanonCastle_0090 InsideGanonCastle_Dungeon_BarrierRemove_Light InsideGanonCastle_IsAllBarrierClear step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# Inside Ganon's Castle (asked for by a placement) (Dm_InsideGanonCastle_0007).
+Dm_InsideGanonCastle_0007
+# Inside Ganon's Castle: the tower (asked for by a placement) (Dm_InsideGanonCastle_0035).
+Dm_InsideGanonCastle_0035
+# Inside Ganon's Castle (asked for by a placement) (Dm_InsideGanonCastle_0040).
+Dm_InsideGanonCastle_0040
+# Inside Ganon's Castle (asked for by a placement) (Dm_InsideGanonCastle_0060).
+Dm_InsideGanonCastle_0060
+# Ganon's Castle outside (asked for by a placement) (Dm_InsideGanonCastle_0100).
+Dm_InsideGanonCastle_0100
+# The castle starts to fall (Defeat_Ganon; plays Dm_InsideGanonCastle_0110).
+CrumblingGanonCastle_Arrive HavePlayedEvent.Dm_InsideGanonCastle_0110
+# The escape: third floor (EscapeFromCrumblingGanonCastle; plays Dm_InsideGanonCastle_0150).
+EscapeFromCrumblingGanonCastle_3F_Fookshot HavePlayedEvent.Dm_InsideGanonCastle_0150
+# The escape: second floor (EscapeFromCrumblingGanonCastle; plays Dm_InsideGanonCastle_0160).
+EscapeFromCrumblingGanonCastle_2F_FallDown HavePlayedEvent.Dm_InsideGanonCastle_0160
+# The escape: first floor (EscapeFromCrumblingGanonCastle; plays Dm_InsideGanonCastle_0180).
+EscapeFromCrumblingGanonCastle_1F_BreakRoom HavePlayedEvent.Dm_InsideGanonCastle_0180
+# Out of the castle (EscapeFromCrumblingGanonCastle; plays Dm_InsideGanonCastle_0170, Dm_FinalBattle_0002).
+EscapeFromCrumblingGanonCastle_EscapeComplete HavePlayedEvent.Dm_InsideGanonCastle_0170 HavePlayedEvent.Dm_FinalBattle_0002
+# The ruins (asked for by a placement) (Dm_InsideGanonCastle_0190).
+Dm_InsideGanonCastle_0190
+# Ganondorf rises from the ruins (Defeat_Ganon; plays Dm_FinalBattle_0005; moves Defeat_Ganon to Step07).
+InsideGanonCaslte_Dungeon_Escape HavePlayedEvent.Dm_FinalBattle_0005 step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The Master Sword back in the fight (Defeat_Ganon; plays Dm_FinalBattle_0010).
+InsideGanonCastle_Dungeon_Boss_GetMasterSword HavePlayedEvent.Dm_FinalBattle_0010
+# The sages bind Ganon (Defeat_Ganon; plays Dm_FinalBattle_0030).
+InsideGanonCastle_Dungeon_BossBind0 HavePlayedEvent.Dm_FinalBattle_0030
+# Ganon is sealed: the sages, the ending, the credits (Defeat_Ganon; plays Dm_FinalBattle_BossOut, Dm_SageRoom_0020, Dm_SageRoom_0025, Dm_SageRoom_0027, Dm_Ending_0000, Dm_StaffCredit_0000; moves Defeat_Ganon to Complete).
+InsideGanonCastle_Dungeon_BossDie_2 HavePlayedEvent.Dm_FinalBattle_BossOut HavePlayedEvent.Dm_SageRoom_0020 HavePlayedEvent.Dm_SageRoom_0025 HavePlayedEvent.Dm_SageRoom_0027 HavePlayedEvent.Dm_Ending_0000 HavePlayedEvent.Dm_StaffCredit_0000 step:Step_Defeat_Ganon=NotReady,Ready,Step01,Step02,Step03,Step04,Step05,Step06,Step07,Step08,Step09,Complete
+# The credits at Hyrule Castle (Defeat_Ganon; plays Dm_StaffCredit_0005, Dm_StaffCredit_0007, Dm_StaffCredit_0010).
+InsideGanonCastle_Dungeon_StaffRoll_HyruleCastle HavePlayedEvent.Dm_StaffCredit_0005 HavePlayedEvent.Dm_StaffCredit_0007 HavePlayedEvent.Dm_StaffCredit_0010

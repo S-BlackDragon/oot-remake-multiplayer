@@ -35,9 +35,11 @@ TEST_CASE("visibility") {
   const std::string_view a = "KokiriForest_Child", b = "HyruleField_Child";
   CHECK(visibility(a, false, a, 0) == Visibility::show);
   CHECK(visibility(a, false, a, status::in_menu) == Visibility::show);
-  CHECK(visibility(a, false, a, status::in_cutscene) == Visibility::hold);
-  CHECK(visibility(a, true, a, 0) == Visibility::hide);
-  CHECK(visibility(a, true, a, status::in_cutscene) == Visibility::hide);
+  // ORM D-R12: events hide and freeze nobody (a talk is an event: the talker
+  // vanished for the others and the others for him).
+  CHECK(visibility(a, false, a, status::in_cutscene) == Visibility::show);
+  CHECK(visibility(a, true, a, 0) == Visibility::show);
+  CHECK(visibility(a, true, a, status::in_cutscene) == Visibility::show);
   CHECK(visibility(a, false, b, 0) == Visibility::hide);
   CHECK(visibility(std::nullopt, false, a, 0) == Visibility::hide);
   CHECK(visibility(a, false, std::nullopt, 0) == Visibility::hide);
@@ -77,6 +79,8 @@ TEST_CASE("activity_of: riding and the Ocarina by the AS command name") {
   CHECK(activity_of(std::string_view("DemoOcarina")) == Activity::ocarina);
   CHECK(activity_of(std::string_view("DemoOcarinaMelodyGet")) == Activity::none);
   CHECK(activity_of(std::string_view("DemoOcarinaFace")) == Activity::ocarina);
+  CHECK(activity_of(std::string_view("DemoOcarinaFinger")) == Activity::ocarina);  // ORM (ocarina-mano)
+  CHECK(activity_of(std::string_view("DemoOcarinaWarp")) == Activity::none);       // ORM: a warp song's cutscene
   CHECK(activity_of(std::string_view("Ocar")) == Activity::none);
 }
 
@@ -99,7 +103,7 @@ TEST_CASE("visibility with their animation: riding shows with a horse (issue 199
   const auto taught = std::optional<std::string_view>("DemoOcarinaMelodyGet");
   CHECK(visibility(a, false, a, 0, ride) == Visibility::ride);
   CHECK(visibility(a, false, a, status::in_cutscene, ride) == Visibility::ride);
-  CHECK(visibility(a, true, a, 0, ride) == Visibility::hide);   // our cutscene first
+  CHECK(visibility(a, true, a, 0, ride) == Visibility::ride);   // ORM: our event changes nothing (D-R12)
   CHECK(visibility(a, false, b, 0, ride) == Visibility::hide);  // elsewhere first
   CHECK(visibility(a, false, a, status::in_cutscene, play) == Visibility::show);
   CHECK(visibility(a, false, a, 0, play) == Visibility::show);

@@ -1101,6 +1101,7 @@ public:
             // locked doors' kept breaks, the kills-late dead list, ...).
             LOG_INFO(Core, "coop: flags: the host loaded a save: the group follows it");
             CoopObjects::ForgetKeptBreaks();  // locked doors' kept breaks (docs/dungeon.md)
+            OrmStoryEvents::HostReset();  // ORM: the save's cutscenes are everyone's again (REVISION_HISTORIA H4)
         }
         // Issue 167: the host's save for the guests (coop_save.h): a guest asks
         // once, the host sends its newest save a part a frame, and again to

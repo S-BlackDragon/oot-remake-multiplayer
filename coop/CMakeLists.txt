@@ -12,13 +12,24 @@ if(WIN32)
   target_link_libraries(coop_protocol PRIVATE bcrypt)  # BCryptGenRandom (join_password.cpp)
 endif()
 
-# The client over ENet that the test tool, Lichii and the recomp use.
+# The client over ENet that the test tool, Lichii and the recomp use. It also
+# carries the WebSocket transport, selected in ClientConfig.
 add_library(coop_net STATIC
   net/src/clock.cpp
   net/src/client.cpp
+  net/src/enet_transport.cpp
+  net/src/ws_transport.cpp
 )
 target_include_directories(coop_net PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/net/include")
-target_link_libraries(coop_net PUBLIC coop_protocol PRIVATE enet coop_warnings)
+target_link_libraries(coop_net PUBLIC coop_protocol PRIVATE enet coop_boost coop_openssl coop_warnings)
+if(MSVC)
+  # Asio's TLS templates need more object sections than the default allows.
+  target_compile_options(coop_net PRIVATE /bigobj)
+endif()
+if(WIN32)
+  target_compile_definitions(coop_net PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
+  target_link_libraries(coop_net PRIVATE ws2_32)
+endif()
 
 # The co-op library: protocol and networking, filled in by later stage 0 steps.
 add_library(coop STATIC

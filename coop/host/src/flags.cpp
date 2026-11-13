@@ -62,16 +62,95 @@ std::optional<std::uint64_t> parse_key64(std::string_view text) {
 }
 
 constexpr std::string_view kKey64Prefix = "key64:";
+constexpr std::string_view kEnumPrefix = "enum:";
+
+// A flag or value token: 0x and 1 to 8 hex digits (a hash), or a name to hash.
+std::optional<std::uint32_t> parse_hash(std::string_view token, std::string_view& why) {
+  if (const auto digits = hex_digits(token)) {
+    if (digits->size() > 8) {
+      why = "a hash has at most 8 hex digits";
+      return std::nullopt;
+    }
+    std::uint32_t hash = 0;
+    std::from_chars(digits->data(), digits->data() + digits->size(), hash, 16);
+    return hash;
+  }
+  if (token.empty()) {
+    why = "a name is printable ASCII";
+    return std::nullopt;
+  }
+  for (const char c : token) {
+    if (c < 0x21 || c > 0x7e) {
+      why = "a name is printable ASCII";
+      return std::nullopt;
+    }
+  }
+  return flag_hash(token);
+}
 
 }  // namespace
 
-SharedFlags::SharedFlags(std::vector<FlagKey> keys) : keys_(std::move(keys)) {
+bool EnumFlags::add(std::uint32_t hash, std::vector<std::uint32_t> values, bool steps) {
+  if (hash == 0 || values.empty() || values.size() > kMaxValues || contains(hash)) return false;
+  std::vector<std::uint32_t> sorted = values;
+  std::sort(sorted.begin(), sorted.end());
+  if (std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end()) return false;
+  flags_.emplace(hash, Flag{std::move(values), steps});
+  return true;
+}
+
+bool EnumFlags::merge(const EnumFlags& other) {
+  for (const auto& [hash, flag] : other.flags_) {
+    const auto it = flags_.find(hash);
+    if (it == flags_.end()) {
+      flags_.emplace(hash, flag);
+    } else if (!(it->second == flag)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool EnumFlags::allows(std::uint32_t hash, std::uint32_t value) const {
+  return rank(hash, value).has_value();
+}
+
+const std::vector<std::uint32_t>* EnumFlags::values(std::uint32_t hash) const {
+  const auto it = flags_.find(hash);
+  return it == flags_.end() ? nullptr : &it->second.values;
+}
+
+bool EnumFlags::steps(std::uint32_t hash) const {
+  const auto it = flags_.find(hash);
+  return it != flags_.end() && it->second.steps;
+}
+
+std::optional<std::size_t> EnumFlags::rank(std::uint32_t hash, std::uint32_t value) const {
+  const auto* set = values(hash);
+  if (set == nullptr) return std::nullopt;
+  const auto it = std::find(set->begin(), set->end(), value);
+  if (it == set->end()) return std::nullopt;
+  return static_cast<std::size_t>(it - set->begin());
+}
+
+std::vector<FlagKey> EnumFlags::keys() const {
+  std::vector<FlagKey> out;
+  out.reserve(flags_.size());
+  for (const auto& [hash, flag] : flags_) out.push_back(FlagKey{hash, 0});
+  return out;
+}
+
+SharedFlags::SharedFlags(std::vector<FlagKey> keys, EnumFlags enums)
+    : keys_(std::move(keys)), enums_(std::move(enums)) {
+  const auto enum_keys = enums_.keys();
+  keys_.insert(keys_.end(), enum_keys.begin(), enum_keys.end());
   std::sort(keys_.begin(), keys_.end());
   keys_.erase(std::unique(keys_.begin(), keys_.end()), keys_.end());
 }
 
 std::optional<SharedFlags> SharedFlags::parse(std::string_view text, std::string* error) {
   std::vector<FlagKey> keys;
+  EnumFlags enums;
   std::size_t line_number = 0;
   auto fail = [&](std::string_view why) -> std::optional<SharedFlags> {
     if (error) *error = "line " + std::to_string(line_number) + ": " + std::string(why);
@@ -89,6 +168,26 @@ std::optional<SharedFlags> SharedFlags::parse(std::string_view text, std::string
 
     const auto parts = tokens(line);
     if (parts.empty()) continue;
+
+    if (parts[0].starts_with(kEnumPrefix)) {
+      std::string_view why;
+      const auto hash = parse_hash(parts[0].substr(kEnumPrefix.size()), why);
+      if (!hash) return fail(why);
+      if (*hash == 0) return fail("an Enum flag's hash is not 0");
+      if (parts.size() < 2) return fail("an Enum flag lists its values");
+      if (parts.size() - 1 > EnumFlags::kMaxValues) return fail("too many Enum values");
+      std::vector<std::uint32_t> values;
+      for (std::size_t i = 1; i < parts.size(); ++i) {
+        const auto value = parse_hash(parts[i], why);
+        if (!value) return fail(why);
+        values.push_back(*value);
+      }
+      if (enums.contains(*hash)) return fail("an Enum flag is listed once");
+      if (!enums.add(*hash, std::move(values))) return fail("an Enum value is listed once");
+      if (keys.size() + enums.size() > kMaxFlags) return fail("too many flags");
+      continue;  // its key comes from `enums`
+    }
+
     if (parts.size() > 2) return fail("more than a flag and an index");
 
     if (parts[0].starts_with(kKey64Prefix)) {
@@ -128,7 +227,8 @@ std::optional<SharedFlags> SharedFlags::parse(std::string_view text, std::string
       keys.push_back(FlagKey{hash, static_cast<std::uint16_t>(i)});
     }
   }
-  return SharedFlags(std::move(keys));
+  if (keys.size() + enums.size() > kMaxFlags) return fail("too many flags");
+  return SharedFlags(std::move(keys), std::move(enums));
 }
 
 std::optional<SharedFlags> SharedFlags::load(const std::filesystem::path& path,

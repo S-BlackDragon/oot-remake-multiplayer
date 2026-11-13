@@ -739,13 +739,15 @@ bool ItemFlagStore::write(const protocol::FlagEntry& entry) {
     ++stats_.added;
     return true;
   }
-  if (item == nullptr) return inner_.write(entry);
+  // Not an item: exact goes on as exact (the host's save load; a story step
+  // goes back with it, oot-remake docs/REVISION_HISTORIA.md H1).
+  if (item == nullptr) return exact_ ? inner_.write_exact(entry) : inner_.write(entry);
   if (entry.kind != item->kind || item->rule == ItemRule::per_player) {
     ++stats_.refused;
     return false;
   }
   const auto now = inner_.read(key);
-  if (!now || now->kind != entry.kind) return inner_.write(entry);
+  if (!now || now->kind != entry.kind) return exact_ ? inner_.write_exact(entry) : inner_.write(entry);
   protocol::FlagEntry merged = entry;
   merged.value = exact_ ? entry.value : merge_item(item->rule, item->kind, now->value, entry.value);
   const bool int_item = item->kind == protocol::FlagKind::int32;

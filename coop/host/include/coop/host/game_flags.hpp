@@ -137,8 +137,17 @@ class GameFlagStore final : public FlagStore {
   bool write(const protocol::FlagEntry& entry) override;
   // The queue this flag's writes go to has half its slots taken or more.
   bool busy(FlagKey key) override;
+  // The host's save load (docs/flags.md, "Saves"): as write(), but a story
+  // step is written as it is, back too (oot-remake docs/REVISION_HISTORIA.md H1).
+  bool write_exact(const protocol::FlagEntry& entry) override;
 
  private:
+  bool is_enum(FlagKey key) const;
+  // An opted-in Enum flag: a value of the list's set and, when the game's own
+  // list of values (entry +0x28/+0x30) can be read, of that one too (H3).
+  // `exact`: no step rule.
+  bool write_enum(const protocol::FlagEntry& entry, bool exact);
+
   WritableGameMemory& memory_;
   const EnumFlags* enums_;
 };

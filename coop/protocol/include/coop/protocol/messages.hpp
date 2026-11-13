@@ -29,7 +29,7 @@ namespace coop::protocol {
 // (JOIN_CHALLENGE, JOIN_PROOF, REFUSED bad_password).
 inline constexpr std::uint16_t kProtocolVersion = 10;
 inline constexpr std::uint16_t kDefaultPort = 27510;
-inline constexpr std::uint8_t kMaxPlayers = 4;
+inline constexpr std::uint8_t kMaxPlayers = 6;
 
 // Size of the message header: u16 type, u16 length.
 inline constexpr std::size_t kHeaderSize = 4;
@@ -210,7 +210,7 @@ inline constexpr std::uint32_t kMaxRupees = 99999;
 // Longest equipped actor name: the game keeps each in a String64 flag.
 inline constexpr std::size_t kMaxEquipNameChars = 64;
 
-// Player numbers are 1 to 4. In PLAYER_STATUS, CHAT and PLAYER_SAMPLE a
+// Player numbers are 1 to kMaxPlayers. In PLAYER_STATUS, CHAT and PLAYER_SAMPLE a
 // client sends 0 ("me"); the server fills in the sender's number when it
 // relays the message to the others.
 inline constexpr std::uint8_t kPlayerSelf = 0;
@@ -238,16 +238,16 @@ struct Hello {
 };
 
 struct PlayerInfo {
-  std::uint8_t number = 1;  // 1 to 4
+  std::uint8_t number = 1;  // 1 to kMaxPlayers
   std::string nickname;
   bool operator==(const PlayerInfo&) const = default;
 };
 
 struct Welcome {
-  std::uint8_t player_number = 1;  // 1 to 4
+  std::uint8_t player_number = 1;  // 1 to kMaxPlayers
   std::uint64_t server_time_us = 0;
   std::uint16_t tick_rate = 0;
-  std::vector<PlayerInfo> players;  // the players already in, at most 4
+  std::vector<PlayerInfo> players;  // the players already in, at most kMaxPlayers
   bool operator==(const Welcome&) const = default;
 };
 
@@ -307,7 +307,7 @@ struct RejoinClaim {
 };
 
 struct PlayerJoined {
-  std::uint8_t player_number = 1;  // 1 to 4
+  std::uint8_t player_number = 1;  // 1 to kMaxPlayers
   std::string nickname;
   bool operator==(const PlayerJoined&) const = default;
 };
@@ -319,7 +319,7 @@ enum class LeaveReason : std::uint8_t {
 };
 
 struct PlayerLeft {
-  std::uint8_t player_number = 1;  // 1 to 4
+  std::uint8_t player_number = 1;  // 1 to kMaxPlayers
   LeaveReason reason = LeaveReason::left;  // raw value kept on decode
   bool operator==(const PlayerLeft&) const = default;
 };
@@ -348,7 +348,7 @@ static_assert(static_cast<unsigned>(status::dead) == (1u << orm::kUpstreamLastSt
               "ORM: upstream's PLAYER_STATUS bits changed: update orm_types.hpp");
 
 struct PlayerStatus {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::uint8_t flags = 0;
   bool operator==(const PlayerStatus&) const = default;
 };
@@ -370,7 +370,7 @@ struct PlayerLife {
 inline constexpr std::uint16_t kMaxLifeQuarters = 4 * 40;
 
 struct Chat {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::string text;  // up to 200 characters
   bool operator==(const Chat&) const = default;
 };
@@ -422,7 +422,7 @@ struct PlayerRide {
 // PLAYER_SAMPLE. The time component is always sent; the others only when the
 // sender has them. Floats must be finite.
 struct PlayerSample {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   SampleTime time;
   std::optional<Vec3> position;
   std::optional<Vec3> velocity;  // metres a second
@@ -472,8 +472,8 @@ struct JoinTarget {
 };
 
 struct JoinPartner {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
-  std::uint8_t other_player = 1;  // 1 to 4: who to join, or who asked
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
+  std::uint8_t other_player = 1;  // 1 to kMaxPlayers: who to join, or who asked
   std::uint16_t request_id = 0;
   JoinKind kind = JoinKind::request;
   std::optional<JoinTarget> target;  // set only for kind accept
@@ -556,7 +556,7 @@ inline constexpr std::size_t kMaxFlagEntries = 3600;
 // relays it to the host only. 1 to kMaxFlagEntries entries, each key at most
 // once.
 struct FlagSet {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::vector<FlagEntry> flags;
   bool operator==(const FlagSet&) const = default;
 };
@@ -565,7 +565,7 @@ struct FlagSet {
 // included. Sent by the host; the server keeps the values and relays it to
 // everyone else. Same rules for the entries as FLAG_SET.
 struct FlagState {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from the host, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from the host, 1 to kMaxPlayers relayed
   std::vector<FlagEntry> flags;
   bool operator==(const FlagState&) const = default;
 };
@@ -582,13 +582,13 @@ struct FlagState {
 // host's FLAG_STATE answer, so a game can say who made the change it gets
 // (the chat notices, docs/setup.md). The flags are the FLAG_SET's.
 struct FlagOrigin {
-  std::uint8_t player_number = kPlayerSelf;  // 1 to 4: who asked
+  std::uint8_t player_number = kPlayerSelf;  // 1 to kMaxPlayers: who asked
   std::vector<FlagEntry> flags;
   bool operator==(const FlagOrigin&) const = default;
 };
 
 struct FlagReset {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from the host, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from the host, 1 to kMaxPlayers relayed
   std::vector<FlagEntry> flags;
   bool operator==(const FlagReset&) const = default;
 };
@@ -647,7 +647,7 @@ struct FlagSnapshot {
 // first player in hosts; when the host leaves, the remaining player with the
 // lowest number takes over.
 struct Host {
-  std::uint8_t player_number = 1;  // 1 to 4
+  std::uint8_t player_number = 1;  // 1 to kMaxPlayers
   bool operator==(const Host&) const = default;
 };
 
@@ -726,7 +726,7 @@ inline constexpr std::uint32_t slot_color(std::uint8_t player_number) {
 // PLAYER_EQUIP: a player's equipment, sent reliably on every change and again
 // when another player joins. Same player field rules as PLAYER_SAMPLE.
 struct PlayerEquip {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   Equipment equipment;
   bool operator==(const PlayerEquip&) const = default;
 };
@@ -736,7 +736,7 @@ struct PlayerEquip {
 
 enum class ObjectKind : std::uint8_t {
   placed = 0,  // value is the placement hash; maker is 0
-  made = 1,    // value is the maker's own counter; maker is 1 to 4
+  made = 1,    // value is the maker's own counter; maker is 1 to kMaxPlayers
 };
 
 // 10 bytes on the wire: u8 kind, u8 maker, u64 value.
@@ -986,7 +986,7 @@ struct OcarinaNote {
 };
 
 struct TimeOfDay {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::uint32_t seconds = 0;                 // 0 to kSecondsPerDay - 1
   std::uint8_t flags = 0;                    // time_of_day bits
   bool operator==(const TimeOfDay&) const = default;
@@ -1055,7 +1055,7 @@ inline constexpr float kMaxGrassCutRadius = 100.0f;
 inline constexpr std::size_t kMaxGrassCuts = 512;
 
 struct GrassCut {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::string scene;                         // the sender's scene, not empty
   Vec3 position{};
   float radius = 0.0f;                       // above 0, at most kMaxGrassCutRadius
@@ -1083,7 +1083,7 @@ inline constexpr std::size_t kMaxWorldKeptTotal = 2048;  // and in all (the game
 inline constexpr std::size_t kMaxWorldBreaks = 1024;  // kept per scene
 
 struct WorldBreak {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::string scene;                         // the sender's scene, not empty
   std::uint64_t hash = 0;                    // placement hash, not 0 and not ~0
   Vec3 position{};                           // where it was (finite)
@@ -1180,7 +1180,7 @@ inline constexpr std::uint8_t again = 1u << 1;  // told again for a player who c
 }  // namespace drop_spawn
 
 struct DropSpawn {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   ObjectId id;             // kind made: the game that rolled it and its counter
   std::string scene;       // 1 to 64 characters
   std::string actor;       // the game's actor name, 1 to 64 characters

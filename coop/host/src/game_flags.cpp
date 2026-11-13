@@ -476,6 +476,7 @@ bool GameFlagStore::write(const protocol::FlagEntry& entry) {
     return GameFlags::set_key64(memory_, key.key, entry.value != 0);
   }
   if (key.kind != FlagKeyKind::named || key.index != 0) return false;
+  if (is_enum(key)) return write_enum(entry, false);
   switch (entry.kind) {
     case protocol::FlagKind::boolean:
       if (entry.value > 1) return false;
@@ -485,6 +486,31 @@ bool GameFlagStore::write(const protocol::FlagEntry& entry) {
     default:
       return false;
   }
+}
+
+bool GameFlagStore::write_exact(const protocol::FlagEntry& entry) {
+  if (is_enum(entry.key)) return write_enum(entry, true);
+  return write(entry);
+}
+
+bool GameFlagStore::write_enum(const protocol::FlagEntry& entry, bool exact) {
+  const FlagKey& key = entry.key;
+  const auto rank = enums_->rank(key.hash, entry.value);
+  if (entry.kind != protocol::FlagKind::uint32 || !rank) return false;
+  GameFlags flags(memory_);
+  // Our list's set may hold a value the game's does not (a typo, a user's
+  // list): never put a hash the game's flows do not know into its save.
+  if (const auto game = flags.enum_values(key.hash);
+      game && std::find(game->begin(), game->end(), entry.value) == game->end()) {
+    return false;
+  }
+  if (!exact && enums_->steps(key.hash)) {
+    // A story step never goes back: keep a later one the game holds.
+    const auto now = flags.get_enum(key.hash);
+    const auto now_rank = now ? enums_->rank(key.hash, *now) : std::nullopt;
+    if (now_rank && *now_rank >= *rank) return true;
+  }
+  return GameFlags::set_enum(memory_, key.hash, entry.value);
 }
 
 }  // namespace coop::host

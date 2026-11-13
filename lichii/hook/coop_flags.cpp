@@ -179,6 +179,11 @@ std::optional<coop::host::SharedFlags> LoadShared(std::string& error) {
         }
         LOG_INFO(Core, "coop: sharing {} flags from {}", file->size(), *path);
         keys.insert(keys.end(), file->keys().begin(), file->keys().end());
+        // Enum flags only from enum: lines (docs/flags.md, "Enum flags").
+        enums = file->enums();
+        if (!enums.empty()) {
+            LOG_INFO(Core, "coop: {} of them are Enum flags (opted in)", enums.size());
+        }
     } else if (!items) {
         return std::nullopt;
     }

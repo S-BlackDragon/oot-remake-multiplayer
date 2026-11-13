@@ -3,6 +3,9 @@
 // alone); the part that drives the emulated pad is only built with LICHII_COOP.
 #include "coop_testinput.h"
 
+#include "coop_age_game.h"
+#include "orm_story_events.h"
+
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -189,6 +192,28 @@ bool AssignableItem(std::string_view name) {
     return false;
 }
 
+bool WarpStartsEvent(double now_s, double asked_s, double last_event_s, int events, bool link_read,
+                     bool event_running) {
+    if (!link_read || event_running || events >= kWarpEvents || now_s - asked_s < kWarpEventAfterS) {
+        return false;
+    }
+    return last_event_s < 0.0 || now_s - last_event_s >= kWarpEventEveryS;
+}
+
+// bottle: the game's BottleItem value names (docs/items.md).
+std::optional<std::string> BottleValue(std::string_view word) {
+    static constexpr const char* kNames[] = {
+        "Empty", "RedPotion", "GreenPotion", "BluePotion", "BlueFire", "Fish",   "Letter",
+        "BigPoe", "Poe",      "Bug",         "Fairy",      "MaxMilk",  "HalfMilk", "restore"};
+    const std::string want = Upper(word);
+    for (const char* name : kNames) {
+        if (want == Upper(name)) {
+            return std::string(name);
+        }
+    }
+    return std::nullopt;
+}
+
 namespace {
 
 constexpr std::uint32_t kGotoTicks = 600;  // 10 s
@@ -368,6 +393,118 @@ std::optional<Script> Parse(std::string_view text, std::string& error) {
             }
             step.kind = Kind::assign;
             step.mark = std::string(w[1]);
+        } else if (cmd == "LIFE") {
+            const bool digits =
+                w.size() == 2 && !w[1].empty() && w[1].size() <= 3 &&
+                std::all_of(w[1].begin(), w[1].end(), [](char c) { return c >= '0' && c <= '9'; });
+            if (!digits) {
+                return fail("want: life N, N quarter hearts from 0 to 999");
+            }
+            step.kind = Kind::life;
+            step.mark = std::string(w[1]);
+        } else if (cmd == "AWAIT") {
+            // ORM: "await mate [TICKS]": the two games start a scenario up to two minutes apart (the harness
+            // staggers the second; hot instances 20 s): a step that needs the other there waits for him.
+            if (w.size() < 2 || w.size() > 3 || w[1] != "mate" && w[1] != "MATE") {
+                return fail("want: await mate [TICKS] (default 9000, 150 s)");
+            }
+            step.ticks = 9000;
+            if (w.size() == 3 && !Ticks(w[2], step.ticks)) {
+                return fail("want: await mate [TICKS] (default 9000, 150 s)");
+            }
+            step.kind = Kind::await_mate;
+        } else if (cmd == "TALKTHROUGH") {
+            // ORM: "talkthrough [TICKS]": a talk's text, page by page: A pressed every 0.75 s while our
+            // event runs, over once it has stopped for 1 s (the remake's Kokiri talks took more pages than
+            // a script's fixed presses, 2026-11-12, docs/SONDAS.md). Default 1800 ticks (30 s).
+            step.ticks = 1800;
+            if (w.size() > 2 || (w.size() == 2 && !Ticks(w[1], step.ticks))) {
+                return fail("want: talkthrough [TICKS] (default 1800, 30 s)");
+            }
+            step.kind = Kind::talk_through;
+        } else if (cmd == "GATE") {
+            if (w.size() != 2 || (w[1] != "0" && w[1] != "1")) {
+                return fail("want: gate 0|1 (0 open, 1 closed)");
+            }
+            step.kind = Kind::gate;
+            step.mark = std::string(w[1]);
+        } else if (cmd == "BOTTLE") {
+            const std::string slot = w.size() == 3 ? Upper(w[1]) : std::string();
+            if (w.size() != 3 || slot.size() != 1 || slot[0] < 'A' || slot[0] > 'E' ||
+                !BottleValue(w[2])) {
+                return fail("want: bottle A-E VALUE|restore, VALUE a BottleItem name (Fairy, Empty...)");
+            }
+            step.kind = Kind::bottle;
+            step.mark = slot;
+            step.start = *BottleValue(w[2]);
+        } else if (cmd == "EVENT") {
+            if (w.size() != 2 || !OrmStoryEvents::ValidName(w[1])) {
+                return fail("want: event NAME, 1 to 127 of A-Z a-z 0-9 _");
+            }
+            step.kind = Kind::event;
+            step.mark = std::string(w[1]);
+        } else if (cmd == "FLAG") {
+            const bool printable =
+                w.size() == 3 && !w[1].empty() && w[1].size() <= 160 &&
+                std::all_of(w[1].begin(), w[1].end(), [](char c) { return c > 0x20 && c < 0x7f; });
+            if (!printable || (w[2] != "0" && w[2] != "1")) {
+                return fail("want: flag NAME|0xHASH 0|1");
+            }
+            step.kind = Kind::flag;
+            step.mark = std::string(w[1]);
+            step.start = std::string(w[2]);
+        } else if (cmd == "INT") {
+            // int NAME|0xHASH VALUE: an Int flag (PlayerStatus.MP, a bombchu
+            // count), decimal, -1000000 to 1000000.
+            const bool printable =
+                w.size() == 3 && !w[1].empty() && w[1].size() <= 160 &&
+                std::all_of(w[1].begin(), w[1].end(), [](char c) { return c > 0x20 && c < 0x7f; });
+            const std::string_view v = w.size() == 3 ? w[2] : std::string_view{};
+            const std::string_view digits = !v.empty() && v[0] == '-' ? v.substr(1) : v;
+            const bool is_number = !digits.empty() && digits.size() <= 7 &&
+                                std::all_of(digits.begin(), digits.end(), [](char c) { return c >= '0' && c <= '9'; });
+            if (!printable || !is_number || std::stol(std::string(digits)) > 1000000) {
+                return fail("want: int NAME|0xHASH VALUE (decimal, -1000000 to 1000000)");
+            }
+            step.kind = Kind::int_flag;
+            step.mark = std::string(w[1]);
+            step.start = std::string(v);
+        } else if (cmd == "KEY") {
+            // ORM: 0x and 1 to 16 hex digits, then 0 or 1.
+            const bool hex = w.size() == 3 && w[1].size() > 2 && w[1].size() <= 18 &&
+                             w[1][0] == '0' && (w[1][1] == 'x' || w[1][1] == 'X') &&
+                             std::all_of(w[1].begin() + 2, w[1].end(), [](char c) {
+                                 return std::isxdigit(static_cast<unsigned char>(c)) != 0;
+                             });
+            if (!hex || (w[2] != "0" && w[2] != "1")) {
+                return fail("want: key 0xKEY 0|1 (1 to 16 hex digits)");
+            }
+            step.kind = Kind::key64;
+            step.mark = std::string(w[1]);
+            step.start = std::string(w[2]);
+        } else if (cmd == "ENUM") {
+            const auto printable = [](std::string_view word) {
+                return !word.empty() && word.size() <= 160 &&
+                       std::all_of(word.begin(), word.end(), [](char c) { return c > 0x20 && c < 0x7f; });
+            };
+            if ((w.size() != 2 && w.size() != 3) || !printable(w[1]) || (w.size() == 3 && !printable(w[2]))) {
+                return fail("want: enum NAME|0xHASH [VALUE|0xHASH]");
+            }
+            step.kind = Kind::enum_flag;
+            step.mark = std::string(w[1]);
+            step.start = w.size() == 3 ? std::string(w[2]) : std::string();
+        } else if (cmd == "SKIP") {
+            if (w.size() != 1) {
+                return fail("want: skip (no more words)");
+            }
+            step.kind = Kind::skip;
+        } else if (cmd == "AGE") {
+            const std::string age = w.size() == 2 ? Upper(w[1]) : std::string();
+            if (age != "ADULT" && age != "CHILD") {
+                return fail("want: age adult|child");
+            }
+            step.kind = Kind::age;
+            step.mark = age == "CHILD" ? "child" : "adult";
         } else if (cmd == "MARK") {
             if (w.size() != 2) {
                 return fail("want: mark NAME (one word)");
@@ -464,8 +601,12 @@ void Runner::Advance(double now_s, std::optional<std::array<float, 2>> player,
         }
         if (s.kind == Kind::warp || s.kind == Kind::give || s.kind == Kind::wear ||
             s.kind == Kind::assign || s.kind == Kind::chat || s.kind == Kind::kill ||
-            s.kind == Kind::setflag || s.kind == Kind::setenum) {
-            requests_.push_back(Request{s.kind, s.mark, s.start});
+            s.kind == Kind::setflag || s.kind == Kind::setenum ||
+            s.kind == Kind::life || s.kind == Kind::gate || s.kind == Kind::bottle ||  // ORM from here
+            s.kind == Kind::event || s.kind == Kind::flag || s.kind == Kind::int_flag ||
+            s.kind == Kind::enum_flag || s.kind == Kind::age || s.kind == Kind::key64 ||
+            s.kind == Kind::skip) {
+            requests_.push_back(Request{s.kind, s.mark, s.start, {}, s.child});
             ++index_;
             continue;
         }
@@ -592,6 +733,7 @@ void Runner::Steer(const Step& step, double now_s, std::optional<std::array<floa
 #ifdef LICHII_COOP
 
 #include <chrono>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -603,10 +745,13 @@ void Runner::Steer(const Step& step, double now_s, std::optional<std::array<floa
 #include "coop/host/flags.hpp"
 #include "coop/host/game_flags.hpp"
 #include "coop/host/player_reader.hpp"
+#include "coop/host/story.hpp"
 #include "coop_cheats.h"
+#include "coop_downed.h"
 #include "coop_every.h"
 #include "coop_boss.h"
 #include "coop_camera.h"
+#include "coop_downed_game.h"
 #include "coop_flags.h"
 #include "coop_hook.h"
 #include "coop_objects.h"
@@ -687,6 +832,22 @@ struct State {
 #define COOP_WIDEN2(x) L##x
 #define COOP_WIDEN(x) COOP_WIDEN2(x)
 
+// The nudge's right stick (Nudge): written on the present thread, read on the
+// input thread by either injector.
+struct NudgeShared {
+    std::mutex mutex;
+    std::optional<Stick> right;
+    int reads = 0;  // pad reads that got it, since it was last set
+} g_nudge;
+
+std::optional<Stick> NudgeNow() {
+    std::lock_guard lock(g_nudge.mutex);
+    if (g_nudge.right) {
+        ++g_nudge.reads;
+    }
+    return g_nudge.right;
+}
+
 std::filesystem::path EnvPath() {
 #ifdef _MSC_VER
     wchar_t* value = nullptr;
@@ -718,11 +879,11 @@ Core::HID::EmulatedController* PickController(Core::System& system) {
 }
 #endif
 
-// Link's position (x, z), for goto and toward.
-std::optional<std::array<float, 2>> PlayerXZ(Core::System& system) {
+// Finds the game's main module for a new process. False with no process.
+bool FindMain(Core::System& system) {
     auto* process = system.ApplicationProcess();
     if (process == nullptr) {
-        return std::nullopt;
+        return false;
     }
     if (process != g_state.process) {
         g_state.process = process;
@@ -740,6 +901,14 @@ std::optional<std::array<float, 2>> PlayerXZ(Core::System& system) {
         if (g_state.main == 0) {
             g_state.main = GetInteger(Core::FindMainModuleEntrypoint(process));
         }
+    }
+    return true;
+}
+
+// Link's position (x, z), for goto and toward.
+std::optional<std::array<float, 2>> PlayerXZ(Core::System& system) {
+    if (!FindMain(system)) {
+        return std::nullopt;
     }
     CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
     coop::host::PlayerReader reader(memory);
@@ -904,6 +1073,501 @@ void Give(const std::string& item) {
     }
 }
 
+// Link's Life component (docs/objects.md): life component =
+// [[actor + 0x270] + 0x2b8]; the current life s32 at [life + 0x1c10] + 8, the
+// max at [life + 0x1c18] + 8 (quarter hearts). The Death component is
+// [[actor + 0x270] + 0x1c0]; its u32 at +0x20 is what QueryDeathIsDead reads
+// (oot-remake docs/CAIDO_REVIVIR.md 2.2): dead when (w & 0xe) != 0 and
+// (w & 0x6000) != 0x2000.
+constexpr u64 kActorComponents = 0x270;
+constexpr u64 kComponentLife = 0x2b8;
+constexpr u64 kComponentDeath = 0x1c0;
+constexpr u64 kLifeValue = 0x1c10;
+constexpr u64 kLifeMax = 0x1c18;
+constexpr u64 kValueAt = 8;
+constexpr u64 kDeathWord = 0x20;
+// The current event (docs/dungeons-boss.md): S = [manager + 0x68],
+// event = [[S + 0xeb8] + 8 * u32 [S + 0xf18]]. Where its name is kept is not
+// known, so only the object is logged.
+constexpr u64 kEventManagerPtr = 0x4e94840;
+constexpr u64 kEventSession = 0x68;
+constexpr u64 kSessionEvents = 0xeb8;
+constexpr u64 kSessionCurrent = 0xf18;
+constexpr s32 kMaxLifeSeen = 999;  // quarter hearts; more is not a life word
+
+struct LifeWords {
+    u64 value = 0;  // where the current life s32 is
+    u64 max = 0;    // where the max s32 is
+};
+
+// The two life words of our Link, or nothing when any link of the path is
+// unreadable or the values are not plausible.
+std::optional<LifeWords> FindLife(CoopHook::EmulatorMemory& memory,
+                                  coop::host::PlayerReader& reader) {
+    using coop::host::read_ptr;
+    using coop::host::read_u32;
+    const auto actor = reader.find_player_actor();
+    const auto table = actor ? read_ptr(memory, *actor + kActorComponents) : std::nullopt;
+    const auto life = table ? read_ptr(memory, *table + kComponentLife) : std::nullopt;
+    const auto value = life ? read_ptr(memory, *life + kLifeValue) : std::nullopt;
+    const auto max = life ? read_ptr(memory, *life + kLifeMax) : std::nullopt;
+    if (!value || !max) {
+        return std::nullopt;
+    }
+    const auto v = read_u32(memory, *value + kValueAt);
+    const auto m = read_u32(memory, *max + kValueAt);
+    if (!v || !m || static_cast<s32>(*v) < 0 || static_cast<s32>(*m) <= 0 ||
+        static_cast<s32>(*m) > kMaxLifeSeen || static_cast<s32>(*v) > static_cast<s32>(*m)) {
+        return std::nullopt;
+    }
+    return LifeWords{*value + kValueAt, *max + kValueAt};
+}
+
+// life N: Link's current life = N quarter hearts (at most his max).
+void SetLife(Core::System& system, const std::string& text) {
+    const int want = std::atoi(text.c_str());
+    if (!FindMain(system)) {
+        LOG_ERROR(Core, "coop: test life {}: NOT written (no game process)", want);
+        return;
+    }
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    coop::host::PlayerReader reader(memory);
+    const auto words = FindLife(memory, reader);
+    if (!words) {
+        LOG_ERROR(Core, "coop: test life {}: NOT written (Link's life is not readable)", want);
+        return;
+    }
+    const s32 was = static_cast<s32>(coop::host::read_u32(memory, words->value).value_or(0));
+    const s32 max = static_cast<s32>(coop::host::read_u32(memory, words->max).value_or(0));
+    if (want > max) {
+        LOG_ERROR(Core, "coop: test life {}: NOT written (more than the max {})", want, max);
+        return;
+    }
+    const u32 value = static_cast<u32>(want);
+    std::array<std::uint8_t, 4> bytes{};
+    std::memcpy(bytes.data(), &value, 4);
+    const bool ok = memory.write(words->value, bytes);
+    LOG_INFO(Core, "coop: test life {}: {} (was {} of {})", want, ok ? "written" : "NOT written",
+             was, max);
+}
+
+// gate 0|1: the downed gate's word in main (coop_downed.h), 0 open, 1 closed.
+// From then on the downed state machine (coop_downed_game.h) leaves the gate
+// to the script.
+void SetGate(Core::System& system, const std::string& text) {
+    CoopDowned::SetManual();
+    if (!FindMain(system)) {
+        LOG_ERROR(Core, "coop: test gate {}: NOT written (no game process)", text);
+        return;
+    }
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    const u32 value = text == "1" ? 1u : 0u;
+    std::array<std::uint8_t, 4> bytes{};
+    std::memcpy(bytes.data(), &value, 4);
+    const u64 at = g_state.main + CoopDowned::kGateOffset;
+    const bool ok = memory.write(at, bytes);
+    const u32 now = coop::host::read_u32(memory, at).value_or(~0u);
+    LOG_INFO(Core, "coop: test gate {}: {} (main+{:#x} reads {:#x})", value,
+             ok && now == value ? "written" : "NOT written", CoopDowned::kGateOffset, now);
+}
+
+// flag NAME|0xHASH 0|1: a Bool through the game's queue, as its setter.
+void SetFlag(Core::System& system, const std::string& name, bool value) {
+    if (!FindMain(system)) {
+        LOG_ERROR(Core, "coop: test flag {}: NOT set (no game process)", name);
+        return;
+    }
+    std::uint32_t hash = 0;
+    if (name.size() > 2 && name[0] == '0' && (name[1] == 'x' || name[1] == 'X')) {
+        hash = static_cast<std::uint32_t>(std::strtoul(name.c_str() + 2, nullptr, 16));
+    } else {
+        hash = coop::host::flag_hash(name);
+    }
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    const auto before = coop::host::GameFlags(memory).get_bool(hash);
+    const bool ok = hash != 0 && coop::host::GameFlags::set_bool(memory, hash, value);
+    LOG_INFO(Core, "coop: test flag {} ({:#010x}) = {}: {} (it read {})", name, hash, value ? 1 : 0,
+             ok ? "queued" : "NOT set", before ? (*before ? "1" : "0") : "nothing: not a Bool flag");
+}
+
+// int NAME|0xHASH VALUE: an Int through the game's queue, as its setter.
+void SetInt(Core::System& system, const std::string& name, const std::string& value) {
+    if (!FindMain(system)) {
+        LOG_ERROR(Core, "coop: test int {}: NOT set (no game process)", name);
+        return;
+    }
+    std::uint32_t hash = 0;
+    if (name.size() > 2 && name[0] == '0' && (name[1] == 'x' || name[1] == 'X')) {
+        hash = static_cast<std::uint32_t>(std::strtoul(name.c_str() + 2, nullptr, 16));
+    } else {
+        hash = coop::host::flag_hash(name);
+    }
+    const auto v = static_cast<std::int32_t>(std::strtol(value.c_str(), nullptr, 10));
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    const auto before = coop::host::GameFlags(memory).get_int(hash);
+    const bool ok = hash != 0 && coop::host::GameFlags::set_int(memory, hash, v);
+    LOG_INFO(Core, "coop: test int {} ({:#010x}) = {}: {} (it read {})", name, hash, v,
+             ok ? "queued" : "NOT set", before ? std::to_string(*before) : "nothing: not an Int flag");
+}
+
+// key 0xKEY 0|1 (ORM): a 64-bit-key flag through the game's queue, as the
+// game sets it when the placement is broken or taken.
+void SetKey(Core::System& system, const std::string& text, bool value) {
+    if (!FindMain(system)) {
+        LOG_ERROR(Core, "coop: test key {}: NOT set (no game process)", text);
+        return;
+    }
+    const std::uint64_t key = std::strtoull(text.c_str() + 2, nullptr, 16);
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    const auto before = coop::host::GameFlags(memory).get_key64(key);
+    const bool ok = key != 0 && before && coop::host::GameFlags::set_key64(memory, key, value);
+    LOG_INFO(Core, "coop: test key {:#018x} = {}: {} (it read {})", key, value ? 1 : 0,
+             ok ? "queued" : "NOT set", before ? (*before ? "1" : "0") : "nothing: not a known key");
+}
+
+// bottle SLOT VALUE / restore. The flag store's tables (docs/flags.md):
+// manager M = [main + 0x4e842a8]; a typed table has its entry count u32,
+// entries pointer, hash slots pointer ({u32 hash, u32 index}, open
+// addressing from hash % slot count) and slot count u32. Enum flags (type 6)
+// as the game's Enum getter main+0x7e73d0 reads them: count M + 0x250,
+// entries M + 0x258, slots M + 0x260, slot count M + 0x26c, entries of 0x38
+// bytes, the live u32 at +0x1c (an index of the count or more is taken as 0,
+// as there). Bool (type 0): entries of 0x18, live u8 at +0x16 (the saved copy
+// at +0x17 is left alone). Int (type 2): entries of 0x28, live u32 at +0x1c.
+// The writes go straight into the live values, not through the game's queue,
+// so the save keeps what was there: a test-only fake that `restore` undoes.
+constexpr u64 kFlagManagerPtr = 0x4e842a8;
+struct FlagTable {
+    u64 count, entries, slots, capacity, stride, value;
+};
+constexpr FlagTable kEnumTable{0x250, 0x258, 0x260, 0x26c, 0x38, 0x1c};
+constexpr FlagTable kBoolTable{0x10, 0x18, 0x20, 0x2c, 0x18, 0x16};
+constexpr FlagTable kIntTable{0xd0, 0xd8, 0xe0, 0xec, 0x28, 0x1c};
+constexpr int kEnumType = 6;
+
+// A name or 0x hash, as the flag lists take it.
+u32 HashOf(const std::string& name) {
+    if (name.size() > 2 && name[0] == '0' && (name[1] == 'x' || name[1] == 'X')) {
+        return static_cast<u32>(std::strtoul(name.c_str() + 2, nullptr, 16));
+    }
+    return coop::host::flag_hash(name);
+}
+
+// enum NAME [VALUE]: an Enum flag as the game holds it, by the store's own
+// reads (GameFlags::get_enum, enum_values), with names from the built-in
+// story list's steps.
+void EnumFlag(Core::System& system, const std::string& name, const std::string& value) {
+    if (!FindMain(system)) {
+        LOG_ERROR(Core, "coop: test enum {}: NOT read (no game process)", name);
+        return;
+    }
+    static const coop::host::StoryList names = coop::host::StoryList::defaults();
+    const u32 hash = HashOf(name);
+    const auto named = [&](u32 v) {
+        const auto n = names.value_name(hash, v);
+        return n ? fmt::format("{} ({:#010x})", *n, v) : fmt::format("{:#010x} (no listed name)", v);
+    };
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    coop::host::GameFlags flags(memory);
+    const auto type = flags.find_type(hash);
+    const auto now = flags.get_enum(hash);
+    std::string list = "none read";
+    if (const auto values = flags.enum_values(hash)) {
+        list = fmt::format("{}:", values->size());
+        for (const u32 v : *values) {
+            const auto n = names.value_name(hash, v);
+            list += " " + (n ? *n : fmt::format("{:#010x}", v));
+        }
+        const coop::host::EnumFlags steps = names.step_flags();  // kept: values() points into it
+        if (const auto* ours = steps.values(hash)) {
+            list += *ours == *values ? " (the story list's order)" : " (NOT the story list's order)";
+        }
+    }
+    std::string raw = "none";
+    if (const auto at = flags.live_address(coop::host::GameFlags::Live::enum32, hash)) {
+        raw.clear();
+        for (u64 i = 0; i < kEnumTable.stride; i += 4) {
+            const u32 word = coop::host::read_u32(memory, *at - kEnumTable.value + i).value_or(0);
+            raw += fmt::format("{}{:08x}", i ? " " : "", word);
+        }
+    }
+    LOG_INFO(Core, "coop: test enum {} ({:#010x}): find_type {}, value {}; the game's values {}; entry {}",
+             name, hash, type.value_or(-1), now ? named(*now) : std::string("NOT read"), list, raw);
+    if (value.empty()) {
+        return;
+    }
+    const u32 v = HashOf(value);
+    const bool ok = v != 0 && coop::host::GameFlags::set_enum(memory, hash, v);
+    LOG_INFO(Core, "coop: test enum {} = {}: {}", name, named(v), ok ? "queued" : "NOT queued");
+}
+
+// Where the live value of flag `hash` is in table `t`, or nothing.
+std::optional<u64> FlagValueAt(CoopHook::EmulatorMemory& memory, const FlagTable& t, u32 hash) {
+    using coop::host::read_ptr;
+    using coop::host::read_u32;
+    const auto mgr = read_ptr(memory, g_state.main + kFlagManagerPtr);
+    if (!mgr || hash == 0) {
+        return std::nullopt;
+    }
+    const auto count = read_u32(memory, *mgr + t.count);
+    const auto entries = read_ptr(memory, *mgr + t.entries);
+    const auto slots = read_ptr(memory, *mgr + t.slots);
+    const auto cap = read_u32(memory, *mgr + t.capacity);
+    if (!count || !entries || !slots || !cap || *cap == 0 || *count == 0) {
+        return std::nullopt;
+    }
+    for (u32 n = 0, i = hash % *cap; n < *cap; ++n, i = i + 1 >= *cap ? 0 : i + 1) {
+        const auto h = read_u32(memory, *slots + 8ull * i);
+        if (!h || *h == 0) {
+            return std::nullopt;
+        }
+        if (*h == hash) {
+            const auto index = read_u32(memory, *slots + 8ull * i + 4);
+            if (!index) {
+                return std::nullopt;
+            }
+            const u64 at = *index < *count ? *index : 0;
+            return *entries + t.stride * at + t.value;
+        }
+    }
+    return std::nullopt;
+}
+
+bool WriteU32(CoopHook::EmulatorMemory& memory, u64 at, u32 value) {
+    std::array<std::uint8_t, 4> bytes{};
+    std::memcpy(bytes.data(), &value, 4);
+    return memory.write(at, bytes);
+}
+
+std::uint8_t ReadU8(CoopHook::EmulatorMemory& memory, u64 at) {
+    std::array<std::uint8_t, 1> b{};
+    return memory.read(at, b) ? b[0] : 0xff;
+}
+
+bool WriteU8(CoopHook::EmulatorMemory& memory, u64 at, std::uint8_t value) {
+    const std::array<std::uint8_t, 1> b{value};
+    return memory.write(at, b);
+}
+
+// The BottleItem value name whose flag_hash is `value`, or its hex.
+std::string BottleName(u32 value) {
+    static constexpr const char* kNames[] = {
+        "Empty", "RedPotion", "GreenPotion", "BluePotion", "BlueFire", "Fish",    "Letter",
+        "BigPoe", "Poe",      "Bug",         "Fairy",      "MaxMilk",  "HalfMilk"};
+    for (const char* name : kNames) {
+        if (coop::host::flag_hash(name) == value) {
+            return name;
+        }
+    }
+    return fmt::format("{:#x} (not a value name's hash)", value);
+}
+
+// What the first write to a bottle found, for restore.
+struct BottleBefore {
+    u32 item = 0;
+    std::optional<std::uint8_t> valid;  // set when a write changed it
+    std::optional<u32> stock;           // set when a write changed it
+};
+std::array<std::optional<BottleBefore>, 5> g_bottles;  // A to E; present thread only
+
+void Bottle(Core::System& system, const std::string& slot, const std::string& value) {
+    if (!FindMain(system) || slot.size() != 1 || slot[0] < 'A' || slot[0] > 'E') {
+        LOG_ERROR(Core, "coop: test bottle {} {}: NOT written (no game process)", slot, value);
+        return;
+    }
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    coop::host::GameFlags flags(memory);
+    const std::string item_name =
+        "PlayerStatus.AssignableItem.BottleInfo.Bottle" + slot + ".BottleItem";
+    const std::string valid_name =
+        "PlayerStatus.AssignableItem.BottleInfo.Bottle" + slot + ".IsValid";
+    const std::string stock_name = "PouchData.Bottle" + slot + ".StockNum";
+    const u32 item_hash = coop::host::flag_hash(item_name);
+    const auto item_at = FlagValueAt(memory, kEnumTable, item_hash);
+    const auto valid_at = FlagValueAt(memory, kBoolTable, coop::host::flag_hash(valid_name));
+    const auto stock_at = FlagValueAt(memory, kIntTable, coop::host::flag_hash(stock_name));
+    const auto type = flags.find_type(item_hash);
+    if (!item_at || !valid_at || !stock_at || type != kEnumType) {
+        LOG_ERROR(Core,
+                  "coop: test bottle {} {}: NOT written (item {} type {}, IsValid {}, "
+                  "StockNum {})",
+                  slot, value, item_at ? "found" : "missing", type.value_or(-1),
+                  valid_at ? "found" : "missing", stock_at ? "found" : "missing");
+        return;
+    }
+    const u32 item = coop::host::read_u32(memory, *item_at).value_or(0);
+    const std::uint8_t valid = ReadU8(memory, *valid_at);
+    const u32 stock = coop::host::read_u32(memory, *stock_at).value_or(0);
+    // The Enum entry around the value, to check the layout in the log.
+    std::string raw;
+    for (u64 i = 0; i < kEnumTable.stride; i += 4) {
+        const u32 word = coop::host::read_u32(memory, *item_at - kEnumTable.value + i).value_or(0);
+        raw += fmt::format("{}{:08x}", i ? " " : "", word);
+    }
+    LOG_INFO(Core, "coop: test bottle {} {}: before: {} = {}, {} = {}, {} = {}; enum entry {}",
+             slot, value, item_name, BottleName(item), valid_name, valid, stock_name,
+             static_cast<s32>(stock), raw);
+    auto& saved = g_bottles[slot[0] - 'A'];
+    if (value == "restore") {
+        if (!saved) {
+            LOG_ERROR(Core, "coop: test bottle {} restore: nothing to restore", slot);
+            return;
+        }
+        bool ok = WriteU32(memory, *item_at, saved->item);
+        if (saved->valid) {
+            ok = WriteU8(memory, *valid_at, *saved->valid) && ok;
+        }
+        if (saved->stock) {
+            ok = WriteU32(memory, *stock_at, *saved->stock) && ok;
+        }
+        LOG_INFO(Core, "coop: test bottle {} restore: {} (item {}{}{})", slot,
+                 ok ? "written" : "NOT written", BottleName(saved->item),
+                 saved->valid ? fmt::format(", IsValid {}", *saved->valid) : "",
+                 saved->stock ? fmt::format(", StockNum {}", static_cast<s32>(*saved->stock))
+                              : "");
+        saved.reset();
+        return;
+    }
+    if (!saved) {
+        saved = BottleBefore{item, std::nullopt, std::nullopt};
+    }
+    // An unowned bottle is owned for the fake too (IsValid is shared in a
+    // session: only in one-game tests).
+    bool ok = WriteU32(memory, *item_at, coop::host::flag_hash(value));
+    if (valid == 0) {
+        if (!saved->valid) {
+            saved->valid = valid;
+        }
+        ok = WriteU8(memory, *valid_at, 1) && ok;
+    }
+    if (static_cast<s32>(stock) <= 0) {
+        if (!saved->stock) {
+            saved->stock = stock;
+        }
+        ok = WriteU32(memory, *stock_at, 1) && ok;
+    }
+    LOG_INFO(Core, "coop: test bottle {} {}: {} (now {}, IsValid {}, StockNum {})", slot, value,
+             ok ? "written" : "NOT written",
+             BottleName(coop::host::read_u32(memory, *item_at).value_or(0)),
+             ReadU8(memory, *valid_at),
+             static_cast<s32>(coop::host::read_u32(memory, *stock_at).value_or(0)));
+}
+
+// event NAME: asks the game to start that event with Link's event component
+// (orm_story_events.h), from the cave on the calc thread.
+void AskEvent(Core::System& system, const std::string& name) {
+    if (!FindMain(system)) {
+        LOG_ERROR(Core, "coop: test event {}: NOT asked (no game process)", name);
+        return;
+    }
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    coop::host::PlayerReader reader(memory);
+    const auto actor = reader.find_player_actor();
+    const auto position = reader.read_position();
+    LOG_INFO(Core, "coop: test event {}: Link {} at {}, scene {}, event {}", name,
+             actor ? fmt::format("{:#x}", *actor) : std::string("not found"),
+             position ? fmt::format("{:.2f} {:.2f} {:.2f}", (*position)[0], (*position)[1],
+                                    (*position)[2])
+                      : std::string("-"),
+             reader.read_scene().value_or("-"), reader.read_event_name().value_or("none"));
+    OrmStoryEvents::Ask(g_state.main, actor.value_or(0), name);  // ORM platform.h: no System
+}
+
+// LICHII_COOP_DEBUG_LIFE=1: one "coop: life:" line on each change of what
+// the probe reads, at most ten a second (see coop_testinput.h).
+struct LifeProbe {
+    bool checked = false;
+    bool on = false;
+    CoopEvery::Every every{100'000};
+    bool logged = false;
+    s32 life = -1;
+    s32 max = -1;
+    std::optional<u32> death;
+    std::optional<bool> event;
+    std::string anim;
+    std::string scene;
+    u64 event_object = 0;
+    double since = 0.0;  // steady seconds at the first line
+} g_life;  // present thread only
+
+bool EnvOn(const char* name) {
+    return CoopSwitch::On(name, false);  // ORM: coop_switch.h
+}
+
+void ProbeLife(Core::System& system) {
+    if (!g_life.checked) {
+        g_life.checked = true;
+        g_life.on = EnvOn("LICHII_COOP_DEBUG_LIFE");
+        if (g_life.on) {
+            LOG_INFO(Core, "coop: life: probe on (LICHII_COOP_DEBUG_LIFE)");
+        }
+    }
+    if (!g_life.on || !FindMain(system)) {
+        return;
+    }
+    using coop::host::read_ptr;
+    using coop::host::read_u32;
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    coop::host::PlayerReader reader(memory);
+    const auto words = FindLife(memory, reader);
+    const s32 life = words ? static_cast<s32>(read_u32(memory, words->value).value_or(~0u)) : -1;
+    const s32 max = words ? static_cast<s32>(read_u32(memory, words->max).value_or(~0u)) : -1;
+    std::optional<u32> death;
+    if (const auto actor = reader.find_player_actor()) {
+        const auto table = read_ptr(memory, *actor + kActorComponents);
+        const auto component = table ? read_ptr(memory, *table + kComponentDeath) : std::nullopt;
+        death = component ? read_u32(memory, *component + kDeathWord) : std::nullopt;
+    }
+    const auto event = reader.read_event_running();
+    u64 event_object = 0;
+    if (event && *event) {
+        const auto manager = read_ptr(memory, g_state.main + kEventManagerPtr);
+        const auto session = manager ? read_ptr(memory, *manager + kEventSession) : std::nullopt;
+        const auto events = session ? read_ptr(memory, *session + kSessionEvents) : std::nullopt;
+        const auto index = session ? read_u32(memory, *session + kSessionCurrent) : std::nullopt;
+        if (events && index && *index < 64) {
+            event_object = read_ptr(memory, *events + 8 * u64{*index}).value_or(0);
+        }
+    }
+    const auto animation = reader.read_animation();
+    const std::string anim = animation ? animation->name : std::string("-");
+    const std::string scene = reader.read_scene().value_or("-");
+    const bool same = g_life.logged && life == g_life.life && max == g_life.max &&
+                      death == g_life.death && event == g_life.event && anim == g_life.anim &&
+                      event_object == g_life.event_object && scene == g_life.scene;
+    const std::uint64_t now_us = CoopEvery::NowUs();
+    if (same || !g_life.every.Due(now_us)) {
+        return;
+    }
+    const double now = static_cast<double>(now_us) / 1e6;
+    if (!g_life.logged) {
+        g_life.since = now;
+    }
+    if (event_object != g_life.event_object) {
+        LOG_INFO(Core, "coop: life: event object {:#x} -> {:#x}", g_life.event_object,
+                 event_object);
+    }
+    const bool dead = death && (*death & 0xe) != 0 && (*death & 0x6000) != 0x2000;
+    const auto position = reader.read_position();
+    LOG_INFO(Core,
+             "coop: life: t {:.2f} life {} of {}, death word {}{}, event {}, anim {}, scene {}, "
+             "at {}",
+             now - g_life.since, life, max, death ? fmt::format("{:#x}", *death) : "-",
+             death ? (dead ? " (dead)" : " (alive)") : "", !event ? "-" : *event ? "on" : "off",
+             anim, scene,
+             position ? fmt::format("{:.2f} {:.2f} {:.2f}", (*position)[0], (*position)[1],
+                                    (*position)[2])
+                      : "-");
+    g_life.logged = true;
+    g_life.life = life;
+    g_life.max = max;
+    g_life.death = death;
+    g_life.event = event;
+    g_life.anim = anim;
+    g_life.scene = scene;
+    g_life.event_object = event_object;
+}
+
 void StopRunning() {
 #ifndef COOP_HOOKSHOT
     if (g_state.running && g_state.running->controller) {
@@ -950,11 +1614,15 @@ void Begin(Core::System& system, Script script) {
             if (out.left) {
                 in.left = Core::HID::AnalogStickState{out.left->x, out.left->y};
             }
+            if (!out.right) {
+                out.right = NudgeNow();
+            }
             if (out.right) {
                 in.right = Core::HID::AnalogStickState{out.right->x, out.right->y};
             }
             return in;
         });
+    g_state.nudge_controller = nullptr;  // replaced by the script's, which adds the nudge
     LOG_INFO(Core, "coop: test script started: {} steps", r.runner->StepCount());
     g_state.running = std::move(r);
 }
@@ -1010,6 +1678,7 @@ void OnFrame(Core::System& system) {
             LOG_INFO(Core, "coop: test {} file {}", kWhat, g_state.path.string());
         }
     }
+    ProbeLife(system);
     if (g_state.path.empty()) {
         return;
     }
@@ -1067,6 +1736,32 @@ void OnFrame(Core::System& system) {
         } else if (request.kind == Kind::chat) {
             const bool sent = CoopHook::SendChat(request.name);
             LOG_INFO(Core, "coop: test chat '{}': {}", request.name, sent ? "sent" : "NOT sent");
+        } else if (request.kind == Kind::life) {
+            SetLife(system, request.name);
+        } else if (request.kind == Kind::gate) {
+            SetGate(system, request.name);
+        } else if (request.kind == Kind::bottle) {
+            Bottle(system, request.name, request.start);
+        } else if (request.kind == Kind::event) {
+            AskEvent(system, request.name);
+        } else if (request.kind == Kind::flag) {
+            SetFlag(system, request.name, request.start == "1");
+        } else if (request.kind == Kind::int_flag) {
+            SetInt(system, request.name, request.start);
+        } else if (request.kind == Kind::enum_flag) {
+            EnumFlag(system, request.name, request.start);
+        } else if (request.kind == Kind::age) {
+            LOG_INFO(Core, "coop: test age {}: asked", request.name);
+            CoopAge::Change(request.name == "child");
+        } else if (request.kind == Kind::key64) {
+            SetKey(system, request.name, request.start == "1");
+        } else if (request.kind == Kind::skip) {
+            const bool found = FindMain(system);
+            LOG_INFO(Core, "coop: test skip: {}", found ? "asked" : "NOT asked (no game process)");
+            if (found) {
+                OrmStoryEvents::NoteSkip("test skip");  // the owner's skip, as a press would be
+                OrmStoryEvents::Skip(g_state.main, "test skip");
+            }
         } else {
             Give(request.name);
         }
@@ -1135,6 +1830,54 @@ void OnFrame(Core::System& system) {
 #endif
         StopRunning();
     }
+}
+
+void Nudge(Core::System& system, std::optional<Stick> right) {
+    {
+        std::lock_guard lock(g_nudge.mutex);
+        if (!right && g_nudge.right) {
+            LOG_INFO(Core, "coop: spectator: right-stick nudge let go: {} pad reads took it ({})", g_nudge.reads,
+                     g_state.running ? "through the test script's input" : "its own input");
+        } else if (right && !g_nudge.right) {
+            g_nudge.reads = 0;
+        }
+        g_nudge.right = right;
+    }
+#ifdef COOP_HOOKSHOT
+    // ORM (spectator camera, coop_camera_probe.h): Hookshot's module has no
+    // input injector (the bridge gives the pad's word, not a way in), so the
+    // nudge is not played there and a downed Link's camera does not wake.
+    (void)system;
+    static bool said = false;
+    if (right && !std::exchange(said, true)) {
+        LOG_INFO(Core, "coop: spectator: right-stick nudge not played on Hookshot (no input injector); "
+                       "the camera stays as it is");
+    }
+    return;
+#else
+    if (g_state.running) {
+        return;  // the script's injector adds it
+    }
+    if (right && g_state.nudge_controller == nullptr) {
+        auto* controller = PickController(system);
+        if (controller == nullptr || controller->HasInputInjector()) {
+            return;  // no pad, or someone else's injector (the debug server)
+        }
+        controller->SetInputInjector([]() -> std::optional<Core::HID::InjectedInput> {
+            const auto r = NudgeNow();
+            if (!r) {
+                return std::nullopt;
+            }
+            Core::HID::InjectedInput in;
+            in.right = Core::HID::AnalogStickState{r->x, r->y};
+            return in;
+        });
+        g_state.nudge_controller = controller;
+    } else if (!right && g_state.nudge_controller != nullptr) {
+        g_state.nudge_controller->SetInputInjector({});
+        g_state.nudge_controller = nullptr;
+    }
+#endif
 }
 
 } // namespace CoopTestInput

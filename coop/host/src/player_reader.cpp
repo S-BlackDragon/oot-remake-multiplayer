@@ -136,6 +136,38 @@ std::optional<bool> PlayerReader::read_event_running() {
   return *running != 0;
 }
 
+std::optional<std::uint64_t> PlayerReader::read_current_event() {
+  const auto events = read_ptr(memory_, memory_.main_base() + addr::kEventManagerPtr);
+  const auto session = events ? read_ptr(memory_, *events + addr::kEventRunning) : std::nullopt;
+  if (!session || *session == 0) return std::nullopt;
+  const auto list = read_ptr(memory_, *session + addr::kSessionEvents);
+  const auto count = read_u32(memory_, *session + addr::kSessionCount);
+  const auto index = read_u32(memory_, *session + addr::kSessionCurrent);
+  if (!list || *list == 0 || !count || !index || *index >= *count) return std::nullopt;
+  const auto event = read_ptr(memory_, *list + 8ull * *index);
+  if (!event || *event == 0) return std::nullopt;
+  return event;
+}
+
+std::optional<std::string> PlayerReader::read_event_name() {
+  const auto event = read_current_event();
+  if (!event) return std::nullopt;
+  const auto text = read_ptr(memory_, *event + addr::kEventNamePtr);
+  const auto capacity = read_u32(memory_, *event + addr::kEventNameCapacity);
+  const auto cap = capacity ? static_cast<std::int32_t>(*capacity) : 0;
+  if (!text || *text == 0 || cap < 2) return std::nullopt;
+  // Read no further than the capacity, nor past the longest name taken.
+  const auto size = std::min<std::size_t>(static_cast<std::size_t>(cap), kMaxEventNameChars + 1);
+  std::vector<std::uint8_t> bytes(size);
+  if (!memory_.read(*text, bytes)) return std::nullopt;
+  const auto end = std::find(bytes.begin(), bytes.end(), std::uint8_t{0});
+  if (end == bytes.end() || end == bytes.begin()) return std::nullopt;  // unterminated or empty
+  if (!std::all_of(bytes.begin(), end, [](std::uint8_t c) { return c > 0x20 && c < 0x7f; })) {
+    return std::nullopt;
+  }
+  return std::string(bytes.begin(), end);
+}
+
 std::optional<protocol::Animation> PlayerReader::read_animation() {
   const auto actor = find_player_actor();
   if (!actor) return std::nullopt;

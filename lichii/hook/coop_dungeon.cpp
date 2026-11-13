@@ -1718,7 +1718,9 @@ std::size_t Merge(std::optional<coop::host::SharedFlags>& shared, bool on) {
     for (const Key& k : kKeys) {
         keys.push_back(coop::host::FlagKey::key64_flag(k.key));
     }
-    shared = coop::host::SharedFlags(std::move(keys));  // sorts, drops repeats
+    // Sorts, drops repeats, keeps the list's opted-in Enum flags.
+    shared = coop::host::SharedFlags(std::move(keys),
+                                     shared ? shared->enums() : coop::host::EnumFlags{});
     return shared->size() - before;
 }
 

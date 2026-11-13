@@ -184,5 +184,19 @@ inline constexpr std::uint64_t kBancPathCapacity = 0x48;
 // as the map's peek reads.
 inline constexpr std::uint64_t kEventManagerPtr = 0x4e94840;
 inline constexpr std::uint64_t kEventRunning = 0x68;
+// [ORM] The current event object, as SeqOneShotEventRequestForceSkip
+// (0x32d1890) and 0x4b5220 find it: S = [manager + 0x68]; list [S + 0xeb8],
+// count u32 [S + 0xeb0], index u32 [S + 0xf18]; event = [list + 8 * index].
+// Checked in the recompiled code (docs/dungeons-boss.md).
+inline constexpr std::uint64_t kSessionEvents = 0xeb8;
+inline constexpr std::uint64_t kSessionCount = 0xeb0;
+inline constexpr std::uint64_t kSessionCurrent = 0xf18;
+// [ORM] The event's name, a safe string inside the event object: the char
+// buffer's pointer at +8 and its capacity (s32, NUL included) at +0x10.
+// 0x4b5220 terminates the buffer at capacity - 1 and compares it with
+// "DmF_SY_GameOver" and "Delayed_GameOver". Checked in the recompiled code
+// (code_004.c f_804d5220).
+inline constexpr std::uint64_t kEventNamePtr = 0x8;
+inline constexpr std::uint64_t kEventNameCapacity = 0x10;
 
 }  // namespace coop::host::addr

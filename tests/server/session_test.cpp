@@ -214,24 +214,24 @@ TEST_CASE("a second player sees the first, and the first is told of the second")
   CHECK(h.to(1)[0].channel == kChannelSession);
 }
 
-TEST_CASE("a fifth player is refused as server full and dropped") {
+TEST_CASE("a seventh player is refused as server full and dropped") {
   Harness h;
-  for (ConnectionId id = 1; id <= 4; ++id) h.join(id, "p" + std::to_string(id));
+  for (ConnectionId id = 1; id <= 6; ++id) h.join(id, "p" + std::to_string(id));
   h.clear();
 
-  h.connect(5);
-  h.receive(5, hello_from("p5"), kChannelSession);
-  const auto refused = only_message_to<Refused>(h, 5);
+  h.connect(7);
+  h.receive(7, hello_from("p7"), kChannelSession);
+  const auto refused = only_message_to<Refused>(h, 7);
   REQUIRE(refused.has_value());
   CHECK(refused->reason == RefuseReason::server_full);
   REQUIRE(h.dropped.size() == 1);
-  CHECK(h.dropped[0] == 5);
-  CHECK(h.session.player_count() == 4);
+  CHECK(h.dropped[0] == 7);
+  CHECK(h.session.player_count() == 6);
   // Nobody else heard of it.
-  for (ConnectionId id = 1; id <= 4; ++id) CHECK(h.to(id).empty());
+  for (ConnectionId id = 1; id <= 6; ++id) CHECK(h.to(id).empty());
 
   // Anything more from it is ignored and counted.
-  h.receive(5, Chat{0, "let me in"}, kChannelSession);
+  h.receive(7, Chat{0, "let me in"}, kChannelSession);
   CHECK(h.sent.size() == 1);
   CHECK(h.session.stats().after_refused == 1);
 }
@@ -710,7 +710,7 @@ TEST_CASE("4 players from one address joining at the same moment are all let in"
     h.receive(id, hello_from(names[id - 1]), kChannelSession);
   }
   CHECK(h.session.player_count() == 4);
-  // With all of them in, the address may again open 4 more (a fifth player
+  // With all of them in, the address may again open 4 more (a seventh player
   // is then told the server is full, not cut silently).
   for (ConnectionId id = 5; id <= 8; ++id) CHECK(h.session.connected(id, h.now, kHome));
   CHECK(h.session.stats().half_open_limited == 0);
@@ -1293,12 +1293,14 @@ TEST_CASE("a rejoin into a full session takes the old place instead of being ref
   h.join(2, "Zelda", kOtherPc);
   h.join(3, "Saria", kOtherPc);
   h.join(4, "Darunia", kOtherPc);
+  h.join(5, "Ruto", kOtherPc);
+  h.join(6, "Impa", kOtherPc);
   h.now += 1'000'000;
   auto msgs = rejoin_on(h, 9, "Link", kHomePc, token_of(h, 1));
   REQUIRE(std::holds_alternative<Welcome>(msgs[0].message));
-  CHECK(h.session.player_count() == 4);
-  // A fifth name is still refused as full.
-  CHECK(refused_reason(hello_on(h, 10, "Ruto", kHomePc)) == RefuseReason::server_full);
+  CHECK(h.session.player_count() == 6);
+  // A seventh name is still refused as full.
+  CHECK(refused_reason(hello_on(h, 10, "Nabooru", kHomePc)) == RefuseReason::server_full);
 }
 
 TEST_CASE("a live player's name stays refused, from any PC, another PC never takes over") {

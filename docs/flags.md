@@ -167,9 +167,19 @@ A tester (2026-11-11): every player loaded a save by hand, and a guest whose own
 - Log lines: `coop: save: asked the host (player N) for its save`, `coop: save: player N asked for our save`, `coop: save: we loaded a save: the guests get it after the game's next save`, `coop: save: sending slot_NN (B bytes, P parts) to player N|every guest`, `coop: save: the host's save is in (B bytes, ...)`, `coop: save: the host's save written to <folder>`, `coop: save: the game's save folder is <folder>`.
 - Tests: `tests/host/save_transfer_test.cpp` (packing, parts and CRC, refusals, the host's wait after its load, the newest slot, never over the player's own saves), `tests/server/session_test.cpp` ("the host's save: ..."), `tests/protocol/codec_test.cpp` ("save ask and save part ...").
 
+## Enum flags
+
+The story steps are Enum flags (for example `Step_Meet_DekuTree`, 0x3372689b, values NotReady, Ready, Step01 to Step03, Complete), and the game asks about them through computed `BoolExp` flags (`Meet_DekuTree_IsAfter_Step02_Exp`), which are never written. `GameFlagStore` reads and writes an Enum flag **only when a list opts it in**: an `enum:` line of the shared list ([host.md](host.md)) or a `step:` of the story list (`coop/host/story.hpp`), each giving the values it may take; without one nothing changes.
+
+- **Wire**: kind 3, `uint32`, already meant for this ([protocol.md](protocol.md), "Shared flags"): the value is the Murmur3 hash (seed 0, `flag_hash`) of the value's name, so nothing on the wire, in the server or in other builds changes. A hash, not an index: it does not depend on the order of the values.
+- **Store**: a write of another kind, or of a value not in the list's set, is refused; a value read that is not in the set reads as unknown, so a misread is never sent.
+- **Story steps only move forward**: a `step:` flag (`EnumFlags` with `steps`) is ordered as its values are listed, which is the game's `GameDataList` order. A write of a value earlier than the one the game holds is not written and reports success; the watcher then reads the game's later value and sends it, so a player and the host end on the later step (`tests/host/game_flags_test.cpp`).
+- **Layout, read in `main`**: type 6, the table at M + 0x250 (count), +0x258 (entries), +0x260 (slots), +0x26c (slot count). The getter 0x7e73d0 reads **entries of 0x38 bytes** with the live u32 at **+0x1c**; an entry also holds the number of values at +0x28 and a pointer to their hashes (u32, in `GameDataList` order) at +0x30 (`GameFlags::enum_values`). The setter 0x3e0980 queues **8-byte slots {u32 value, u32 hash}** at +0x270 / +0x278 / +0x280 (queue size, queue, queue word), as the Bool setter does. Both fall back to the type 7 table (M + 0x2b0, entries of 0x50) for a hash not in this one; that is not read.
+- **Checked in a run** (oot-remake `docs/BANDERAS_ENUM.md`, "Resultado en juego"): `find_type` of `Step_Meet_DekuTree` is 6, its value is a value name's hash before and after the Deku Tree meeting, and a value queued by the store is applied by the game.
+
 ## Not done
 
-1. Float, Enum and the other types (UInt is read, above): their tables follow the same pattern (M + 0x10 + 0x60 × t) but were not read.
+1. Float and the other types (UInt and Enum are read, above): their tables follow the same pattern (M + 0x10 + 0x60 × t) but were not read.
 2. The queue sizes (read at run time, never logged).
 3. BoolArray writes, Struct (+0xc20) and BoolExp (+0xc48).
 

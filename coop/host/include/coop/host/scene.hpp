@@ -69,7 +69,10 @@ inline Activity activity_of(std::optional<std::string_view> anim) {
   // Played freely, the game's own command is "DemoOcarina" (slot 0, with DemoOcarinaFace and
   // DemoOcarinaFinger beside it; coop_ocarina_sound.h counts it the same way). Only a song being
   // taught, "DemoOcarinaMelodyGet...", is a cutscene.
-  if (a.substr(0, 11) == "DemoOcarina" && a.find("MelodyGet") == std::string_view::npos) {
+  // ORM: seen the same in a game (ocarina-mano, 2026-11-12, oot-remake docs/SONDAS.md); our rule
+  // also left "DemoOcarinaWarp" (a warp song's cutscene) a cutscene: kept.
+  if (a.substr(0, 11) == "DemoOcarina" && a.find("MelodyGet") == std::string_view::npos &&
+      a.find("Warp") == std::string_view::npos) {
     return Activity::ocarina;
   }
   return Activity::none;
@@ -102,8 +105,19 @@ enum class Visibility : std::uint8_t {
 // - Their cutscene running: hold, since their animation is the event's, which
 //   the puppet may not have; their place is still followed (issue 194). Not while they play the Ocarina: then
 //   they stand and play, and show copies that.
+// ORM (D-R12, 2026-11-10, one shared world): an event, ours or theirs,
+// hides and freezes nobody. A talk with an NPC is an event too, and the
+// player talking vanished for the others and the others for him; now every
+// puppet keeps moving with its samples and poses through dialogs and
+// cutscenes, as the other Links do in ZMP. `local_hides` and the cutscene
+// bit are still read (the callers pass them) and ignored here; story
+// cutscenes will be played for everyone present instead (PLAN §6b).
+// ORM menus (oot-remake docs/MENUS_PAUSA.md, M2): a player whose game is
+// paused by a menu (PLAYER_STATUS paused) holds: drawn frozen where they are,
+// never hidden (D-R37), still wearing what they change in the menu. After the
+// riding rule: a rider who pauses stays on the horse.
 inline Visibility visibility(std::optional<std::string_view> local_scene,
-                             bool local_hides,
+                             bool /*local_hides*/,
                              std::optional<std::string_view> remote_scene,
                              std::uint8_t remote_status_flags,
                              std::optional<std::string_view> remote_anim = std::nullopt) {

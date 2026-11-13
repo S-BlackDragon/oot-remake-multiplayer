@@ -60,8 +60,10 @@ bool EnvOn(const char* name) {
 }
 
 bool Wanted() {
+    // Live events are on unless LICHII_COOP_LIVE_EVENTS=0 (coop_hook.cpp, since
+    // test9): their requester runs in this patch's caller, so it goes in then too.
     return EnvOn("LICHII_COOP_PUPPET") || EnvOn("LICHII_COOP_DEBUG_PUPPET") ||
-           EnvOn("LICHII_COOP_SPAWN") || EnvOn("LICHII_COOP_LIVE_EVENTS");
+           EnvOn("LICHII_COOP_SPAWN") || Env("LICHII_COOP_LIVE_EVENTS") != "0";
 }
 
 std::uint32_t Word(const std::vector<std::uint8_t>& bytes, std::size_t at) {

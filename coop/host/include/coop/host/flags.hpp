@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <functional>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -134,6 +135,55 @@ class HoldFlagStore final : public FlagStore {
   std::vector<FlagKey> held_keys_;
 };
 
+// Enum flags a list opts in (docs/flags.md, "Enum flags"). An Enum flag (the
+// story steps, for example Step_Meet_DekuTree) holds one of a fixed set of
+// values; the game keeps the Murmur3 hash of the value's name (flag_hash), as
+// the protocol's uint32 kind says. GameFlagStore reads and writes only the
+// Enum flags named here, as FlagKind::uint32 with that hash, and refuses a
+// value outside the flag's set. Empty by default: no Enum flag is read,
+// written or shared.
+//
+// A flag added as steps (a story step: Step_*) only moves forward, in the
+// order its values are listed (the game's GameDataList order): GameFlagStore
+// does not write a value earlier than the one the game holds.
+class EnumFlags {
+ public:
+  // Most values one Enum flag may list.
+  static constexpr std::size_t kMaxValues = 256;
+
+  // Opts `hash` in with its allowed value hashes. False (and nothing added)
+  // when the hash is 0, it is there already, the set is empty, too big, or
+  // lists a value twice.
+  bool add(std::uint32_t hash, std::vector<std::uint32_t> values, bool steps = false);
+  // Adds every flag of `other`. A flag both hold must have the same values
+  // in the same order and the same steps setting: false on the first that
+  // does not (the flags before it are added).
+  bool merge(const EnumFlags& other);
+
+  bool contains(std::uint32_t hash) const { return flags_.contains(hash); }
+  // True when `value` is in the set of the opted-in flag `hash`.
+  bool allows(std::uint32_t hash, std::uint32_t value) const;
+  // The allowed values of `hash` in list order, or null when not opted in.
+  const std::vector<std::uint32_t>* values(std::uint32_t hash) const;
+  // True when `hash` is opted in as story steps (only moves forward).
+  bool steps(std::uint32_t hash) const;
+  // Where `value` is in the list of `hash` (0 first), or nothing.
+  std::optional<std::size_t> rank(std::uint32_t hash, std::uint32_t value) const;
+  // The flags' keys (index 0), for the shared list.
+  std::vector<FlagKey> keys() const;
+  std::size_t size() const { return flags_.size(); }
+  bool empty() const { return flags_.empty(); }
+  bool operator==(const EnumFlags&) const = default;
+
+ private:
+  struct Flag {
+    std::vector<std::uint32_t> values;
+    bool steps = false;
+    bool operator==(const Flag&) const = default;
+  };
+  std::map<std::uint32_t, Flag> flags_;
+};
+
 // The flags this session shares, sorted, each once. Loaded from plain text,
 // one flag a line:
 //
@@ -144,10 +194,14 @@ class HoldFlagStore final : public FlagStore {
 //   SomeArrayFlag 0-7     elements 0 to 7
 //   key64:0x2fa4c1d09b7e6a35   a 64-bit-key flag, 1 to 16 hex digits
 //   key64:3433081917669272117  the same key in decimal, as Banc files give it
+//   enum:Step_Meet_DekuTree NotReady Ready Step01 Step02 Step03 Complete
+//                         an Enum flag (name or hash) and its values (names
+//                         or hashes): shared, and opted in (EnumFlags)
 //
 // A name is printable ASCII with no spaces. A token of 0x and hex digits only
 // is always read as a hash, and one that starts with key64: always as a
-// 64-bit key (in the game's one Bool64bitKey table).
+// 64-bit key (in the game's one Bool64bitKey table). An Enum flag is listed
+// once and has no index.
 //
 // Only persistent 64-bit keys belong in the list: ResetTypeValue 24 in the
 // game's flag list (chests). Pots and enemies (88, 280) reset on a scene
@@ -159,7 +213,8 @@ class SharedFlags {
   static constexpr std::size_t kMaxFlags = 1u << 20;
 
   SharedFlags() = default;
-  explicit SharedFlags(std::vector<FlagKey> keys);
+  // `enums`: the opted-in Enum flags; their keys are added to `keys`.
+  explicit SharedFlags(std::vector<FlagKey> keys, EnumFlags enums = {});
 
   // Nothing on a bad line; `error`, when given, then says which and why.
   static std::optional<SharedFlags> parse(std::string_view text,
@@ -172,11 +227,15 @@ class SharedFlags {
   // it was there already or the list is full.
   bool add(FlagKey key);
   const std::vector<FlagKey>& keys() const { return keys_; }
+  // The Enum flags the list opts in (enum: lines); keep them when building a
+  // new list from keys().
+  const EnumFlags& enums() const { return enums_; }
   std::size_t size() const { return keys_.size(); }
   bool empty() const { return keys_.empty(); }
 
  private:
   std::vector<FlagKey> keys_;  // sorted, unique
+  EnumFlags enums_;
 };
 
 }  // namespace coop::host

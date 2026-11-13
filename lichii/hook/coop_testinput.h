@@ -54,6 +54,69 @@
 //   give bombs             test only: gives an item through coop_cheats
 //                          (needs LICHII_COOP_CHEATS=1): bombs, bow, hookshot,
 //                          or any item flag name coop_cheats knows
+//   life 0                 test only: writes 0 (quarter hearts, up to Link's
+//                          max) into Link's current life word, the Life
+//                          component's value (docs/objects.md); 0 kills him.
+//                          Refused, with a log line, when the path to it
+//                          cannot be read
+//   gate 1                 test only: writes 1 (closed) or 0 (open) into the
+//                          downed gate's word (coop_downed.h); while closed
+//                          the game over event does not start. The gate is
+//                          only patched in with LICHII_COOP_DOWNED=1
+//   bottle A fairy         test only: puts a value (Empty, Fairy, RedPotion,
+//                          any BottleItem name, any case) straight into the
+//                          live value of bottle A's (A to E) content flag,
+//                          PlayerStatus.AssignableItem.BottleInfo.BottleA.
+//                          BottleItem (an Enum flag), and, when bottle A is
+//                          not owned, its IsValid and PouchData.BottleA.
+//                          StockNum too; not through the game's queue, so the
+//                          saved copy keeps the old value. Logs what it wrote
+//                          and what was there
+//   bottle A restore       test only: puts back what the first bottle A write
+//                          found there
+//   event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+//                          test only: asks the game to start that event, as
+//                          the game over asks its own: main+0x4aa890 with
+//                          Link's event component and the name, called from
+//                          the svc cave (orm_story_events.h; the cave is patched in
+//                          with LICHII_COOP_PUPPET=1). Logs "coop: story:"
+//                          lines: what was asked and whether the game took it
+//   skip                   test only (ORM, ZMP D-048): force skips the event
+//                          that runs now, with the game's own force skip
+//                          (orm_story_events.h, Skip): one shot a call, as a
+//                          player's skip in a scenario (historia-saltar); the
+//                          story layer counts it as the owner's skip press
+//                          (its end goes out as STORY_EVENT skipped).
+//                          Logs "coop: test skip" and a "coop: story: force
+//                          skip ..." or "no event to skip" line
+//   flag HavePlayedEvent.KokiriForest_Meet_DekuTree_MeetDekuTree_01 1
+//                          test only: queues a Bool flag (by name, or 0x and
+//                          its hash) to 0 or 1 through the game's own queue,
+//                          as its setter does (GameFlags::set_bool), so the
+//                          save keeps it. Logs whether the queue took it and
+//                          what the flag read before
+//   key 0x9f7d0ebfa5357dbb 1
+//                          test only (ORM): queues a 64-bit-key flag
+//                          (Bool64bitKey: a placement's saved state, the
+//                          dungeon list's chests, red ice, cracked walls,
+//                          room enemy counters) to 0 or 1 through the
+//                          game's queue (GameFlags::set_key64), as the
+//                          game does when the object is broken or taken.
+//                          0x and 1 to 16 hex digits. Logs "coop: test key
+//                          0x...: queued" or "NOT set" and what it read
+//   enum Step_Meet_DekuTree [Complete]
+//                          test only: logs an Enum flag (by name, or 0x and its
+//                          hash) as the game holds it: find_type, the value's
+//                          hash and name (the built-in story list's names),
+//                          the game's own value list from the entry, and the
+//                          entry's 0x38 bytes. With a value (a name or 0x
+//                          hash), queues it through the game's Enum queue
+//                          (GameFlags::set_enum), as the game's setter does
+//   age adult              test only (ORM D-R17): this game reloads its scene at
+//                          that age (child or adult), the way a game following
+//                          a mate's age change does (coop_age_game.h): the
+//                          era flag, an event of its own, the scene change at
+//                          the other age, Link put back. Logs "coop: age:"
 //   mark walk-start        writes "coop: test mark walk-start" to the log
 //
 // goto and toward steer from Link's position, read each frame. The stick is
@@ -126,6 +189,18 @@ enum class Kind {
     kill,    // test only: the nearest actor of that name hit by our Link for all its life
     setflag, // test only: an Int or Bool flag of this game set to a value (issue 130: shop-buy)
     setenum, // test only: an Enum flag (name or 0x hash) set to a value's name (issue 193: quests)
+    life,    // test only: Link's current life, in quarter hearts
+    gate,    // test only: the downed gate's word, 0 open or 1 closed
+    bottle,  // test only: a bottle's content flag (or "restore")
+    event,   // test only: ask the game to start an event by name
+    flag,    // test only: queue a Bool flag to 0 or 1
+    int_flag,  // test only: queue an Int flag to a value (magic, a count the cheats do not give)
+    enum_flag,  // test only: log an Enum flag (and queue a value when one is given)
+    age,     // test only: this game reloaded at the other age (coop_age_game.h)
+    key64,   // test only (ORM): queue a 64-bit-key flag to 0 or 1
+    skip,    // test only (ORM, D-048): force skip the event that runs now
+    await_mate,  // test only (ORM): wait until a mate stands in our scene, or the ticks run out
+    talk_through,  // test only (ORM): press A while our event runs (a talk's text), until it is over
 };
 
 struct Step {
@@ -136,7 +211,13 @@ struct Step {
     std::optional<Stick> right;
     std::string mark;  // mark: its name; warp: the scene; give: the item; wear: the piece;
                        // assign: the item's name in the button enum (Bow, Hookshot, Hammer)
-    std::string start; // warp: the start position name (empty: the scene's own); wear: the slot
+                       // life and gate: the value, in decimal; bottle: the slot, A to E;
+                       // event: the event name; flag and int: the flag's name or 0x hash;
+                       // key: the 0x key (1 to 16 hex digits)
+    std::string start; // warp: the start position name (empty: the scene's own); wear: the slot;
+                       // bottle: the BottleItem value name as the game spells it, or "restore";
+                       // flag and key: "0" or "1"; int: the value, in decimal;
+                       // enum: the value to queue (empty: only log)
     float x = 0.0f;  // goto and toward: the world point (x, z); place: (x, y, z)
     float y = 0.0f;
     float z = 0.0f;
@@ -265,11 +346,24 @@ private:
 };
 
 // Called once per emulated frame by the hook. Does nothing unless
-// LICHII_COOP_TEST_SCRIPT is set. In the Hookshot module (COOP_HOOKSHOT) it
-// reads LICHII_COOP_TEST_COMMANDS instead: the autotest driver
-// (tools/autotest/hookshot.py) holds the pad through Hookshot's control bridge
-// and writes only the test-only steps there; they are played without a pad
-// and the file is emptied once read.
+// LICHII_COOP_TEST_SCRIPT or LICHII_COOP_DEBUG_LIFE is set. In the Hookshot
+// module (COOP_HOOKSHOT) it reads LICHII_COOP_TEST_COMMANDS instead: the
+// autotest driver (tools/autotest/hookshot.py) holds the pad through
+// Hookshot's control bridge and writes only the test-only steps there; they
+// are played without a pad and the file is emptied once read.
+//
+// LICHII_COOP_DEBUG_LIFE=1 (the "downed, not dead" probe, oot-remake
+// docs/CAIDO_REVIVIR.md): reads every frame Link's life and max, the Death
+// component's word ([[actor + 0x270] + 0x1c0] + 0x20), whether an event runs,
+// the current event object, the AS command in the main slot and the scene,
+// and writes a "coop: life:" line (with Link's position) on each change, at
+// most ten a second.
 void OnFrame(Core::System& system);
+
+// The spectator camera's wake nudge (coop_spectator.h): while set, player 1's
+// pad (or the handheld one) gets the right stick at `right`; a running test
+// script's input keeps its own right stick when it sets one. Nothing: let go.
+// Present thread. Only in the emulator build.
+void Nudge(Core::System& system, std::optional<Stick> right);
 
 } // namespace CoopTestInput

@@ -27,7 +27,8 @@ namespace {
 
 bool OnByEnv() {
     const char* v = std::getenv("LICHII_COOP_SCENE_PROBE");
-    return v != nullptr && std::string_view(v) == "1";
+    // The reading of every opt-in switch (any value but empty and "0").
+    return v != nullptr && v[0] != '\0' && std::string_view(v) != "0";
 }
 
 // Main's selector reads these two Bools (0x3303ca0): 0x3fc35576 picks

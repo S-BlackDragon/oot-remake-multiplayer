@@ -350,6 +350,57 @@ struct Stats {
   // Dropped: naming the sender itself, or an accept or refuse for a player
   // who is not in the session.
   std::uint64_t join_dropped = 0;
+  // REVIVE (ORM "downed, not dead"): passed on to the downed player (in
+  // relayed too), or dropped: naming the sender, a player not there, one not
+  // dead, or one in another scene.
+  std::uint64_t revive_relayed = 0;
+  std::uint64_t revive_dropped = 0;
+  // GROUP_DEFEAT sent (each time to everyone): all two or more players dead 2 s.
+  std::uint64_t group_defeats = 0;
+  // STORY_EVENT (ORM story cutscenes): a first start of a (scene, name) or its
+  // owner's end, relayed to the others (in relayed too); a start of a pair
+  // already started (another game started it too, or the same again: not
+  // relayed); dropped: `played` from a client, an end from anyone but the
+  // owner or of a pair never started, or a room already at kMaxStoryEvents.
+  std::uint64_t story_relayed = 0;
+  std::uint64_t story_repeats = 0;
+  std::uint64_t story_dropped = 0;
+  // PLAYER_LOOK (ORM name and colour per player): a new look relayed to the
+  // others (in relayed too); the same look again is kept and not relayed.
+  std::uint64_t look_relayed = 0;
+  std::uint64_t look_repeats = 0;
+  // CHAT (ORM quick messages): over a player's chat rate (chat_count), dropped.
+  // Not in dropped(): like look_repeats, a rule of the room, not a bad packet.
+  std::uint64_t chat_limited = 0;
+  // GROUP_SETTINGS (ORM, orm_session.cpp): as PLAYER_LOOK.
+  std::uint64_t settings_relayed = 0;
+  std::uint64_t settings_repeats = 0;
+  // ORM orm/pvp (orm_session.cpp): ROOM_SWITCH changes relayed, and the same
+  // value again; PLAYER_HIT relayed, and dropped (PvP off, another scene, the
+  // rate, a victim not in); PLAYER_CALL relayed and dropped; PLAYER_RENAME
+  // taken and refused.
+  std::uint64_t switch_relayed = 0;
+  std::uint64_t switch_repeats = 0;
+  std::uint64_t hit_relayed = 0;
+  std::uint64_t hit_dropped = 0;
+  std::uint64_t call_relayed = 0;
+  std::uint64_t call_dropped = 0;
+  std::uint64_t rename_taken = 0;
+  std::uint64_t rename_refused = 0;
+  // OBJECT_POSE (ORM): relayed to the object's scene (in relayed too);
+  // refused: not from the owner of the current epoch or an unknown object;
+  // dropped: too soon after the player's last one, or another object while
+  // one is being posed, or a part of the last pose relayed again.
+  std::uint64_t object_pose_relayed = 0;
+  std::uint64_t object_pose_refused = 0;
+  std::uint64_t object_pose_dropped = 0;
+  // PLAYER_POSE (ORM orm_interest.hpp): copies not sent to a player in
+  // another place (a pose is in relayed once, however many got it).
+  std::uint64_t pose_other_place = 0;
+  // OCARINA_NOTE (ORM): relayed to the others (in relayed too), or dropped:
+  // over the player's own note rate (ocarina_note_per_second).
+  std::uint64_t ocarina_note_relayed = 0;
+  std::uint64_t ocarina_note_dropped = 0;
   // FLAG_SET and FLAG_STATE relayed (stage 1 step 4); in relayed too.
   std::uint64_t flag_relayed = 0;
   std::uint64_t host_resets = 0;   // FLAG_RESETs from the host (its save load)
@@ -513,7 +564,7 @@ class Session {
     // HELLO: the token its REJOIN_CLAIM showed, if any.
     protocol::RejoinTokenBytes rejoin_token{};
     std::optional<protocol::RejoinTokenBytes> rejoin_claim;
-    std::uint8_t number = 0;  // 1 to 4 once joined
+    std::uint8_t number = 0;  // 1 to kMaxPlayers once joined
     std::string nickname;
     // The scene the player is in, from its latest OBJECT_PRESENT or
     // PLAYER_SAMPLE scene; empty while not known.
@@ -709,6 +760,7 @@ class Session {
   // The end of the owner hold: each held object to the lowest player number
   // that lists it, announced to its scene.
   void end_owner_hold(std::uint64_t now_us);
+  void check_group_defeat(std::uint64_t now_us);
   // Asks the owner to let go of it to `to`; finish_handover follows.
   void ask_handover(const protocol::ObjectId& oid, Object& o, ConnectionId to,
                     std::uint64_t now_us);
@@ -793,6 +845,29 @@ class Session {
   // object listing (0: not started), and whether its objects got owners.
   std::uint64_t owner_hold_until_ = 0;
   bool owner_hold_done_ = false;
+  // GROUP_DEFEAT went out and nobody has been up since.
+  bool group_defeat_sent_ = false;
+  // ORM orm/pvp: the room's switches (ROOM_SWITCH) by key: on, who set it,
+  // when. Forgotten when the session empties (a new room starts with all off).
+  struct SwitchRecord {
+    bool on = false;
+    std::uint8_t by = 0;
+    std::uint64_t at_us = 0;
+  };
+  std::map<std::uint8_t, SwitchRecord> switches_;
+  bool switch_on(protocol::RoomSwitchKey key) const;
+  // ORM story cutscenes: every (scene, name) started in this room, with its
+  // owner and start; a joiner gets each as STORY_EVENT played. Forgotten when
+  // the session empties.
+  struct StoryRecord {
+    std::uint8_t owner = 0;
+    protocol::Vec3 position{};
+    std::uint32_t started_ms = 0;
+    bool ended = false;
+    bool skipped = false;  // its end was `skipped` (ORM D-048)
+  };
+  static constexpr std::size_t kMaxStoryEvents = 512;
+  std::map<std::pair<std::string, std::string>, StoryRecord> story_;
   // The field grass cut in each scene (GRASS_CUT), oldest first, at most
   // kMaxGrassCuts a scene; sent to a player who enters the scene. Forgotten
   // when no player is in the scene.

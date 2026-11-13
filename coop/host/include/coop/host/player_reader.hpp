@@ -4,6 +4,7 @@
 // a failed or implausible read gives nothing, never garbage.
 
 #include <array>
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -22,6 +23,9 @@ inline constexpr float kMaxCoordinate = 1.0e6f;
 // Animation frames and rates beyond these are refused as garbage.
 inline constexpr float kMaxAnimationFrame = 1.0e6f;
 inline constexpr float kMaxAnimationRate = 100.0f;
+// Event names longer than this are refused (the game's request holds 128 with
+// the NUL).
+inline constexpr std::size_t kMaxEventNameChars = 127;
 
 // One frame's reading. The position is required; without it there is no
 // reading. Each other field is nothing when its own read failed or was
@@ -60,6 +64,13 @@ class PlayerReader {
   std::optional<protocol::Age> read_age();
   std::optional<std::string> read_scene();
   std::optional<bool> read_event_running();
+  // The current event object (the one the event session is playing), or
+  // nothing when no event runs or a link of the path is unreadable.
+  std::optional<std::uint64_t> read_current_event();
+  // The current event's name ("DmF_SY_GameOver", "NPC_..._Talk"): 1 to
+  // kMaxEventNameChars printable ASCII characters, NUL-terminated within the
+  // buffer's capacity. Nothing when there is no event or the name is not that.
+  std::optional<std::string> read_event_name();
   // The AS command playing in the player's main slot, its frame and rate.
   // Nothing when no command plays, or the name is not 1 to
   // protocol::kMaxAnimationChars printable ASCII characters, or the frame or

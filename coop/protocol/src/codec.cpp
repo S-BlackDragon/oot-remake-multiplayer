@@ -2147,12 +2147,288 @@ Error decode_body(Reader& r, BossRoom& m) {
   return Error::none;
 }
 
-Error decode_body(Reader& r, PlayerPose& m) {  m = PlayerPose{};
+// REVIVE: u8 player, u8 the downed player (1 to 6, not the sender), u8 progress.
+Error encode_body(const Revive& m, Writer& w) {
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  if (!valid_player(m.other_player) || m.other_player == m.player_number) return Error::bad_value;
+  if (m.progress > kReviveMaxProgress && m.progress != kReviveDone) return Error::bad_value;
+  w.u8(m.player_number);
+  w.u8(m.other_player);
+  w.u8(m.progress);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, Revive& m) {
+  m = Revive{};
   COOP_READ(r.u8(m.player_number));
   if (!valid_player_or_self(m.player_number)) return Error::bad_value;
-  COOP_READ(r.u64(m.time.server_time_us));
-  COOP_READ(r.u32(m.time.sequence));
-  COOP_READ(r.u32(m.skeleton));
+  COOP_READ(r.u8(m.other_player));
+  if (!valid_player(m.other_player) || m.other_player == m.player_number) return Error::bad_value;
+  COOP_READ(r.u8(m.progress));
+  if (m.progress > kReviveMaxProgress && m.progress != kReviveDone) return Error::bad_value;
+  return Error::none;
+}
+
+// GROUP_DEFEAT: u8 players down (1 to 6), u32 server time in ms.
+Error encode_body(const GroupDefeat& m, Writer& w) {
+  if (!valid_player(m.down)) return Error::bad_value;
+  w.u8(m.down);
+  w.u32(m.server_time_ms);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, GroupDefeat& m) {
+  m = GroupDefeat{};
+  COOP_READ(r.u8(m.down));
+  if (!valid_player(m.down)) return Error::bad_value;
+  COOP_READ(r.u32(m.server_time_ms));
+  return Error::none;
+}
+
+// A story event's name: 1 to kMaxStoryNameChars of A-Z, a-z, 0-9 and _.
+bool valid_story_name(std::string_view name) {
+  if (name.empty() || name.size() > kMaxStoryNameChars) return false;
+  for (const char c : name) {
+    const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                    c == '_';
+    if (!ok) return false;
+  }
+  return true;
+}
+
+bool valid_story_kind(std::uint8_t kind) { return kind >= 1 && kind <= 4; }
+
+// STORY_EVENT: u8 player, u8 kind (1 start, 2 end, 3 played, 4 skipped), scene, name,
+// f32 x 3 position, u32 server time in ms.
+Error encode_body(const StoryEvent& m, Writer& w) {
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  const auto kind = static_cast<std::uint8_t>(m.kind);
+  if (!valid_story_kind(kind)) return Error::bad_value;
+  COOP_TRY(check_string(m.scene, kMaxSceneChars));
+  if (m.scene.empty() || !valid_story_name(m.name) || !all_finite(m.position)) {
+    return Error::bad_value;
+  }
+  w.u8(m.player_number);
+  w.u8(kind);
+  w.str(m.scene);
+  w.str(m.name);
+  for (float f : m.position) w.f32(f);
+  w.u32(m.server_time_ms);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, StoryEvent& m) {
+  m = StoryEvent{};
+  COOP_READ(r.u8(m.player_number));
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  std::uint8_t kind = 0;
+  COOP_READ(r.u8(kind));
+  if (!valid_story_kind(kind)) return Error::bad_value;
+  m.kind = static_cast<StoryKind>(kind);
+  COOP_TRY(r.str(m.scene, kMaxSceneChars));
+  COOP_TRY(r.str(m.name, kMaxStoryNameChars));
+  if (m.scene.empty() || !valid_story_name(m.name)) return Error::bad_value;
+  for (float& f : m.position) COOP_READ(r.f32(f));
+  if (!all_finite(m.position)) return Error::bad_value;
+  COOP_READ(r.u32(m.server_time_ms));
+  return Error::none;
+}
+
+// ORM: GROUP_SETTINGS, its body in orm_messages.cpp.
+Error encode_body(const GroupSettings& m, Writer& w) {
+  std::vector<std::uint8_t> body;
+  COOP_TRY(orm_encode_group_settings(m, body));
+  w.bytes(body.data(), body.size());
+  return Error::none;
+}
+
+Error decode_body(Reader& r, GroupSettings& m) {
+  std::span<const std::uint8_t> body;
+  r.take(r.left(), body);
+  return orm_decode_group_settings(body, m);
+}
+
+// ORM orm/pvp: ROOM_SWITCH, PLAYER_HIT, PLAYER_CALL, PLAYER_RENAME, their
+// bodies in orm_messages.cpp.
+#define COOP_ORM_BODY(Type, name)                                \
+  Error encode_body(const Type& m, Writer& w) {                  \
+    std::vector<std::uint8_t> body;                              \
+    COOP_TRY(orm_encode_##name(m, body));                        \
+    w.bytes(body.data(), body.size());                           \
+    return Error::none;                                          \
+  }                                                              \
+  Error decode_body(Reader& r, Type& m) {                        \
+    std::span<const std::uint8_t> body;                          \
+    r.take(r.left(), body);                                      \
+    return orm_decode_##name(body, m);                           \
+  }
+COOP_ORM_BODY(RoomSwitch, room_switch)
+COOP_ORM_BODY(PlayerHit, player_hit)
+COOP_ORM_BODY(PlayerCall, player_call)
+COOP_ORM_BODY(PlayerRename, player_rename)
+#undef COOP_ORM_BODY
+
+// PLAYER_LOOK: u8 player, u8 x 3 red green blue, u8 style (reserved, kept
+// as it came).
+Error encode_body(const PlayerLook& m, Writer& w) {
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  w.u8(m.player_number);
+  for (std::uint8_t c : m.rgb) w.u8(c);
+  w.u8(m.style);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, PlayerLook& m) {
+  m = PlayerLook{};
+  COOP_READ(r.u8(m.player_number));
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  for (std::uint8_t& c : m.rgb) COOP_READ(r.u8(c));
+  COOP_READ(r.u8(m.style));
+  return Error::none;
+}
+
+// CHEST_OPEN: u8 player, u64 chest (placement hash, never 0 nor ~0), scene
+// (1 to 64), animation name (1 to 64), f32 frame, f32 rate, u64 server time.
+bool valid_chest_open(const ChestOpen& m) {
+  return m.chest != 0 && m.chest != ~std::uint64_t{0} && !m.scene.empty() &&
+         !m.animation.name.empty() && std::isfinite(m.animation.frame) &&
+         std::isfinite(m.animation.rate);
+}
+
+Error encode_body(const ChestOpen& m, Writer& w) {
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  COOP_TRY(check_string(m.scene, kMaxSceneChars));
+  COOP_TRY(check_string(m.animation.name, kMaxAnimationChars));
+  if (!valid_chest_open(m)) return Error::bad_value;
+  w.u8(m.player_number);
+  w.u64(m.chest);
+  w.str(m.scene);
+  w.str(m.animation.name);
+  w.f32(m.animation.frame);
+  w.f32(m.animation.rate);
+  w.u64(m.server_time_us);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, ChestOpen& m) {
+  m = ChestOpen{};
+  COOP_READ(r.u8(m.player_number));
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  COOP_READ(r.u64(m.chest));
+  COOP_TRY(r.str(m.scene, kMaxSceneChars));
+  COOP_TRY(r.str(m.animation.name, kMaxAnimationChars));
+  COOP_READ(r.f32(m.animation.frame));
+  COOP_READ(r.f32(m.animation.rate));
+  COOP_READ(r.u64(m.server_time_us));
+  if (!valid_chest_open(m)) return Error::bad_value;
+  return Error::none;
+}
+
+// OCARINA_NOTE's fields together: a note 1 to 19 and song 0 for `note`, both
+// 0 for `release`, a song 0 to 12 and note 0 for `song`; instrument 0 to 3.
+bool valid_ocarina(std::uint8_t kind, std::uint8_t instrument, std::uint8_t note,
+                   std::uint8_t song) {
+  if (instrument > kMaxOcarinaInstrument) return false;
+  switch (kind) {
+    case static_cast<std::uint8_t>(OcarinaKind::note):
+      return note >= 1 && note <= kMaxOcarinaNote && song == 0;
+    case static_cast<std::uint8_t>(OcarinaKind::release):
+      return note == 0 && song == 0;
+    case static_cast<std::uint8_t>(OcarinaKind::song):
+      return note == 0 && song <= kMaxOcarinaSong;
+    default:
+      return false;
+  }
+}
+
+// OCARINA_NOTE: u8 player, u8 kind (1 note, 2 release, 3 song), u8
+// instrument, u8 note, u8 song, u8 serial.
+Error encode_body(const OrmOcarinaNote& m, Writer& w) {
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  const auto kind = static_cast<std::uint8_t>(m.kind);
+  if (!valid_ocarina(kind, m.instrument, m.note, m.song)) return Error::bad_value;
+  w.u8(m.player_number);
+  w.u8(kind);
+  w.u8(m.instrument);
+  w.u8(m.note);
+  w.u8(m.song);
+  w.u8(m.serial);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, OrmOcarinaNote& m) {
+  m = OrmOcarinaNote{};
+  COOP_READ(r.u8(m.player_number));
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  std::uint8_t kind = 0;
+  COOP_READ(r.u8(kind));
+  COOP_READ(r.u8(m.instrument));
+  COOP_READ(r.u8(m.note));
+  COOP_READ(r.u8(m.song));
+  COOP_READ(r.u8(m.serial));
+  if (!valid_ocarina(kind, m.instrument, m.note, m.song)) return Error::bad_value;
+  m.kind = static_cast<OcarinaKind>(kind);
+  return Error::none;
+}
+
+// LINK_NOTICE: u8 kind (any value; unknown kinds are kept), u32 a, u32 b.
+// Frozen: games of every release read it (messages.hpp).
+Error encode_body(const LinkNotice& m, Writer& w) {
+  w.u8(static_cast<std::uint8_t>(m.kind));
+  w.u32(m.a);
+  w.u32(m.b);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, LinkNotice& m) {
+  m = LinkNotice{};
+  std::uint8_t kind = 0;
+  COOP_READ(r.u8(kind));
+  m.kind = static_cast<LinkNoticeKind>(kind);
+  COOP_READ(r.u32(m.a));
+  COOP_READ(r.u32(m.b));
+  return Error::none;
+}
+
+// HOST_CHOICE (ORM): u8 kind, u8 wish, u8 why, u8 host, u8 by, u16 rtt_ms,
+// string name, string pinned (each a nickname, up to kMaxNicknameChars).
+// Kinds, wishes and whys this build does not know are kept as they came.
+Error encode_body(const HostChoice& m, Writer& w) {
+  if (!valid_player_or_self(m.host) || !valid_player_or_self(m.by)) return Error::bad_value;
+  COOP_TRY(check_string(m.name, kMaxNicknameChars));
+  COOP_TRY(check_string(m.pinned, kMaxNicknameChars));
+  w.u8(static_cast<std::uint8_t>(m.kind));
+  w.u8(static_cast<std::uint8_t>(m.wish));
+  w.u8(static_cast<std::uint8_t>(m.why));
+  w.u8(m.host);
+  w.u8(m.by);
+  w.u16(m.rtt_ms);
+  w.str(m.name);
+  w.str(m.pinned);
+  return Error::none;
+}
+
+Error decode_body(Reader& r, HostChoice& m) {
+  m = HostChoice{};
+  std::uint8_t kind = 0;
+  std::uint8_t wish = 0;
+  std::uint8_t why = 0;
+  COOP_READ(r.u8(kind));
+  COOP_READ(r.u8(wish));
+  COOP_READ(r.u8(why));
+  COOP_READ(r.u8(m.host));
+  COOP_READ(r.u8(m.by));
+  if (!valid_player_or_self(m.host) || !valid_player_or_self(m.by)) return Error::bad_value;
+  COOP_READ(r.u16(m.rtt_ms));
+  COOP_TRY(r.str(m.name, kMaxNicknameChars));
+  COOP_TRY(r.str(m.pinned, kMaxNicknameChars));
+  m.kind = static_cast<HostChoiceKind>(kind);
+  m.wish = static_cast<HostWish>(wish);
+  m.why = static_cast<HostWhy>(why);
+  return Error::none;
+}
+
+Error read_pose_bones(Reader& r, std::vector<PoseBone>& bones, std::size_t max) {
   std::uint16_t count = 0;
   COOP_READ(r.u16(count));
   if (count > kMaxPoseBones) return Error::bad_value;
@@ -2392,6 +2668,8 @@ bool may_send(Sender from, MessageType type) {
     case MessageType::object_owner:
     case MessageType::handover_ask:
     case MessageType::flag_origin:
+    case MessageType::group_defeat:
+    case MessageType::link_notice:
       return from == Sender::server;
     case MessageType::ping:
     case MessageType::pong:
@@ -2506,6 +2784,12 @@ bool set_sender(Message& message, std::uint8_t player) {
   // Nor hit itself or be hurt by itself (PvP).
   if (const auto* h = std::get_if<PvpHit>(&message); h && h->victim == player) return false;
   if (const auto* h = std::get_if<PvpHurt>(&message); h && h->attacker == player) return false;
+  if (const auto* r = std::get_if<Revive>(&message); r && r->other_player == player) {
+    return false;
+  }
+  // ORM orm/pvp: nor hit or call itself.
+  if (const auto* h = std::get_if<PlayerHit>(&message); h && h->victim == player) return false;
+  if (const auto* c = std::get_if<PlayerCall>(&message); c && c->to == player) return false;
   *field = player;
   return true;
 }

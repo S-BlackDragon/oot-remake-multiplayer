@@ -76,13 +76,14 @@ std::string version_note(std::uint16_t theirs) {
 
 std::uint64_t Stats::dropped() const {
   std::uint64_t total = before_welcome + repeated_hello + after_refused + rate_limited +
-                        join_dropped + flag_refused + object_refused + damage_dropped +
-                        group_refused;
+                        join_dropped + revive_dropped + story_dropped + flag_refused +
+                        object_refused + damage_dropped + group_refused + ocarina_note_dropped;
   for (std::uint64_t n : by_error) total += n;
   return total;
 }
 
-Session::Session(SessionConfig config) : config_(std::move(config)), pvp_(config_.pvp) {}
+Session::Session(SessionConfig config)
+    : config_(std::move(config)), pvp_(config_.pvp), election_(config_.host) {}
 
 bool Session::connected(ConnectionId id, std::uint64_t now_us,
                         std::optional<std::uint32_t> address) {
@@ -375,6 +376,11 @@ void Session::admit(ConnectionId id, Connection& c, const Hello& hello,
   // game starts each connection with PvP off (docs/protocol.md, "PvP").
   if (pvp_) send(id, kChannelSession, PvpMode{pvp_set_by_, pvp_});
   send_snapshot(id);
+  send_story(id);  // ORM: the story events this room has played
+  send_looks(id);  // ORM: every player's colour
+  send_statuses(id);  // ORM: who is down, paused, loading (sent only on change)
+  send_group_settings(id);  // ORM: every player's world settings (orm_session.cpp)
+  send_room_switches(id);   // ORM orm/pvp: the room's switches (PvP, lock on mates)
   log("player " + std::to_string(c.number) + " joined: " + c.nickname);
 }
 
@@ -565,7 +571,7 @@ void Session::on_pvp_hit(ConnectionId id, Connection& c, Message& message) {
 }
 
 // To the named player only. The codec has made sure the player field is 0
-// and the other player is 1 to 4.
+// and the other player is 1 to kMaxPlayers.
 void Session::on_join_partner(ConnectionId id, Connection& c, JoinPartner& j) {
   if (j.other_player == c.number) {  // set_sender refuses it too
     ++stats_.join_dropped;
@@ -670,6 +676,7 @@ void Session::on_host_reset() {
   // Owners of session-wide kept state add their clear here (docs/flags.md, "Saves").
   world_.forget_kept();  // locked doors' kept breaks (docs/dungeon.md, "Locked doors")
   dead_.clear();         // kills-late: the save's enemies are alive again
+  story_.clear();        // ORM story events: the save's cutscenes play again, for everyone (REVISION_HISTORIA H4)
 }
 
 // A host's table, merged in part by part. A flag the server lacks is kept and
@@ -2057,6 +2064,8 @@ void Session::remove_player(ConnectionId id, LeaveReason reason, std::uint64_t n
     pvp_set_by_ = 0;
     election_.clear();  // ORM: the name picked by hand ends with the room
     flags_.clear();
+    story_.clear();
+    switches_.clear();  // ORM orm/pvp
     objects_.clear();
     grass_.clear();
     world_.clear();
@@ -2115,6 +2124,56 @@ void Session::tick(std::uint64_t now_us) {
     ownership_checked_at_ = now_us;
     run_ownership(now_us);
   }
+  check_group_defeat(now_us);
+  if (config_.host_check_us != 0 && now_us - host_checked_at_ >= config_.host_check_us) {
+    host_checked_at_ = now_us;
+    run_host_choice(now_us);  // ORM one host (orm_host.cpp)
+  }
+}
+
+// ORM "downed, not dead" (oot-remake docs/CAIDO_REVIVIR.md): when every
+// player in, two or more, has had PLAYER_STATUS dead for group_defeat_us
+// running, everyone gets GROUP_DEFEAT once; once someone is up (or a player
+// joins and has not said it is dead), the next time counts again. A player
+// alone is left to its own game (it opens its gate itself).
+// ORM menus (oot-remake docs/MENUS_PAUSA.md M6): a player on the title screen
+// (orm_status::at_title) is not in the world and is left out: neither one who
+// is up nor one of the players counted.
+// ORM D-R66, D-R73: a dead player a mate holds A beside (a REVIVE relayed to
+// it within revive_hold_us) counts as up, so the group never splits; when the
+// hold stops (A let go, the reviver fallen) it is down again and its 2 s
+// count from the hold's end. Getting up after the REVIVE its game sends no
+// dead bit at all (coop::host::Downed::status_dead).
+void Session::check_group_defeat(std::uint64_t now_us) {
+  if (config_.group_defeat_us == 0) return;
+  std::size_t players = 0;
+  bool all_long = true;
+  for (const auto& [id, c] : connections_) {
+    if (c.state != State::joined) continue;
+    if ((c.status & orm_status::at_title) != 0) continue;
+    ++players;
+    std::uint64_t hold_end =
+        c.revive_hold_at != 0 && config_.revive_hold_us != 0 ? c.revive_hold_at + config_.revive_hold_us : 0;
+    // ORM orm/pvp: a fall to PvP counts as up for pvp_down_hold_us.
+    if (c.pvp_down_at != 0) hold_end = std::max(hold_end, c.pvp_down_at + config_.pvp_down_hold_us);
+    if (c.dead_since == 0 || now_us < hold_end) {
+      group_defeat_sent_ = false;  // someone is up (or held): a defeat may come again
+      return;
+    }
+    const std::uint64_t down_since = std::max(c.dead_since, hold_end);
+    if (now_us - down_since < config_.group_defeat_us) all_long = false;
+  }
+  if (players < 2 || !all_long || group_defeat_sent_) return;
+  group_defeat_sent_ = true;
+  ++stats_.group_defeats;
+  const GroupDefeat m{static_cast<std::uint8_t>(players),
+                      static_cast<std::uint32_t>(now_us / 1000)};
+  std::vector<std::uint8_t> bytes;
+  if (encode(m, bytes) != Error::none) return;
+  for (const auto& [id, c] : connections_) {
+    if (c.state == State::joined) actions_.push_back(SendAction{id, kChannelSession, bytes});
+  }
+  log("group defeat: all " + std::to_string(players) + " players down");
 }
 
 void Session::end_owner_hold(std::uint64_t now_us) {
