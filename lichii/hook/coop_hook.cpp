@@ -87,6 +87,8 @@
 #include "coop_time.h"
 #include "coop_testinput.h"
 #include "coop_world.h"
+#include "coop_frame_log.h"      // ORM frame times (LICHII_ORM_FRAME_LOG)
+#include "platform_emulator.h"  // ORM platform layer (platform.h)
 
 namespace CoopHook {
 namespace {

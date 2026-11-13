@@ -40,6 +40,7 @@
 #include "coop_flags.h"
 #include "coop_puppet.h"
 #include "coop_svc.h"
+#include "coop_switch.h"
 
 namespace CoopBoss {
 namespace {
@@ -164,6 +165,11 @@ struct Glue {
         by_scene = Env("LICHII_COOP_BOSS_MOVE") != "matrix";
         const auto d = Env("LICHII_COOP_DEBUG_BOSS");
         debug = !d.empty() && d != "0";
+        // ORM: our switches read as every other (coop_switch.h); unset, they
+        // follow the downed rules (CoopDowned::On, the same reading).
+        const bool downed_on = CoopDowned::On();
+        pull_downed = CoopSwitch::On("LICHII_COOP_BOSS_PULL_DOWNED", downed_on);
+        respawn_on = CoopSwitch::On("LICHII_COOP_BOSS_RESPAWN", downed_on);
         if (on) {
             CoopSvc::AddCaller(kCallerOrder, [this](CoopPuppet::Guest& guest, bool after_call,
                                                     std::uint64_t, std::uint64_t) {

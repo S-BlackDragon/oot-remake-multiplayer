@@ -96,6 +96,7 @@
 #include "coop_counters.h"
 #include "coop_scrubs.h"
 #include <set>
+#include "coop_switch.h"
 
 namespace CoopObjects {
 void NoteBosses(const std::vector<Seen>& seen);  // issue 109, below

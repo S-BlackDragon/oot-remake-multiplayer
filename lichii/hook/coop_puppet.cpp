@@ -4,6 +4,8 @@
 #include "coop_camera.h"
 #include "coop_colors.h"
 #include "coop_pose.h"
+#include "orm_ride.h"  // ORM: moving floors that carry a partner
+#include "coop_switch.h"
 
 #include <algorithm>
 #include <atomic>

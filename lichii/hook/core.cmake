@@ -52,6 +52,11 @@ target_sources(core PRIVATE
     "${_coop_hook}/coop_testinput.cpp"
     "${_coop_hook}/coop_time.cpp"
     "${_coop_hook}/coop_time_sync.cpp"
+    "${_coop_hook}/coop_clock.cpp"
+    "${_coop_hook}/coop_time_temple_game.cpp"
+    # ORM platform layer (platform.h): the emulator adapter, and the frame times
+    "${_coop_hook}/platform_emulator.cpp"
+    "${_coop_hook}/coop_frame_log.cpp"
 )
 # Public, so video_core (which links core) sees them: the patched
 # vk_rasterizer.cpp includes coop_camera_track.h under LICHII_COOP.

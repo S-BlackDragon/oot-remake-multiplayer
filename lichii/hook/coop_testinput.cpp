@@ -583,6 +583,7 @@ void Runner::Steer(const Step& step, double now_s, std::optional<std::array<floa
 #include <sstream>
 
 #include "common/logging.h"
+#include "coop_switch.h"
 #include "coop/host/flags.hpp"
 #include "coop/host/game_flags.hpp"
 #include "coop/host/player_reader.hpp"

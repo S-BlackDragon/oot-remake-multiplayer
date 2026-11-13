@@ -138,6 +138,8 @@ struct Glue {
     std::optional<std::string> saved_start;
     bool saved_read = false;
     Grounded grounded;
+    CoopEscape::Escape escape{CoopEscape::SettingsFrom(
+        CoopSwitch::On("LICHII_ORM_GROUP_EXIT", "LICHII_COOP_GROUP_EXIT", true))};
 
     // The scene event (Trip::kSceneEvent): asked on the present thread,
     // started from the svc cave on the game's calc thread.

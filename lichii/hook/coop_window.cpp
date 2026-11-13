@@ -37,6 +37,10 @@
 #include "coop_puppet.h"  // NameColor
 #define COOP_WINDOW_HAS_COLORS 1
 #endif
+#include "orm_hud.h"  // ORM: the in-frame HUD (LICHII_COOP_HUD)
+#include "coop_switch.h"
+#include "coop_map.h"
+#include "orm_chat_complete.h"  // ORM: command suggestions in the chat box
 
 namespace CoopWindow {
 namespace {
