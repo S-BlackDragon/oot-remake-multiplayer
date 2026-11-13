@@ -1,0 +1,103 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: S-BlackDragon <88566750+S-BlackDragon@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 13:10:01 -0800
+Subject: [PATCH] coop: draw the co-op HUD into the frame after the picture
+
+With LICHII_COOP on, BlitScreen::DrawToFrame calls the hook's
+CoopHudVk::Pass (hook/coop_hud_vk.cpp, built into video_core by
+hook/video.cmake) right after the window adapt pass, for the window and
+the screenshot blits (not the applet capture). It draws the co-op name
+tags and panel inside the game's picture, so they scale with it and are
+part of what is presented, instead of a Qt window over the emulator. It
+does nothing unless LICHII_COOP_HUD=1.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/video_core/CMakeLists.txt                      |  4 ++++
+ src/video_core/renderer_vulkan/renderer_vulkan.cpp |  6 ++++++
+ src/video_core/renderer_vulkan/vk_blit_screen.cpp  |  5 +++++
+ src/video_core/renderer_vulkan/vk_blit_screen.h    | 11 +++++++++++
+ 4 files changed, 26 insertions(+)
+
+diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
+index bf83c1b97e..f3b9449abc 100644
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -638,4 +638,8 @@ if (ENABLE_NVIDIA_DLSS)
+     message(STATUS "NVIDIA DLSS through Streamline: ${STREAMLINE_INCLUDE_DIR}")
+ endif()
+ 
++if (LICHII_COOP)
++    include("${LICHII_COOP_DIR}/lichii/hook/video.cmake")
++endif()
++
+ create_target_directory_groups(video_core)
+diff --git a/src/video_core/renderer_vulkan/renderer_vulkan.cpp b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+index 0a2da648aa..b5890a8413 100644
+--- a/src/video_core/renderer_vulkan/renderer_vulkan.cpp
++++ b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+@@ -189,6 +189,12 @@ try
+ #endif
+ {
+ 
++#ifdef LICHII_COOP
++    // The co-op HUD goes into the window and into screenshots, not the applet capture.
++    blit_swapchain.coop_hud = true;
++    blit_capture.coop_hud = true;
++#endif
++
+     if (Settings::values.renderer_force_max_clock.GetValue() && device.ShouldBoostClocks()) {
+         turbo_mode.emplace(instance, dld);
+         scheduler.RegisterOnSubmit([this] { turbo_mode->QueueSubmitted(); });
+diff --git a/src/video_core/renderer_vulkan/vk_blit_screen.cpp b/src/video_core/renderer_vulkan/vk_blit_screen.cpp
+index ef05fa8123..dad952854e 100644
+--- a/src/video_core/renderer_vulkan/vk_blit_screen.cpp
++++ b/src/video_core/renderer_vulkan/vk_blit_screen.cpp
+@@ -157,6 +157,11 @@ void BlitScreen::DrawToFrame(const Device& device, RasterizerVulkan& rasterizer,
+     }
+ 
+     window_adapt->Draw(device, rasterizer, scheduler, image_index, layers, framebuffers, layout, frame);
++#ifdef LICHII_COOP
++    if (coop_hud) {
++        coop_hud_pass.Draw(device, scheduler, *frame, layout, swapchain_view_format);
++    }
++#endif
+ 
+     if (++image_index >= image_count) {
+         image_index = 0;
+diff --git a/src/video_core/renderer_vulkan/vk_blit_screen.h b/src/video_core/renderer_vulkan/vk_blit_screen.h
+index 659d0fb5ff..9992e17aba 100644
+--- a/src/video_core/renderer_vulkan/vk_blit_screen.h
++++ b/src/video_core/renderer_vulkan/vk_blit_screen.h
+@@ -14,6 +14,9 @@
+ #include "video_core/renderer_vulkan/present/layer.h"
+ #include "video_core/vulkan_common/vulkan_memory_allocator.h"
+ #include "video_core/vulkan_common/vulkan_wrapper.h"
++#ifdef LICHII_COOP
++#include "coop_hud_vk.h"
++#endif
+ 
+ namespace Core {
+ class System;
+@@ -68,6 +71,11 @@ public:
+                                                     VkImageView image_view,
+                                                     VkFormat current_view_format);
+ 
++#ifdef LICHII_COOP
++    // Draw the co-op HUD (name tags, panel) into each frame after the picture.
++    bool coop_hud{};
++#endif
++
+ private:
+     void WaitIdle(const Device& device);
+     void SetWindowAdaptPass(const Device& device);
+@@ -86,6 +94,9 @@ private:
+     Settings::ScalingFilter scaling_filter{};
+     std::unique_ptr<WindowAdaptPass> window_adapt{};
+     std::list<Layer> layers{};
++#ifdef LICHII_COOP
++    CoopHudVk::Pass coop_hud_pass;
++#endif
+ };
+ 
+ } // namespace Vulkan

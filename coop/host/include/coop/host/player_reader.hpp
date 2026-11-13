@@ -78,7 +78,8 @@ class PlayerReader {
   std::optional<protocol::Animation> read_animation();
   // What the player has equipped (PlayerStatus.Equip* flags) and which
   // equipment slots are drawn, and the item in the hand slot. Nothing when neither could be read; a field
-  // is nothing when its own read failed.
+  // is nothing when its own read failed. ORM: also the rupees in the wallet
+  // (PlayerStatus.CurrentRupee, coop/host/wallets.hpp), to be shown.
   std::optional<protocol::Equipment> read_equipment();
   // The player actor's guest address, after the link choice and id test.
   std::optional<std::uint64_t> find_player_actor();

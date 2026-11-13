@@ -43,6 +43,15 @@ void OnEvent(const coop::net::Event& event, coop::net::Client& client);
 // Sends what the host owes, a part a frame.
 void OnFrame(coop::net::Client& client, bool host_reset);
 
+// ORM menus (coop_menus.h): the folder NoteSaveDir took ("" until the game
+// opened its save). Any thread.
+std::string SaveFolder();
+
+// ORM menus: a count that changes as each host's save write into the co-op
+// folder starts and ends, so a watcher of the folder's file times can tell
+// that write from the game's own save. Any thread.
+std::uint64_t SlotsWritten();
+
 // One line for the log and chat when something happened (a save written, a
 // transfer refused), or "".
 std::string TakeNotice();

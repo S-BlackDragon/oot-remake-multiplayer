@@ -122,10 +122,11 @@ inline Visibility visibility(std::optional<std::string_view> local_scene,
                              std::uint8_t remote_status_flags,
                              std::optional<std::string_view> remote_anim = std::nullopt) {
   if (!same_place(local_scene, remote_scene)) return Visibility::hide;
-  if (local_hides) return Visibility::hide;
-  const Activity theirs = activity_of(remote_anim);
-  if (theirs == Activity::riding) return Visibility::ride;
-  if (in_cutscene(remote_status_flags) && theirs != Activity::ocarina) return Visibility::hold;
+  // ORM (D-R12): neither our event (local_hides) nor theirs hides or freezes anyone; riding is
+  // upstream's (issue 199: shown with a copy of the horse, which replaced our "park"); a paused
+  // player holds (MENUS_PAUSA.md).
+  if (activity_of(remote_anim) == Activity::riding) return Visibility::ride;
+  if ((remote_status_flags & protocol::status::paused) != 0) return Visibility::hold;
   return Visibility::show;
 }
 

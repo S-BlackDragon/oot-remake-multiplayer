@@ -13,6 +13,7 @@ No game files, keys or firmware are part of this repository or of any kit.
 | fmt 12.1.0 (Victor Zverovich and contributors) | The co-op hook's log lines in the Hookshot module (`hookshot_coop.dll`, `hookshot/compat/common/logging.h`) | MIT | https://github.com/fmtlib/fmt, fetched by CMake (`hookshot/CMakeLists.txt`) at a pinned commit |
 | Hookshot (NotRexed and contributors) | `hookshot/patches/` changes it: the patch holds a few context lines of its `nx2/lift.py`; it is applied to Hookshot's source at the commit in `hookshot/PIN`, outside this repository | GPL-3.0 | https://github.com/NotRexed/Hookshot |
 | Monocypher 4.0.2 (Loup Vaillant, Michael Savage, Fabio Scotoni) | Traffic encryption: X25519, BLAKE2b, XChaCha20-Poly1305 (server, emulator hook, Hookshot module) | CC0-1.0 or BSD-2-Clause, the user's choice; we use it under CC0-1.0 | https://github.com/LoupVaillant/Monocypher, fetched by CMake at a pinned commit (cmake/monocypher.cmake) |
+| ProggyClean (Tristan Grimmer) | The in-game HUD's font, as a 7x13 bitmap (`lichii/hook/coop_hud_font.h`, made by `tools/hud_font/make_font.py`); built into `lichii.exe` | MIT | http://www.proggyfonts.net/ (the copy in Dear ImGui's `misc/fonts/`); licence text at the end of this file |
 
 Code copied in from other projects gets an entry here, with its copyright line and licence text, when it is added.
 
@@ -66,3 +67,28 @@ The C library, graphics drivers and other libraries every desktop Linux has (gli
 | linuxdeploy 1-alpha-20251107-1 | Makes the AppImage (`lichii/build-linux.sh --appimage`; the download is checked against a SHA-256 kept in the script) | MIT | https://github.com/linuxdeploy/linuxdeploy |
 | linuxdeploy-plugin-qt 1-alpha-20250213-1 | Puts Qt and its plugins into the AppImage (also SHA-256 checked) | MIT | https://github.com/linuxdeploy/linuxdeploy-plugin-qt |
 | Qt 6.8.3 for Linux, installed by `jurplel/install-qt-action` (aqtinstall) | The Qt the emulator is built with and that goes into the AppImage | LGPL-3.0 (the action and aqtinstall: MIT) | https://download.qt.io/archive/qt/6.8/6.8.3/, https://github.com/jurplel/install-qt-action |
+| ProggyClean font glyphs (Tristan Grimmer) | `emulator\lichii.exe` (the in-game HUD) | MIT | the text below (to be added to `licenses\` by `make_kit.ps1` before the HUD is on in a kit) |
+
+## ProggyClean licence
+
+```
+Copyright (c) 2004, 2005 Tristan Grimmer
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

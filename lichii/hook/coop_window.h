@@ -10,9 +10,11 @@ class QWidget;
 
 namespace CoopWindow {
 
-// Starts co-op (CoopHook::Start) and, when it is on, shows the panel over
-// `render`, and the player markers while the game's camera is known, both
-// owned by `main` (deleted with it). Call once, on the GUI thread.
+// Starts co-op (CoopHook::Start) and, when it is on, creates the panel over
+// `render` and the player markers while the game's camera is known, both
+// owned by `main` (deleted with it). The panel starts hidden unless
+// LICHII_COOP_PANEL=1 is in the environment, and F9 toggles it at any time.
+// Call once, on the GUI thread.
 void Attach(QWidget* main, QWidget* render);
 
 } // namespace CoopWindow

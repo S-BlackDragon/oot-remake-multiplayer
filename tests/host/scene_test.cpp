@@ -108,9 +108,16 @@ TEST_CASE("visibility with their animation: riding shows with a horse (issue 199
   CHECK(visibility(a, false, a, status::in_cutscene, play) == Visibility::show);
   CHECK(visibility(a, false, a, 0, play) == Visibility::show);
   CHECK(visibility(a, false, a, status::in_cutscene, demo) == Visibility::show);  // free play (#86)
-  CHECK(visibility(a, false, a, status::in_cutscene, taught) == Visibility::hold);
-  CHECK(visibility(a, false, a, status::in_cutscene, std::nullopt) == Visibility::hold);
-  // Paused, in a menu or loading: the bits are not cutscenes; they stand.
+  // ORM (D-R12): their event, even a song taught, shows them (upstream holds it).
+  CHECK(visibility(a, false, a, status::in_cutscene, taught) == Visibility::show);
+  CHECK(visibility(a, false, a, status::in_cutscene, std::nullopt) == Visibility::show);
+  // In a menu or loading: the bits are not cutscenes; they stand.
+  CHECK(visibility(a, false, a, status::in_menu | status::loading, std::nullopt) == Visibility::show);
+  // ORM menus (MENUS_PAUSA.md M2): paused holds, never hides; riding rides first; elsewhere hides.
   CHECK(visibility(a, false, a, status::paused | status::in_menu | status::loading, std::nullopt) ==
-        Visibility::show);
+        Visibility::hold);
+  CHECK(visibility(a, false, a, status::paused, std::nullopt) == Visibility::hold);
+  CHECK(visibility(a, true, a, status::paused, play) == Visibility::hold);
+  CHECK(visibility(a, false, a, status::paused, ride) == Visibility::ride);
+  CHECK(visibility(a, false, b, status::paused, std::nullopt) == Visibility::hide);
 }

@@ -682,6 +682,12 @@ struct Equipment {
   // The player's colour, 0xRRGGBB. Unset: the player chose none (a receiver
   // uses its slot's colour, coop::protocol::slot_color).
   std::optional<std::uint32_t> color;
+  // ORM: the rupees in the player's wallet (EquipComponent::rupees), 0 to
+  // kMaxRupees. Each player's own (2026-11-11): sent to be shown, never
+  // written into another game.
+  std::optional<std::uint32_t> rupees;
+  // ORM D-R19: the horse he is on, by actor name; "" on foot (EquipComponent::mount).
+  std::optional<std::string> mount;
   bool operator==(const Equipment&) const = default;
 };
 
@@ -709,6 +715,8 @@ inline Equipment merge_equipment(const Equipment& before, const Equipment& now) 
   keep(e.tool, before.tool);
   keep(e.sub_tool, before.sub_tool);
   keep(e.color, before.color);
+  keep(e.rupees, before.rupees);
+  keep(e.mount, before.mount);
   return e;
 }
 

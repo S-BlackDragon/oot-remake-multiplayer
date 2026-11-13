@@ -553,7 +553,9 @@ TEST_CASE("a refused connection that keeps sending is still dropped after the gr
 }
 
 TEST_CASE("a player flooding reliable messages is held to the rate, after a burst") {
-  Harness h;
+  SessionConfig config;
+  config.chat_count = 0;  // the message budget alone (CHAT's own limit has its test)
+  Harness h(config);
   h.join(1, "Link");
   h.join(2, "Zelda");
   h.clear();
@@ -3226,7 +3228,9 @@ TEST_CASE("security: a player relaying big messages is held to the byte rate") {
 }
 
 TEST_CASE("security: the protocol's own traffic stays under the byte rate") {
-  Harness h;
+  SessionConfig config;
+  config.chat_count = 0;  // the byte rate alone: 100 chat lines in 10 s are over CHAT's own limit
+  Harness h(config);
   h.join(1, "Link");
   h.join(2, "Zelda");
   h.clear();

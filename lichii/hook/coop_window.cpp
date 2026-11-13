@@ -436,7 +436,8 @@ private:
             if (p.x != q.x || p.y != q.y || p.size != q.size || p.alpha != q.alpha ||
                 p.edge != q.edge || p.arrow_angle != q.arrow_angle || p.tag != q.tag ||
                 p.tag_x != q.tag_x || p.tag_y != q.tag_y || p.tag_below != q.tag_below ||
-                p.tag_head != q.tag_head) {
+                p.tag_head != q.tag_head || p.color != q.color || p.urgent != q.urgent ||
+                p.ping != q.ping) {
                 return false;
             }
         }
@@ -446,7 +447,8 @@ private:
     void Refresh() {
         auto markers = CoopHook::CurrentMarkers();
         QWidget* main = parentWidget();
-        if (!markers || markers->items.empty() || !render_ || !render_->isVisible() || !main ||
+        // ORM: none over our own pause menu (Markers::paused, oot-64 D-072 point 6).
+        if (!markers || markers->paused || markers->items.empty() || !render_ || !render_->isVisible() || !main ||
             !main->isVisible() || main->isMinimized()) {
             markers_ = {};
             hide();
@@ -684,6 +686,14 @@ private:
     }
 
     void Refresh() {
+        // ORM (docs/COMUNICACION.md): with the HUD on, the chat and the notices
+        // are drawn in the game's picture; these lines show only while the box
+        // is open (then the HUD leaves its own out).
+        if (OrmHud::On() && box_height_ == 0) {
+            shown_.clear();
+            hide();
+            return;
+        }
         std::vector<Shown> shown;
         for (const auto& l : CoopHook::ChatLines()) {
             float alpha = 1.0f;
@@ -1116,7 +1126,21 @@ protected:
             return true;
         case Qt::Key_F7:  // no emulator hotkey uses it (F4 to F11 do, F7 not)
             if (type == QEvent::KeyPress && !key->isAutoRepeat()) {
-                DebugPanel() = !DebugPanel();
+                if (CoopMap::On()) {
+                    // ORM partner map (coop_map.h): the pause map is open (not read from the game yet).
+                    CoopMap::TogglePause();
+                } else {
+                    DebugPanel() = !DebugPanel();
+                }
+            }
+            return true;
+        case Qt::Key_F9:
+            if (type == QEvent::KeyPress && !key->isAutoRepeat()) {
+                if (panel_) {
+                    panel_->Toggle();
+                } else if (OrmHud::On()) {
+                    OrmHud::TogglePanel();  // the panel drawn in the game (orm_hud.h)
+                }
             }
             return true;
         default:
@@ -1146,11 +1170,20 @@ void Attach(QWidget* main, QWidget* render) {
     if (CoopHook::OverlayLines().empty()) {
         return;  // co-op is off
     }
-    new Panel(main, render);
-    // The other players under our hearts, in the game look (docs/overlay.md).
-    new HudLayer(main, render);
-    // Shows only while the hook has the camera; the panel stays either way.
-    new MarkerLayer(main, render);
+    // ORM: with LICHII_COOP_HUD=1 the panel and the name tags are drawn inside
+    // the game's picture by the emulator (orm_hud.h); F9 toggles that panel.
+    Panel* panel = nullptr;
+    if (!OrmHud::On()) {
+        // Hidden by default; LICHII_COOP_PANEL=1 starts it shown, F9 toggles it.
+        panel = new Panel(main, render, PanelFromEnvironment());
+        // The other players under our hearts, in the game look (docs/overlay.md).
+        new HudLayer(main, render);
+        // Shows only while the hook has the camera; the markers are not
+        // affected by the panel.
+        new MarkerLayer(main, render);
+    }
+    // ORM "downed, not dead": its one line, while there is something to say.
+    new DownedBanner(main, render);
     // Chat lines, the chat box (Enter) and the player list (Tab held).
     auto* lines = new ChatLayer(main, render);
     auto* box = new ChatBox(main, render, lines);

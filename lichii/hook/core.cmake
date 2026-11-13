@@ -53,6 +53,11 @@ target_sources(core PRIVATE
     "${_coop_hook}/coop_pickups.cpp"
     "${_coop_hook}/coop_hook.cpp"
     "${_coop_hook}/coop_hud.cpp"
+    "${_coop_hook}/orm_hud.cpp"  # ORM: the in-frame HUD (was coop_hud.cpp up to test9)
+    "${_coop_hook}/coop_hud_settings.cpp"
+    "${_coop_hook}/coop_hud_game.cpp"
+    "${_coop_hook}/coop_map.cpp"
+    "${_coop_hook}/coop_map_game.cpp"
     "${_coop_hook}/coop_objects.cpp"
     "${_coop_hook}/coop_objects_sync.cpp"
     "${_coop_hook}/coop_hits.cpp"

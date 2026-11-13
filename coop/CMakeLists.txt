@@ -62,6 +62,7 @@ add_library(coop_host STATIC
   host/src/final_rules.cpp
   host/src/epona.cpp
   host/src/flags.cpp
+  host/src/menus.cpp
   host/src/flag_watcher.cpp
   host/src/game_flags.cpp
   host/src/game_items.cpp
@@ -81,6 +82,11 @@ add_library(coop_host STATIC
   host/src/flag_burst.cpp
   host/src/orm_link_watch.cpp
   host/src/player_reader.cpp
+  host/src/flag_probe.cpp  # ORM probe of flags only a run explains
+  host/src/shoulder.cpp  # ORM L shared by quick messages and the invitation
+  host/src/quick_chat.cpp  # ORM quick messages (docs/COMUNICACION.md)
+  host/src/pose_smooth.cpp
+  host/src/ride.cpp
   host/src/sampler.cpp
   host/src/save_transfer.cpp
   host/src/session.cpp

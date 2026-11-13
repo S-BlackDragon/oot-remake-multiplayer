@@ -92,6 +92,12 @@ P3  Darunia       quiet       ~1840 ms HyruleField_Child   (grey)
 
 The player name and the server are set in `coop.ini` (see [Settings](#settings)); there is no window for them.
 
+### Quick messages (ORM, `LICHII_ORM_QUICK_CHAT=1`)
+
+Hold L and press the d-pad: up sends `¡Aquí!`, right `¡Vamos!`, down `¡Espera!`, left `¡Ayuda!` (`coop/host/quick_chat.hpp`, `lichii/hook/orm_quick_chat.*`; oot-remake `docs/COMUNICACION.md`). They go as plain CHAT, so an older build shows them as chat; a build that knows them by their exact text draws the line in the sender's colour, and for `¡Aquí!` and `¡Ayuda!` a marker with the text and the sender's name over where the sender stood, for 5 s (found at any distance, an arrow at the edge when off screen; not in another scene or during our own cutscene or talk). While L is held the d-pad is kept from the game (patch 0101), so the d-pad item and the ocarina are not used too. `LICHII_ORM_QUICK_CHAT_BUTTON` picks another button (R, ZL, ZR, PLUS, MINUS, LCLICK, RCLICK). Off by default; received quick messages show either way.
+
+Rates: a quick message goes at most once a second and 5 in 10 s, and every chat line (typed too) at most 8 in 10 s, 250 ms apart: over that the box turns red, or the quick message is not sent (`coop: quick: ... not sent: ...`). The server holds each player's chat to 10 lines in 10 s (`SessionConfig::chat_count`, counted in `chat_limited`). A receiver shows at most 5 quick lines from one player in 10 s, and one marker per sender (the newest).
+
 ## Markers
 
 When the renderer has found the game's camera, the other players are also drawn in the world: a name tag floating over the player's head, or an arrow at the screen edge with the name beside it for a player just off screen (`coop_overlay` decides what, see [overlay.md](overlay.md)). A second see-through tool window the size of the render area draws them, refreshed every 16 ms and only repainted when they move. Without a camera it hides and the panel is all there is.
@@ -105,6 +111,15 @@ When the renderer has found the game's camera, the other players are also drawn 
 - **Off the top:** a tag that would leave the top of the screen goes under the player instead.
 
 Seen in the autotest kits (2026-11-09, `tools\autotest\run.ps1 -Scenario nametag -ScreenCopy` with `LICHII_COOP_PUPPET=1` and `LICHII_COOP_DEBUG_CAMERA=1`, Graveyard, both child): the camera is found in both games; in B the tag `A` floats just over A's puppet at 3, 13 and 16 units, and each game tags its own Link `you` just over the hat; in A, B standing behind the camera shows as an edge arrow at the bottom left with `B` above it. That run used 13 px text and a fade from 25 to 60 units. The final 3.5% text and the 10 to 40 unit fade are unit-tested only. `-ScreenCopy` is needed: the window's own print leaves the overlay windows out.
+
+### In the picture (`LICHII_COOP_HUD=1`)
+
+With `LICHII_COOP_HUD=1` the tags and the panel are not Qt windows: the emulator draws them into the frame it presents (patch 0100-orm-hud, `lichii/hook/coop_hud_vk.cpp`), right after the game's picture, so they scale with the picture, stay inside it (not on the letterbox bars) and show in a window print (`PrintWindow`, no `-ScreenCopy` needed). The Qt panel and marker windows are then not made; F9 shows or hides the in-picture panel instead (`LICHII_COOP_PANEL=1` starts it shown). ORM: chat lines and notices (joins, leaves, downed, connection) are drawn in the picture too, at its bottom left (8 s each, the 6 newest; the sender's name in its colour, a quick message all in it, notices yellow); the Qt chat lines then show only while the chat box is open, and the HUD leaves its own out meanwhile. The chat box, the downed banner and the Tab list stay Qt windows.
+
+- **What:** the same markers (`CoopHook::CurrentMarkers`, so the same hiding rules: other scene, our own cutscene or talk), each tag followed by the ping in grey (`~45 ms`: the newest sample's delay, as in the Tab list), the edge arrows, and the panel's lines in the top-left corner. Names in the player's colour once PLAYER_LOOK gives one (`CoopHook::Marker::rgb`), white until then.
+- **How:** solid rectangles from a 7x13 bitmap font (ProggyClean, `coop_hud_font.h`, made by `tools/hud_font/make_font.py`) at a whole-number scale: tags 3.5% of the picture's height per line (2 font pixels at 720p, 3 at 1080p, 6 at 2160p), the panel 2.2%. Each is a `vkCmdClearAttachments` rectangle in a render pass of our own that loads the frame: no shader, pipeline or buffer. No blending, so a tag shows whole or not at all (below 50% fade it is left out) and the panel has an outline, not a see-through box. ASCII and Latin-1 (accents, ñ); anything else is `?`.
+- **Where:** the window and screenshots (`blit_swapchain`, `blit_capture`), not the applet capture. Vulkan only. With frame generation on, the generated frames interpolate the HUD with the picture.
+- Layout and model are unit-tested (`tests/lichii/hud_test.cpp`); the Vulkan side needs the game.
 
 ### Where the camera comes from
 

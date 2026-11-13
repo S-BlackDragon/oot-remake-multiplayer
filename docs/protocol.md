@@ -288,6 +288,9 @@ Components, as in `PLAYER_SAMPLE` (id, length, data; unknown ids skipped, a know
 | 14 | `tool` | string: the actor in slot 5 (Tool); bit 5 | the same |
 | 15 | `sub_tool` | string: the actor in slot 6 (SubTool); bit 6 | the same |
 | 16 | `color` | 3 bytes: red, green, blue. The player's colour; others dress that player's puppet in the tunic of the nearest colour ([puppet.md](puppet.md#colour)). Left out: the player chose none, and a receiver uses the player number's colour | `coop-options.ini` `color` (`LICHII_COOP_COLOR`) |
+| 29 | `rupees` (ORM) | `u32`, 0 to 99999: the rupees in the player's own wallet, to be shown (the HUD's wallet list); never written into another game. A larger value is refused | `PlayerStatus.CurrentRupee` |
+
+ORM (oot-remake `docs/DETALLES_MARIONETA.md`, `coop/host/worn_armor.hpp`): for components 3 to 6 the piece the player's EquipmentUser really holds wins over the flag when it is an `Armor_` actor other than the default head (`Armor_*_Default_Head`), since a mask or boots put on with ZR, or the Lens of Truth, may not be in a flag. The armor links are EquipmentUser + 0xe0, 0x18 each (index 0 head, 1 upper, 2 lower, 3 hand, as the take-off 0x10aceb0 uses them; read from the dump). No layout change.
 
 Each string (all but `drawn` and `color`) is the game's actor name of the piece, for example `Weapon_Sword_Kokiri` or `Armor_Adult_Goron`; an empty string means nothing in that slot. A component that is left out is unknown (the sender could not read it): the receiver keeps what it had for it (`merge_equipment` in the code). Age is not here: it is in `PLAYER_SAMPLE`.
 

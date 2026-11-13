@@ -2,6 +2,7 @@
 
 #include "coop_save.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <deque>
@@ -52,6 +53,8 @@ std::uint64_t g_last_part_us = 0;  // a guest's last SAVE_PART
 CoopEvery::Every g_folder_every{CoopEvery::kHalfSecondUs};
 bool g_said_stuck = false;
 std::string g_notice;
+// ORM menus: bumped as a host's save write starts and again as it ends (SlotsWritten).
+std::atomic<std::uint64_t> g_slot_writes{0};
 
 // Unset, or "1"/"0": the environment's LICHII_COOP_HOST_SAVE.
 std::optional<bool> EnvChoice() {
@@ -108,7 +111,10 @@ void WriteSlot(const save::SaveSlot& slot) {
         return;
     }
     const auto own = save::own_dir_of(g_dir);
-    switch (save::write_coop_save(g_dir, slot, own)) {
+    ++g_slot_writes;
+    const auto result = save::write_coop_save(g_dir, slot, own);
+    ++g_slot_writes;
+    switch (result) {
     case save::WriteResult::written:
         LOG_INFO(Core, "coop: save: the host's save written to {}", g_dir.string());
         g_notice = g_assembler.reason() == proto::SaveReason::host_load
@@ -299,6 +305,15 @@ void OnFrame(coop::net::Client& client, bool host_reset) {
             g_outbox.pop_front();
         }
     }
+}
+
+std::string SaveFolder() {
+    std::lock_guard lock(g_mutex);
+    return g_dir.string();
+}
+
+std::uint64_t SlotsWritten() {
+    return g_slot_writes.load();
 }
 
 std::string TakeNotice() {

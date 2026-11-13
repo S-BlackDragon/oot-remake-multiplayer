@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "coop/host/menus.hpp"
 #include "coop/protocol/codec.hpp"
 #include "coop/protocol/orm_status.hpp"
 
@@ -43,6 +44,10 @@ void push(std::vector<Outgoing>& out, const protocol::Message& message) {
 }
 
 }  // namespace
+
+void Sampler::set_menu_status(std::uint8_t bits) {
+  menu_bits_ = static_cast<std::uint8_t>(bits & menus::kStatusMask);
+}
 
 void Sampler::reset() {
   status_sent_ = false;
@@ -97,10 +102,21 @@ std::vector<Outgoing> Sampler::frame(const std::optional<PlayerReading>& reading
   std::vector<Outgoing> out;
   if (!reading) {
     previous_.reset();  // no velocity across a gap in the readings
+    // ORM menus: the title screen has no Link, so its bits go out without a
+    // reading; the rest of the status waits for one, as before. After a
+    // reset only a status that says something is sent (nothing new to say
+    // without a reading otherwise).
+    const std::uint8_t flags = static_cast<std::uint8_t>(
+        (flags_ & ~menus::kStatusMask) | menu_bits_);
+    if (status_sent_ ? flags != flags_ : menu_bits_ != 0) {
+      flags_ = flags;
+      status_sent_ = true;
+      push(out, protocol::PlayerStatus{protocol::kPlayerSelf, flags_});
+    }
     return out;
   }
 
-  std::uint8_t flags = flags_;
+  std::uint8_t flags = static_cast<std::uint8_t>((flags_ & ~menus::kStatusMask) | menu_bits_);
   if (reading->event_running) {
     flags = static_cast<std::uint8_t>(
         (flags & ~protocol::status::in_cutscene) |

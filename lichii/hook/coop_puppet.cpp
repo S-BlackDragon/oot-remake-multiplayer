@@ -1507,7 +1507,9 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
             break;
         case coop::host::Visibility::hold:
             show = Show::hold;
-            why = "their cutscene";
+            // ORM menus (MENUS_PAUSA.md M2): their game is paused by a menu, so
+            // the puppet stands frozen where it is, still wearing their gear.
+            why = (r.status & coop::protocol::status::paused) != 0 ? "paused" : "their cutscene";
             break;
         case coop::host::Visibility::show:
             if (coop::host::activity_of(anim) == coop::host::Activity::ocarina) {

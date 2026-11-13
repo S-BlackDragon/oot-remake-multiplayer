@@ -413,6 +413,16 @@ void Session::on_player_message(ConnectionId id, Connection& c, std::uint8_t cha
   // it from the connection, never trusting the message. TEST_PAYLOAD has no
   // player field and goes on as it came. check_received has already refused
   // every server-only type, so nothing else reaches here.
+  if (std::holds_alternative<Chat>(message) && !chat_within_rate(c, now_us)) {
+    ++stats_.chat_limited;  // ORM: CHAT's own limit (SessionConfig::chat_count)
+    if (!c.chat_drop_logged) {
+      c.chat_drop_logged = true;
+      log("player " + std::to_string(c.number) + " sent chat over its rate (" +
+          std::to_string(config_.chat_count) + " lines in " +
+          std::to_string(config_.chat_window_us / 1'000'000) + " s): dropped until it slows down");
+    }
+    return;
+  }
   if (auto* j = std::get_if<JoinPartner>(&message)) {
     on_join_partner(id, c, *j);
     return;

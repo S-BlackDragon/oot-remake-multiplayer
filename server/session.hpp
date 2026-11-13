@@ -804,6 +804,12 @@ class Session {
                      std::uint8_t channel, const protocol::Message& m);
   std::optional<ConnectionId> connection_of(std::uint8_t number) const;
   bool within_rate(Connection& c, std::uint8_t channel, std::size_t bytes, std::uint64_t now_us);
+  // ORM: CHAT's own limit (SessionConfig::chat_count); counts the line when it
+  // may go.
+  bool chat_within_rate(Connection& c, std::uint64_t now_us);
+  // ORM: a player over its rate is logged and told (LINK_NOTICE over_rate),
+  // at most once a minute, never silently.
+  void note_rate_limited(ConnectionId id, Connection& c, bool reliable, std::uint64_t now_us);
   // why: more for the server's log (which version is older), or empty.
   void refuse(ConnectionId id, Connection& c, protocol::RefuseReason reason,
               std::uint64_t now_us, const std::string& why = {});

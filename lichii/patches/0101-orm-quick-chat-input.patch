@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: S-BlackDragon <88566750+S-BlackDragon@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 16:35:27 -0800
+Subject: [PATCH] coop: keep the d-pad from the game while the quick-chat
+ button is held
+
+With LICHII_COOP on, NPad::RequestPadStateUpdate takes the bits the co-op hook names
+(hook/orm_input_mask.h, OrmInputMask::Guest) off the buttons the guest
+reads. The hook sets the four d-pad bits while LICHII_ORM_QUICK_CHAT=1
+and its button (L by default) is held, so L + d-pad sends a quick
+message (oot-remake docs/COMUNICACION.md) without also using the d-pad
+item or the ocarina. The hook's own reads (GetNpadButtons, scripted
+input included) still see every button. The mask is 0 otherwise, and
+nothing changes with LICHII_COOP off.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/hid_core/resources/npad/npad.cpp | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/src/hid_core/resources/npad/npad.cpp b/src/hid_core/resources/npad/npad.cpp
+index d7fdb2a..aeb81e0 100644
+--- a/src/hid_core/resources/npad/npad.cpp
++++ b/src/hid_core/resources/npad/npad.cpp
+@@ -25,6 +25,9 @@
+ #include "hid_core/resources/npad/npad.h"
+ #include "hid_core/resources/npad/npad_vibration.h"
+ #include "hid_core/resources/shared_memory_format.h"
++#ifdef LICHII_COOP
++#include "orm_input_mask.h"
++#endif
+ 
+ namespace Service::HID {
+ 
+@@ -446,7 +449,12 @@ void NPad::RequestPadStateUpdate(Kernel::KernelCore& kernel, u64 aruid, Core::HI
+ 
+     auto& pad_entry = controller.npad_pad_state;
+     auto& trigger_entry = controller.npad_trigger_state;
+-    const auto button_state = controller.device->GetNpadButtons();
++    auto button_state = controller.device->GetNpadButtons();
++#ifdef LICHII_COOP
++    // ORM quick messages: while their button is held the d-pad is the co-op
++    // hook's, not the game's (hook/orm_input_mask.h).
++    button_state.raw &= ~static_cast<Core::HID::NpadButton>(OrmInputMask::Guest());
++#endif
+     const auto stick_state = controller.device->GetSticks();
+ 
+     using btn = Core::HID::NpadButton;
+-- 
+2.51.0.windows.2
+

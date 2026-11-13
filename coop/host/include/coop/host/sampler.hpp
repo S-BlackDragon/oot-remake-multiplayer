@@ -60,6 +60,29 @@ class Sampler {
   // velocity afresh. The sequence keeps counting.
   void reset();
 
+  // ORM "downed, not dead" (coop/host/downed.hpp): while set, PLAYER_STATUS
+  // carries bit 4 (dead); the next frame with a reading sends the change.
+  void set_downed(bool downed) { downed_ = downed; }
+  bool downed() const { return downed_; }
+  // ORM the room's age (coop/host/age.hpp, AgeFollow::waits_unsafe): while
+  // set, PLAYER_STATUS carries orm_status::age_waits; sent like the dead bit.
+  void set_age_waits(bool waits) { age_waits_ = waits; }
+  bool age_waits() const { return age_waits_; }
+
+  // ORM menus (coop/host/menus.hpp, oot-remake docs/MENUS_PAUSA.md): our
+  // pause and title screen, as menus::status_bits gives them. Only the bits of
+  // menus::kStatusMask are taken (paused, loading, at_title); the others stay
+  // with their owners. Unlike the rest of the status, a change of these bits
+  // goes out on a frame with no reading too: the title screen has no Link.
+  void set_menu_status(std::uint8_t bits);
+  std::uint8_t menu_status() const { return menu_bits_; }
+  // ORM (coop/host/ride.hpp, oot-remake docs/TEMPLOS.md): the moving floor
+  // our Link stands on, for component 30 of every sample from now on;
+  // nothing: not riding. Starting, ending or changing floors sends a sample
+  // at the next gap.
+  void set_ride(std::optional<protocol::Ride> ride) { ride_ = ride; }
+  const std::optional<protocol::Ride>& ride() const { return ride_; }
+
   // The last messages built, for tests and the debug overlay.
   const std::optional<protocol::PlayerSample>& last_sample() const { return last_sent_; }
   std::uint8_t status_flags() const { return flags_; }

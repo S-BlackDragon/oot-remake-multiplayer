@@ -8,6 +8,8 @@
 
 #include "addresses.hpp"
 #include "coop/host/game_flags.hpp"
+#include "coop/host/wallets.hpp"
+#include "coop/host/worn_armor.hpp"  // ORM
 
 namespace coop::host {
 namespace {

@@ -607,6 +607,7 @@ Error encode_body(const PlayerEquip& m, Writer& w) {
     if (const auto& name = m.equipment.*n.field) COOP_TRY(check_string(*name, kMaxEquipNameChars));
   }
   if (m.equipment.color && *m.equipment.color > 0xFFFFFFu) return Error::bad_value;
+  if (m.equipment.rupees && *m.equipment.rupees > kMaxRupees) return Error::bad_value;  // ORM
   w.u8(m.player_number);
   for (const EquipName& n : kEquipNames) {
     const auto& name = m.equipment.*n.field;
@@ -628,6 +629,11 @@ Error encode_body(const PlayerEquip& m, Writer& w) {
     w.u8(static_cast<std::uint8_t>(rgb >> 16));
     w.u8(static_cast<std::uint8_t>(rgb >> 8));
     w.u8(static_cast<std::uint8_t>(rgb));
+  }
+  if (m.equipment.rupees) {  // ORM: the wallet (oot-remake docs/TIPOS_MENSAJE.md)
+    w.u16(static_cast<std::uint16_t>(EquipComponent::rupees));
+    w.u16(4);
+    w.u32(*m.equipment.rupees);
   }
   return Error::none;
 }
@@ -1296,7 +1302,8 @@ Error decode_body(Reader& r, PlayerEquip& m) {
     }
     const bool is_drawn = id == static_cast<std::uint16_t>(EquipComponent::drawn);
     const bool is_color = id == static_cast<std::uint16_t>(EquipComponent::color);
-    if (name == nullptr && !is_drawn && !is_color) continue;  // unknown: skipped by its length
+    const bool is_rupees = id == static_cast<std::uint16_t>(EquipComponent::rupees);  // ORM
+    if (name == nullptr && !is_drawn && !is_color && !is_rupees) continue;  // unknown: skipped by its length
     if (seen & (1u << id)) return Error::duplicate_component;
     seen |= 1u << id;
 
@@ -1307,6 +1314,11 @@ Error decode_body(Reader& r, PlayerEquip& m) {
       std::uint8_t red = 0, green = 0, blue = 0;
       e = c.u8(red) && c.u8(green) && c.u8(blue) ? Error::none : Error::truncated;
       m.equipment.color = (std::uint32_t{red} << 16) | (std::uint32_t{green} << 8) | blue;
+    } else if (is_rupees) {
+      std::uint32_t rupees = 0;
+      e = c.u32(rupees) ? Error::none : Error::truncated;
+      if (e == Error::none && rupees > kMaxRupees) return Error::bad_value;
+      m.equipment.rupees = rupees;
     } else {
       std::uint8_t bits = 0;
       e = c.u8(bits) ? Error::none : Error::truncated;

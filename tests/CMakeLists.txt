@@ -157,6 +157,11 @@ add_executable(coop_tests
   orm/protocol_codec_test.cpp
   lichii/every_test.cpp
   lichii/hud_test.cpp
+  lichii/platform_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_frame_log.cpp
+  lichii/perf_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_perf.cpp  # ORM: LICHII_ORM_PERF
+  orm/orm_hud_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/orm_hud.cpp  # ORM: the in-frame HUD (was lichii/hud_test.cpp)
+  lichii/hud_settings_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_hud_settings.cpp
+  lichii/map_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_map.cpp
   lichii/game_build_test.cpp
   lichii/game_scan_test.cpp
   lichii/boss_test.cpp

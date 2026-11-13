@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -52,6 +53,7 @@
 #include "coop/host/notify.hpp"
 #include "coop/host/orm_link_watch.hpp"  // ORM: a link that cannot keep up is told (RIESGOS_RESUELTOS.md)
 #include "coop/host/player_reader.hpp"
+#include "coop/host/quick_chat.hpp"
 #include "coop/host/scene.hpp"
 #include "coop/host/session.hpp"
 #include "coop/host/wallets.hpp"
@@ -70,6 +72,11 @@
 #include "coop_songs_game.h"
 #include "coop_teleport_game.h"
 #include "coop_pvp_game.h"
+#include "coop_hud_settings.h"  // ORM: /hud, /rupias, /nombres (docs/HUD_AJUSTES.md)
+#include "coop_host_choice.h"  // ORM: one host for the room (/anfitrion)
+#include "coop_escape_timer.h"
+#include "coop_switch.h"
+#include "coop_gerudo.h"
 #include "coop_scene_probe.h"
 #include "coop_camera.h"
 #include "coop_colors.h"
@@ -97,6 +104,7 @@
 #include "coop_every.h"
 #include "coop_dungeon.h"
 #include "coop_quest.h"
+#include "coop_map.h"
 #include "coop_story.h"
 #include "coop_quests.h"
 #include "coop_live_events.h"
@@ -107,6 +115,8 @@
 #include "coop_pose.h"
 #include "coop_puppet.h"
 #include "coop_ride.h"
+#include "orm_hud.h"   // ORM: the in-frame HUD's chat commands (/hud ...)
+#include "orm_ride.h"  // ORM: moving floors that carry a partner
 #include "coop_settings.h"
 #include "coop_spawn.h"
 #include "coop_scrub_talk.h"
@@ -148,6 +158,18 @@ coop::overlay::Settings MarkerSettings() {
     s.tag_gap = 4.0f;
     s.fade_start = 10.0f;
     s.fade_end = 40.0f;
+    return s;
+}
+
+// ORM quick messages (docs/COMUNICACION.md): a marker is found at any
+// distance (no fade) and, off screen, is an arrow at the edge however far
+// off it is (only behind the camera it is not drawn).
+coop::overlay::Settings PingSettings() {
+    coop::overlay::Settings s = MarkerSettings();
+    s.fade_start = 0.0f;
+    s.fade_end = 0.0f;
+    s.edge_reach = 1000.0f;
+    s.edge_min_alpha = 1.0f;
     return s;
 }
 
@@ -224,6 +246,17 @@ const char* WhyText(coop::overlay::Why why) {
 
 using Clock = std::chrono::steady_clock;
 
+// ORM: our colour as red, green, blue (PLAYER_LOOK, name tags, quick markers): the
+// setting is upstream's 0xRRGGBB since test10 (coop_colors.h).
+std::optional<std::array<std::uint8_t, 3>> OrmRgb(const std::optional<std::uint32_t>& color) {
+    if (!color) {
+        return std::nullopt;
+    }
+    return std::array<std::uint8_t, 3>{static_cast<std::uint8_t>((*color >> 16) & 0xff),
+                                       static_cast<std::uint8_t>((*color >> 8) & 0xff),
+                                       static_cast<std::uint8_t>(*color & 0xff)};
+}
+
 // The calc thread's clock (coop_svc.cpp), so pose times line up.
 std::uint64_t SteadyMs() {
     return static_cast<std::uint64_t>(
@@ -295,6 +328,7 @@ public:
         config.hello.game_version = std::string(kGameVersion);
         config.hello.nickname = settings_.name;
         config.join_password = settings_.password;
+        config.color = OrmRgb(settings_.color);  // ORM: PLAYER_LOOK after each WELCOME
         client_ = std::make_unique<coop::net::Client>(std::move(config));
         if (!client_->start()) {
             LOG_ERROR(Core, "coop: ENet did not start; co-op is off");
@@ -637,7 +671,7 @@ public:
             memory.emplace(system.ApplicationMemory(), base_);
             flag_debug_.Frame(*memory);
             if (sharing_ || cheats_) {
-                game_store.emplace(*memory);
+                game_store.emplace(*memory, &enum_flags_);  // ORM: Enum flags too
                 if (!queue_sizes_logged_) {  // once: half of each is ours (issue 175)
                     if (const auto q = coop::host::GameFlags(*memory).queue_sizes()) {
                         queue_sizes_logged_ = true;
@@ -727,8 +761,10 @@ public:
         // Issue 193: the Threads of Time quests, ordered (coop_quests.h).
         std::optional<CoopQuests::Store> quests;
         if (store) {
+            // ORM: over the talk-flag deferral (inner), so the chain is watcher -> hold ->
+            // quests -> deferral -> item merge -> game.
             quests.emplace(
-                *store,
+                *inner,
                 [&memory](std::uint32_t hash) { return coop::host::GameFlags(*memory).get_enum(hash); },
                 [&memory](std::uint32_t hash, std::uint32_t value) {
                     return coop::host::GameFlags::set_enum(*memory, hash, value);
@@ -815,6 +851,7 @@ public:
                 return in && (in->empty() ? CoopDungeon::IsDungeonScene(*scene) : *scene == *in);
             });
         }
+        bool scene_readable = false;
         if (memory) {  // docs/flags.md, "Saves": no scene for a while is the title screen
             scene_readable = coop::host::PlayerReader(*memory).read_scene().has_value();
             session_->set_scene_readable(scene_readable);
@@ -902,7 +939,6 @@ public:
             view.connection_line = coop::host::connection_text(
                 welcomed, report.connected, lost_since_ms_ != 0 ? now_ms - lost_since_ms_ : 0);
         }
-        const auto report = session_->frame(reading, hold ? &*hold : nullptr);
         if (quests) {
             for (const auto& r : quests->take_raised()) {
                 LOG_INFO(Core, "coop: quests: {} {} -> {} (shared Threads of Time; issue 193)", r.quest,
@@ -1263,6 +1299,8 @@ public:
                            reading->event_running.value_or(false),
                            reading->animation ? std::optional<std::string_view>(reading->animation->name)
                                               : std::nullopt);
+        view.event_hides = event;
+        view.menu_paused = CoopMenus::Paused();  // ORM (oot-64 D-072 point 6)
         if (report.connected) {
             view.others = session_->with_presence([&](coop::presence::Presence& p) {
                 auto shown = coop::overlay::collect(p, report.server_now_us);
@@ -1291,8 +1329,14 @@ public:
                     }
                 }
                 // The same rule as the puppet: no marker for a player in
-                // another scene or while our own cutscene runs.
+                // another scene or while our own cutscene runs. ORM menus:
+                // none over our own pause menu either (oot-64 D-037).
+                const bool our_menu = CoopMenus::Paused();
                 for (const auto& s : shown) {
+                    if (our_menu) {
+                        view.hidden.push_back(s.number);
+                        continue;
+                    }
                     const auto* player = p.player(s.number);
                     const std::optional<std::string_view> theirs =
                         s.scene ? std::optional<std::string_view>(*s.scene) : std::nullopt;
@@ -1306,6 +1350,10 @@ public:
                 return shown;
             });
         }
+        // ORM quick messages (docs/COMUNICACION.md): the combination on our pad,
+        // and the markers of the ones that came in, where their sender is now.
+        QuickFrame(platform, view, report.connected);
+        perf.Mark(CoopPerf::Part::present_features);  // what follows the session: notices, hearts, others' views
         CoopPuppet::Publish(view.game ? base_ : 0, view.scene, view.position, event,
                             report.connected ? session_.get() : nullptr, report.server_now_us);
         // Our Ocarina's notes for the other games (issue 152, coop_ocarina_sound.h).
@@ -1463,6 +1511,32 @@ public:
         return frame_.markers;
     }
 
+    // ORM partner map (coop_map.h): everyone's place, from the last frame.
+    std::optional<Mates> CurrentMates() {
+        std::lock_guard lock(view_mutex_);
+        if (Clock::now() - frame_.at >= kFrameStale || !frame_.game) {
+            return std::nullopt;
+        }
+        Mates out;
+        out.scene = frame_.scene;
+        out.position = frame_.position;
+        out.camera = frame_.markers.has_value();
+        if (frame_.markers && frame_.markers->height > 0.0f) {
+            out.aspect = frame_.markers->width / frame_.markers->height;
+        }
+        for (const auto& s : frame_.others) {
+            Mate m;
+            m.number = s.number;
+            m.name = s.name;
+            m.position = s.position;
+            m.scene = s.scene;
+            m.color = s.color.value_or(coop::overlay::default_color(s.number));
+            m.urgent = s.urgent;
+            out.others.push_back(std::move(m));
+        }
+        return out;
+    }
+
     std::vector<OverlayLine> Lines() {
         RoomView room;
         FrameView frame;
@@ -1476,26 +1550,65 @@ public:
 
     // Chat and the player list (coop_hook.h). Any thread.
     bool SendChat(const std::string& text) {
+        if (OrmCommands::OnChat(text, *session_)) {
+            return true;  // ORM: a command (orm_commands_game.h), never sent as chat
+        }
+        // ORM (docs/HUD_AJUSTES.md): /hud, /rupias, /nombres change this
+        // player's HUD only; answered here, never sent. With the registry on
+        // (LICHII_ORM_COMMANDS) it takes them first; this is its fallback.
+        if (auto answer = OrmHud::OnChat(text)) {
+            chat_.Add(std::move(*answer), true);
+            return true;
+        }
         if (CoopTeleport::OnChat(text, *session_)) {
             return true;  // a command: done here, its answer shows as a notice
         }
         if (CoopPvp::OnChat(text, *session_)) {
             return true;  // /pvp: the same
         }
-        const bool sent =
-            session_->with_client([&](coop::net::Client& c) { return c.send_chat(text); });
+        if (CoopHostChoice::OnChat(text, *session_)) {  // ORM: /anfitrion
+            return true;
+        }
+        // ORM: under the relay's chat limit (coop/host/quick_chat.hpp): a line
+        // it would drop is refused here, and the chat box turns red.
+        std::lock_guard lock(send_mutex_);
+        const std::uint64_t now_us = CoopEvery::NowUs();
+        if (!quick_sender_.may_chat(now_us)) {
+            LOG_INFO(Core, "coop: chat: not sent: at most {} lines in {} s, {} ms apart",
+                     coop::host::quick_chat::kChatCount, coop::host::quick_chat::kChatWindowUs / 1'000'000,
+                     coop::host::quick_chat::kChatGapUs / 1000);
+            return false;
+        }
+        std::uint8_t self = 0;
+        const bool sent = session_->with_client([&](coop::net::Client& c) {
+            self = c.player_number();
+            return c.send_chat(text);
+        });
         if (sent) {
-            chat_.Add("you: " + text, false);
+            quick_sender_.sent_chat(now_us);
+            chat_.AddFrom(self, "you", text, false);
         }
         return sent;
     }
 
-    std::vector<ChatLine> ChatLines() const {
+    std::vector<ChatLine> ChatLines() {
+        RoomView room;
+        {
+            std::lock_guard lock(view_mutex_);
+            room = room_;
+        }
         std::vector<ChatLine> out;
         const auto now = CoopChat::Clock::now();
         for (auto& l : chat_.Lines()) {
             const auto age = std::chrono::duration_cast<std::chrono::milliseconds>(now - l.at);
-            out.push_back({std::move(l.text), l.notice, static_cast<std::uint64_t>(age.count())});
+            ChatLine line{std::move(l.text), l.notice, static_cast<std::uint64_t>(age.count())};
+            line.player = l.player;
+            line.name = std::move(l.name);
+            line.quick = l.quick;
+            if (!l.notice && l.player != 0) {
+                line.color = RoomColor(room, l.player);  // ORM: the sender's colour, for the HUD
+            }
+            out.push_back(std::move(line));
         }
         return out;
     }
@@ -1529,6 +1642,11 @@ public:
         session_->with_presence([&](coop::presence::Presence& p) {
             for (const auto& player : net.players) {
                 PlayerRow row{player.number, player.nickname, player.self};
+                // ORM (INVENTARIO.md, "Cartera de cada uno"): its wallet and colour, for the HUD.
+                if (player.equipment) {
+                    row.rupees = player.equipment->rupees;
+                }
+                row.color = player.look ? player.look->rgb : coop::overlay::default_color(player.number);
                 if (player.self) {
                     row.state = on ? "connected" : "?";
                     if (net.round_trip_us) {
@@ -1589,6 +1707,138 @@ public:
     }
 
 private:
+    // ORM quick messages (docs/COMUNICACION.md, orm_quick_chat.h). Present
+    // thread, after view.others is known: the combination on our pad (sent as
+    // CHAT, under the sender's limits, with our own marker at our feet), and
+    // the markers of the quick messages that came in, placed where their
+    // sender is now (his presence, the newest sample).
+    void QuickFrame(CoopPlatform::Platform& platform, const FrameView& view, bool connected) {
+        namespace qc = coop::host::quick_chat;
+        const std::uint64_t now_us = CoopEvery::NowUs();
+        if (const auto quick = OrmQuickChat::Poll(platform)) {
+            const auto& config = OrmQuickChat::Settings();
+            const qc::Entry& e = qc::entry(*quick);
+            const std::string combo = OrmQuickChat::ComboName(config, *quick);
+            bool sent = false;
+            std::uint8_t self = 0;
+            {
+                std::lock_guard lock(send_mutex_);
+                if (!connected) {
+                    LOG_INFO(Core, "coop: quick: '{}' ({}) not sent: not connected", e.text, combo);
+                } else if (!quick_sender_.may_quick(now_us)) {
+                    LOG_INFO(Core,
+                             "coop: quick: '{}' ({}) not sent: at most one a second and {} in {} s "
+                             "(and {} chat lines in {} s)",
+                             e.text, combo, qc::kQuickCount, qc::kQuickWindowUs / 1'000'000, qc::kChatCount,
+                             qc::kChatWindowUs / 1'000'000);
+                } else {
+                    sent = session_->with_client([&](coop::net::Client& c) {
+                        self = c.player_number();
+                        return c.send_chat(e.text);
+                    });
+                    if (sent) {
+                        quick_sender_.sent_quick(now_us);
+                    } else {
+                        LOG_INFO(Core, "coop: quick: '{}' ({}) not sent: the client refused it", e.text, combo);
+                    }
+                }
+            }
+            if (sent) {
+                LOG_INFO(Core, "coop: quick: sent '{}' ({})", e.text, combo);
+                chat_.AddFrom(self, "you", std::string(e.text), true);
+                if (e.marker && view.position && view.scene) {
+                    qc::Ping ping;
+                    ping.player = self;
+                    ping.quick = *quick;
+                    ping.position = {(*view.position)[0], (*view.position)[1], (*view.position)[2]};
+                    ping.scene = *view.scene;
+                    ping.name = settings_.name;
+                    ping.rgb = OrmRgb(settings_.color).value_or(coop::overlay::default_color(self));
+                    ping.head = HeadHeight(view.age);
+                    LOG_INFO(Core, "coop: quick: marker for P{} (us) at ({:.1f}, {:.1f}, {:.1f}) in {} for {} s",
+                             self, ping.position[0], ping.position[1], ping.position[2], ping.scene,
+                             qc::kPingUs / 1'000'000);
+                    pings_.place(std::move(ping), now_us);
+                }
+            }
+        }
+        std::vector<QuickIn> in;
+        {
+            std::lock_guard lock(quick_mutex_);
+            in.swap(quick_in_);
+        }
+        for (auto& q : in) {
+            const coop::overlay::Shown* at = nullptr;
+            for (const auto& s : view.others) {
+                if (s.number == q.player) {
+                    at = &s;
+                }
+            }
+            if (at == nullptr || !at->scene) {
+                LOG_INFO(Core, "coop: quick: P{} '{}': no marker (where P{} is is not known here)", q.player,
+                         qc::entry(q.quick).text, q.player);
+                continue;
+            }
+            qc::Ping ping;
+            ping.player = q.player;
+            ping.quick = q.quick;
+            ping.position = {at->position[0], at->position[1], at->position[2]};
+            ping.scene = *at->scene;
+            ping.name = std::move(q.name);
+            ping.rgb = at->color.value_or(coop::overlay::default_color(q.player));
+            ping.head = at->head;
+            LOG_INFO(Core, "coop: quick: marker for P{} at ({:.1f}, {:.1f}, {:.1f}) in {} for {} s", q.player,
+                     ping.position[0], ping.position[1], ping.position[2], ping.scene, qc::kPingUs / 1'000'000);
+            pings_.place(std::move(ping), now_us);
+        }
+    }
+
+    // ORM: the quick messages' markers, drawn after the players (over them):
+    // only in our scene, never while our own event runs (scene.hpp), with no
+    // ping in ms and never as downed (Marker::ping).
+    void PlacePings(const FrameView& view, const coop::overlay::Camera& c, Markers& markers) {
+        namespace qc = coop::host::quick_chat;
+        const auto live = pings_.live(CoopEvery::NowUs());
+        if (live.empty() || view.event_hides) {
+            return;
+        }
+        std::vector<coop::overlay::Shown> shown;
+        for (const auto& p : live) {
+            coop::overlay::Shown s;
+            s.number = p.player;
+            s.name = qc::ping_label(p.quick, p.name);
+            s.position = {p.position[0], p.position[1], p.position[2]};
+            s.scene = p.scene;
+            s.fade = 1.0f;
+            // Over the sender's own name tag.
+            s.head = (p.head > 0.0f ? p.head : HeadHeight(std::nullopt)) + qc::kPingAbove;
+            s.color = p.rgb;
+            shown.push_back(std::move(s));
+        }
+        const auto result = ping_overlay_.build(c, view.scene.value_or(""), shown);
+        if (result.error != coop::overlay::Error::none) {
+            return;
+        }
+        for (const auto& item : result.items) {
+            Marker m;
+            m.x = item.marker.x;
+            m.y = item.marker.y;
+            m.size = item.marker.size;
+            m.alpha = item.alpha;
+            m.edge = item.edge;
+            m.arrow_angle = item.arrow_angle;
+            m.tag = item.tag.text;
+            m.tag_x = item.tag.x;
+            m.tag_y = item.tag.y;
+            m.tag_below = item.tag.below;
+            m.tag_head = item.tag.head;
+            m.number = item.number;
+            m.color = item.color;
+            m.ping = true;
+            markers.items.push_back(std::move(m));
+        }
+    }
+
     // Projects the players with the camera the renderer found (coop_camera.h).
     // Without one, view.markers stays empty and only the panel shows.
     void Place(FrameView& view) {
@@ -1668,8 +1918,25 @@ private:
             m.tag_y = item.tag.y;
             m.tag_below = item.tag.below;
             m.tag_head = item.tag.head;
+            m.number = item.number;
+            m.color = item.color;
+            m.urgent = item.urgent;
             markers.items.push_back(std::move(m));
         }
+        // ORM partner map (coop_map.h): an arrow at the edge, with name and
+        // distance, for each mate here the tags leave out (behind the camera,
+        // far off screen, too far for a tag); under the tags. A tag faded
+        // under what the in-game HUD draws (25 to 40 m) gives way to a dot.
+        if (CoopMap::On()) {
+            const std::vector<std::uint8_t> drawn = CoopMap::KeepSolid(markers.items);
+            auto pointers = CoopMap::Pointers(c, view.scene.value_or(""), view.position, players, drawn);
+            markers.items.insert(markers.items.begin(), std::make_move_iterator(pointers.begin()),
+                                 std::make_move_iterator(pointers.end()));
+        }
+        PlacePings(view, c, markers);  // ORM quick messages
+        // ORM (oot-64 D-072 point 6): over our own pause menu the HUD and the Qt
+        // layer draw no tag or marker (the debug "you" and the quick markers too).
+        markers.paused = view.menu_paused;
         view.markers = std::move(markers);
 
         if (log) {
@@ -1936,6 +2203,19 @@ private:
                                                            : "NOT encrypted (should never happen: the client joins only encrypted servers)");
                 }
             }
+            // ORM (INVENTARIO.md, "Cartera de cada uno"): every wallet change, ours and the others'.
+            {
+                std::vector<coop::host::WalletSeen> wallets;
+                if (room.state == coop::net::State::connected) {
+                    for (const auto& p : room.players) {
+                        wallets.push_back({p.number, p.nickname, p.self,
+                                           p.equipment ? p.equipment->rupees : std::nullopt});
+                    }
+                }
+                for (const auto& line : wallet_log_.update(wallets)) {
+                    LOG_INFO(Core, "coop: wallet: {}", line);
+                }
+            }
             // Issue 108: each REFUSED name taken asked again, so a log shows
             // the retries (every name_taken_retry_ms, at least 100 ms apart)
             // and when the window ends.
@@ -2123,14 +2403,44 @@ private:
             chat_.Add(spanish, true);
             CoopNotices::TheBoard().Add(0, {}, spanish, SteadyMs(), kLinkNoticeMs);
             break;
-        case EventKind::chat:
-            chat_.Add(name(event.player, {}) + ": " + event.text, false);
+        }
+        case EventKind::chat: {
+            std::string who = name(event.player, {});
+            // ORM quick messages (docs/COMUNICACION.md): known by their exact
+            // text; at most 5 from one player in 10 s are shown.
+            if (const auto quick = coop::host::quick_chat::parse(event.text)) {
+                if (!quick_receiver_.accept(event.player, CoopEvery::NowUs())) {
+                    LOG_INFO(Core, "coop: quick: P{} {} '{}' dropped: more than {} from that player in {} s",
+                             event.player, who, event.text, coop::host::quick_chat::kReceiveCount,
+                             coop::host::quick_chat::kReceiveWindowUs / 1'000'000);
+                    break;
+                }
+                LOG_INFO(Core, "coop: quick: P{} {} '{}'", event.player, who, event.text);
+                if (coop::host::quick_chat::entry(*quick).marker) {
+                    std::lock_guard lock(quick_mutex_);
+                    quick_in_.push_back({event.player, *quick, who});
+                }
+                chat_.AddFrom(event.player, std::move(who), event.text, true);
+                break;
+            }
+            if (OrmCommands::Muted()) {  // ORM /silencio: the mates' chat is not shown here
+                LOG_INFO(Core, "coop: chat: P{} (hidden by /silencio): {}", event.player, event.text);
+                break;
+            }
+            chat_.AddFrom(event.player, std::move(who), event.text, false);
             break;
+        }
         case EventKind::player_joined:
             chat_.Add(name(event.player, event.nickname) + " joined", true);
             break;
         case EventKind::player_left:
-            chat_.Add(name(event.player, event.nickname) + " left", true);
+            quick_receiver_.forget(event.player);  // ORM: a new player with that number starts afresh
+            // ORM menus (MENUS_PAUSA.md M7): "Ana salio de la sesion", "... perdio
+            // la conexion", "... salio de la sala (expulsado)" (UTF-8, accented).
+            chat_.Add(CoopMenus::On() ? coop::host::menus::leave_notice(name(event.player, event.nickname),
+                                                                         event.leave_reason)
+                                      : name(event.player, event.nickname) + " left",
+                      true);
             break;
         default:
             break;
@@ -2514,6 +2824,25 @@ private:
     std::atomic<bool> quiet_ = false;
     std::string note_;  // network thread only
     CoopChat::Log chat_;  // locks itself
+    // ORM quick messages (docs/COMUNICACION.md, coop/host/quick_chat.hpp).
+    // The sender's limits: the chat box (Qt thread) and the combination
+    // (present thread) both send, under send_mutex_ (taken before the
+    // session's network lock, never under it).
+    std::mutex send_mutex_;
+    coop::host::quick_chat::Sender quick_sender_;
+    // Network thread only (Chat): the receiver's limit.
+    coop::host::quick_chat::Receiver quick_receiver_;
+    // Quick messages with a marker that came in, for the present thread.
+    struct QuickIn {
+        std::uint8_t player = 0;
+        coop::host::quick_chat::Quick quick = coop::host::quick_chat::Quick::here;
+        std::string name;
+    };
+    std::mutex quick_mutex_;
+    std::vector<QuickIn> quick_in_;
+    // Present thread only: the live markers and how they are projected.
+    coop::host::quick_chat::Pings pings_;
+    coop::overlay::Overlay ping_overlay_{PingSettings()};
     std::atomic<bool> welcomed_once_ = false;
     std::uint64_t lost_since_ms_ = 0;  // ORM, present thread: connection lost since (0: not)
     // Network thread (Run): the "no packets from the server" warning is out (issue 143).
@@ -2528,6 +2857,25 @@ private:
     static constexpr std::uint32_t kQuietWarnMs = 3000;
     std::uint32_t name_retries_logged_ = 0;  // network thread (Run), issue 108
     std::uint32_t name_retries_base_ = 0;    // the total when this window began
+    coop::host::WalletLog wallet_log_;       // ORM, network thread (Run): the "coop: wallet:" lines
+    // ORM RIESGOS_RESUELTOS.md "Mundo e historia" (emulator thread): Biggoron's step never
+    // goes back under a held timed item; the bean soils' Bool checked against the platform;
+    // a prize won twice at once arbitrated (the lowest number keeps it). Switches read by
+    // coop_switch.h (0/false/no/off turn them off).
+    coop::host::trade::TradeGuard trade_guard_{CoopSwitch::On("LICHII_ORM_TRADE_GUARD", true)};
+    coop::host::bean::BeanCheck bean_check_{CoopSwitch::On("LICHII_ORM_BEAN_CHECK", true)};
+    coop::host::prize::PrizeArbiter prize_arbiter_{CoopSwitch::On("LICHII_ORM_PRIZE_ARBITER", true)};
+    // ORM probe (RIESGOS_RESUELTOS.md): the Water Temple room 14 switch flags and Jabu's stone, every
+    // change with who made it (LICHII_ORM_FLAG_PROBE=1, more in LICHII_ORM_FLAG_PROBE_NAMES).
+    std::optional<coop::host::FlagProbe> flag_probe_ = []() -> std::optional<coop::host::FlagProbe> {
+        if (!CoopSwitch::On("LICHII_ORM_FLAG_PROBE", false)) {  // coop_switch.h
+            return std::nullopt;
+        }
+        return coop::host::FlagProbe(coop::host::FlagProbe::flags_with(EnvString("LICHII_ORM_FLAG_PROBE_NAMES")));
+    }();
+    // ORM: where each HUD wallet count comes from (PlayerList, any thread: its own lock).
+    std::mutex wallet_paths_mutex_;
+    coop::host::WalletPaths wallet_paths_;
     std::thread thread_;
 
     // Guarded by view_mutex_.
@@ -2659,6 +3007,16 @@ std::optional<Markers> CurrentMarkers() {
     }
     if (auto* coop = Get()) {
         return coop->CurrentMarkers();
+    }
+    return std::nullopt;
+}
+
+std::optional<Mates> CurrentMates() {
+    if (g_mod_refused) {
+        return std::nullopt;
+    }
+    if (auto* coop = Get()) {
+        return coop->CurrentMates();
     }
     return std::nullopt;
 }
