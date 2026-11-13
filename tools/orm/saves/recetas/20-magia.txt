@@ -1,0 +1,17 @@
+# The three spells on a full double meter (sonda-magia, objetos-uso, efectos-magia; docs/SONDAS.md rounds 4 to 6):
+# 20-ganon plus Nayru's Love and Farore's Wind, and both Great Fairy blessings. The romfs' ExpansionAbilityActor says
+# what each blessing gives: Item_FairyBless_MP MPMax 24 (the single meter; Din's, Nayru's and Farore's packs name
+# it), Item_FairyBless_MPDouble MPMax 48. 17-sombra's MPMax 48 with the single blessing only was more than its meter.
+# Starts in Ganon's Castle's entrance hall (InsideGanonCastle, a dungeon: Farore's Wind sets its point only in one;
+# Din's Fire played ItemEmpty in Kakariko and here alike, sondas7 to sondas19r6, so the place is not what stops it).
+include 20-ganon.txt
+scene InsideGanonCastle Entrance
+item Item_DinFire
+item Item_NayruLove
+item Item_FaroreWind
+item Item_FairyBless_MP
+item Item_FairyBless_MPDouble
+int PlayerStatus.MPMax 48
+int PlayerStatus.MP 48
+# The Great Fairy's Din scene for a Link without magic (its own flag): not that case
+bool GreatFairy_HasNoMPOnDinDemo 0

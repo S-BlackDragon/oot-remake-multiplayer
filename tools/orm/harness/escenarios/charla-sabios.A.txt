@@ -1,0 +1,122 @@
+# charla-sabios (A), ORM F12 charlas (PLAN_100.md; docs/CHARLAS.md): Rauru and the sages are not townspeople.
+# Rauru exists only as Dm_Npc_Hylia_Rauru (a cutscene actor: no Npc_ prefix, not shared, no talk flow) and the sages
+# talk only inside the Chamber of Sages' cutscenes (Dm_SageRoom_*, Dm_Awake_*), which the story list plays for whoever
+# is in the scene (historia-*). So the check here is the opposite of the other charla pairs: A asks for Rauru's
+# cutscene in the Chamber (`event SageRoom_MeetRauru`, the hook's request by name, CINEMATICAS.md P1) and presses
+# through it; the talk claim must not take any actor (no Npc_ within 5 m of Link: none is claimed or posed) and no
+# puppet hides. B, in the Chamber too, never sees a claimed copy.
+# Precondition: the warp to SageRoom (its Banc has one unnamed StartPos at 0.1 100.2 0.0); if the game refuses it
+# outside the story, run it from a save at the Master Sword (historia-espada) instead.
+# Run (emulator from orm/test8 + a patch file + a patch file), with an --env for
+# each item of the #! switches line (run.ps1 reads it; r03_pareja needs the --env):
+#   python -I tools/orm/harness/r03_pareja.py --scenario charla-sabios --scen-dir tools/orm/harness/escenarios
+#     --transport ws --timeout 600 --capture-marks
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: event running 'SageRoom_MeetRauru' within talk..end
+#! never A coop: npc: talking to
+#! never A coop: npc pose: sending
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp SageRoom
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 50 s after that: wait for it
+mark talk
+event SageRoom_MeetRauru
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark talked
+wait 600
+mark end

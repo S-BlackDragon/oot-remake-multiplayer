@@ -1,0 +1,77 @@
+# meca-cancion-tiempo (ORM, docs/CANCIONES.md, PLAN_100 F10), A: plays the Song of Time at the Forest Temple's room 2
+# block (a block that goes for good: its sign Obj_SongOfTimeSign_A_01 0x0dbe35edd0ba3c92 has isOnceOnly and
+# isSaveGameData). Both adult at the temple's entrance, then placed beside the block (Banc: block at -19.0 100.0
+# -19.1). A plays right, A, down, right, A, down (daurosk's note guess: R = right, A = A, L = down). B watches.
+# What it says: whether the game writes the sign's 64-bit key when the block goes (A's flags debug line), and whether
+# B gets it (shared_dungeon_songs.txt's key64 line) and its block goes too (capture "despues" of B).
+# The named Bools of the room (Foresttemple_SongOfTimeBlock_A_01_Disappearance 0x2312e749, ForestTemple_Room02_
+# TimeBlock 0x18fd0712) are the built-in list's: their lines here are EXPLORATORY (which one moves).
+# Run (from , PowerShell):
+#   python tools/harness/r03_pareja.py --scenario meca-cancion-tiempo --transport ws --capture-marks --timeout 900
+#     --env LICHII_COOP_PUPPET=1 --env LICHII_COOP_DEBUG_FLAGS=1
+#     --env LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,shared_dungeon_adult.txt,shared_dungeon_songs.txt
+# Live check (orm/riesgos-mundo, docs/RIESGOS_RESUELTOS.md "Mundo e historia"; objects walk on): A's own block goes
+# with the key (A "live", never "unexplained": an unexplained line means the list has the wrong key for this block),
+# and B's line says whether its block answered the key at once ("live") or only when the room loads ("not live").
+# Mutant: without shared_dungeon_songs.txt in LICHII_COOP_DUNGEON_LISTS, B's key64 line turns red (A's stays).
+# Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+# run.ps1 splits #! switches at every comma, so a list of files cannot be a value there: '.' is the
+# emulator's folder (where the list files are), and the hook loads every shared_dungeon_*.txt in it.
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.,LICHII_COOP_OBJECTS=1
+#! expect A coop: test flag IsGet\.Item_Melody_TimeSong \(0x03b3450e\) = 1
+#! expect A coop: test place -19\.00 100\.50 -16\.50: done within after..placed
+#! expect A coop: flags debug: key64 0xdbe35edd0ba3c92 \(record \d+\) 0 -> 1 within played..end
+#! expect B coop: flags debug: key64 0xdbe35edd0ba3c92 \(record \d+\) 0 -> 1 within played..end
+#! expect A coop: live: on: whether the Song of Time blocks answer their keys live is logged within boot..
+#! expect A coop: live: song of time ForestTemple: .*live: \d+ -> \d+ SongOfTimeBlock actor\(s\) in ForestTemple within played..end
+#! expect B coop: live: song of time ForestTemple: .*(live|not live|unknown).* within played..end
+#! never A coop: live: song of time ForestTemple: unexplained within played..end
+# Round 7 (sondas21r7, A joining second): the song moves the block (our event 'TriggerSongOfTimeBlock') and sets
+# four saved Bools (0xc0f73567, 0x8cefa0c2, 0x171de71f, 0x438a5e34, unnamed in GameDataList); the sign's key64
+# above was not written: the list's key for this block is still to be found.
+#! expect A coop: event running 'TriggerSongOfTimeBlock' within antes..despues
+mark start
+warp ForestTemple ForestTemple adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+flag IsGet.Item_Melody_TimeSong 1
+wait 600                # the other game lands too
+place -19.0 100.5 -16.5
+wait 120
+mark placed
+toward -19.0 -19.1 8    # face the block
+wait 120
+mark antes
+press DLEFT 12          # takes the Ocarina out
+wait 240
+press R 12
+wait 40
+press A 12
+wait 40
+press L 12
+wait 40
+press R 12
+wait 40
+press A 12
+wait 40
+press L 12
+mark played
+wait 900                # the song, the block's scene
+mark despues
+press B 12
+wait 120
+press B 12
+wait 600
+mark end

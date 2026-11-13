@@ -1,0 +1,73 @@
+# final-pruebas-otra (docs/FINAL.md, block A; ZMP D-188), A: both adult in Ganon's Castle. A is
+# put in a trial's barrier room (room 15) and asks for that trial's barrier cutscene; B stays at the
+# Entrance, far from it. B is NOT asked to play it (near=30 on the story line: the cutscene of one room
+# is that room's, no trip to the central room for a player in another trial), but the barrier's Bool
+# still reaches B (shared). Mutant: the kit's shared_story.txt without near=30 on that line: B's
+# 'never' line goes red (B starts it).
+# Run with --transport ws (r03_pareja; run.ps1 reads #! switches).
+#! expect A coop: story: owner: our game started 'InsideGanonCastle_Dungeon_BarrierRemove_Forest' in InsideGanonCastle within asked..end
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_STORY=1,LICHII_COOP_DEBUG_FLAGS=1
+#! timeout 300
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600
+place -94.3 100.5 -21.0
+wait 120
+mark asked
+event InsideGanonCastle_Dungeon_BarrierRemove_Forest
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 600
+mark end

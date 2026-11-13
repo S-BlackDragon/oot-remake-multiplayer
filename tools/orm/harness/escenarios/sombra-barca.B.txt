@@ -1,0 +1,36 @@
+# sombra-barca (ORM, docs/MONTANA_SOMBRA.md "Barca"), B: on his own boat's deck 1.5 m from A; sets off ten seconds
+# after A (see the A file for the run, the mutant and what to look at).
+#! noload
+#! start coop: test warp done
+#! saves 17-sombra
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1
+#! timeout 420
+#! expect B ride: P\d rides 45506786c4d7d94f: our floor is [0-9.]+ m from theirs, drawn where they are within sale-a..sale-b
+#! never B coop: flags debug: bool 0x99d6bb15 within sale-a..sale-b
+#! expect B ride: we ride Obj_ShadowTemple_PaddleShip_A_01 45506786c4d7d94f, at within sale-b..end
+#! expect B ride: P\d rides 45506786c4d7d94f: drawn on our floor within sale-b..end
+mark start
+warp ShadowTemple StartPos_SageOfShadow_BattleOnShip adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark cubierta
+place 132.50 46.40 -60.50   # on the deck of our own boat, beside A
+wait 180
+mark sale-a
+wait 600                # A sails; our boat stays
+mark sale-b
+event ShadowTemple_Gimmick_Departure
+wait 2400
+mark llegada
+wait 600
+mark end

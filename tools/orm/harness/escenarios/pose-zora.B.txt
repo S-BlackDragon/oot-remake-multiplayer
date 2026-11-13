@@ -1,0 +1,30 @@
+# pose-zora, B: lands where A does, faces the way the warp points and stands still; A's puppet walks, dashes,
+# rolls and swings in front of it (captures at B's 'watching' and 'watched'). The puppet is made, plays A's
+# animations and never hides.
+#! noload
+#! start coop: test warp done
+#! saves 09-zora
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect B coop: puppet: P\d: create CoopPuppet_Child
+#! expect B coop: puppet: P\d plays ' within watching..end
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp ZoraDomain_Child ZoraDomain_FromZoraRiver
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+mark watching
+wait 3600               # A moves about 20 s after this mark
+mark watched
+wait 600
+mark end

@@ -1,0 +1,25 @@
+# caer-derrota, B: life to 0 2 s after A (A is down by then, so B is down too, not a solo game
+# over), then the same as A: GROUP_DEFEAT, the gate open, the game over, A for Continue, the reload.
+# Expect in B's log: "P1 is down (PLAYER_STATUS dead)", "screen: 'Mant... A para revivir a A'" (B
+# stands beside A's body until it falls), "alive -> downed", "group defeat: GROUP_DEFEAT from the
+# server (2 down", "downed -> game_over: group defeat", then "game_over -> alive: back after the
+# game over".
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect B coop: downed: P\d is down
+#! expect B coop: downed: alive -> downed within downed..over
+#! expect B group defeat: GROUP_DEFEAT from the server \(2 down
+#! expect B downed -> game_over: group defeat
+#! expect B game_over -> alive: back after the game over within pressed..end
+# Which path names the game over's event (docs/RIESGOS_RESUELTOS.md "Mundo e historia"): GameOver in its
+# name, or another name taken as it because it ran during the game over; either holds the Continue.
+#! expect B coop: continue: the game over event is '[^']+' \(its name has (GameOver|no GameOver: taken as the game over's, it runs while our game over does)\): the Continue waits while it runs within downed..end
+mark start
+wait 240
+life 0
+mark downed
+wait 1080                     # presses at the same time as A
+mark over
+press A 12
+mark pressed
+wait 1200
+mark end

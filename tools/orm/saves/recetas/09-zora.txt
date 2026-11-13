@@ -1,0 +1,14 @@
+# Block 9, Zora's River, Domain and Fountain: King Dodongo beaten, the Goron Ruby. Starts in Hyrule Field at the
+# river.
+include 08-dodongo.txt
+scene HyruleField_Child HyruleField_FrontOfZoraRiver
+hearts 5
+item Item_Stone_Fire
+dungeon DodongoCavern map compass
+seen Dm_DodongoCave_0000 Dm_DodongoCave_0010 Dm_DodongoCave_0020 Dm_DodongoCave_0030
+seen Dm_DodongoCave_BossIn Dm_DodongoCave_BossOut Get_StoneOfFire_DefeatBoss
+seen Dm_DeathMtTrail_0020 Dm_DeathMtTrail_0025 Dm_DeathMtTrail_0027
+step Get_StoneOfFire Complete
+step DoorOfTime Step2_2
+step Meet_GreatFairy GoToTopOfMountain
+step Get_StoneOfWater Ready

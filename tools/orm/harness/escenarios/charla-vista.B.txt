@@ -1,0 +1,46 @@
+# charla-vista: the charla pair with the roles swapped (A watches by the fire, B talks), so the harness captures of A show what the watcher sees.
+# charla (ORM D-R12, PNJ compartidos): A walks from the Kokiri Forest start to the Kokiri NPC
+# Npc_Kokiri_004_Child (at -78.91 117.15 -14.98 in the walk log; its two neighbours 003 and 002
+# stand at z -17.5 and -18.1), faces it and talks (A); B, a few metres away, watches. Run both
+# games with LICHII_COOP_NPC=1 (r03_pareja --env). The way (found with ruta*.A.txt and --capture-marks,
+# 2026-11-11): the start is a narrow canyon; the open ground ends at a stone lintel at about -76.3 13.4
+# ("Enter" = a crawl-space tunnel toward +x/-z); the tunnel comes out at the root base near -58 -1; from
+# there west along the root ledge to -71 -17 and then west at z -16 into the Kokiri camp by the fire.
+# Going straight from the start fell off the ledge ("Fall"); the trunk blocks the direct way at -79 -11.
+# Result of the 2026-11-11 run: A ends at -77.7 -16.8 (the last goto times out, harmless) and the A press
+# talks to Npc_Kokiri_003_Child (-76.34 -17.52, the nearest), not 004: "event running (we play 'EvtTalkTurn')",
+# then 'EvtTalk'. Any Npc_Kokiri_* within reach counts for the D-R12 check.
+# Expect in A's log: "coop: event running", "coop: npc: talking to Npc_Kokiri_004_Child ...
+# claimed" and OBJECT_OWNER to A within 1 s; in B's log: the NPC copy following A's talk
+# animation; no "show -> hide" anywhere.
+mark start
+wait 60
+goto -76.3 13.4 1.2 1500     # straight to the crawl-space lintel (ruta/ruta2 shots: the open ground ends there)
+toward -73.0 13.4 10         # face the tunnel (+x)
+wait 10
+mark at-tunnel
+press A 12                   # "Enter": the crawl-space
+wait 120
+stick 0 1 600                # forward through the tunnel (the camera is fixed along it)
+mark out-tunnel
+wait 60
+goto -73.0 -12.0 1.5 400     # the root ledge east of the Kokiri (the straight way to -78.9 -13 is blocked by the trunk)
+goto -73.0 -18.0 1.5 400     # times out at about -70.8 -17.3 (a wall west of there): harmless
+goto -78.9 -17.0 1.5 600     # from there the way west at z -16 is open: into the Kokiri camp, by the fire
+toward -78.91 -14.98 8
+mark at-npc
+wait 20
+press A 12                   # talk
+wait 180
+mark talking
+press A 12                   # through the text
+wait 60
+press A 12
+wait 60
+press A 12
+wait 60
+press B 12
+wait 120
+mark closed
+wait 120
+mark end

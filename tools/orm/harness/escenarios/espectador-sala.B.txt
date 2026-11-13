@@ -1,0 +1,29 @@
+# espectador-sala, B (ORM spectator camera C2): into Gohma's room with A; after the intro walks 12 m east (still in the
+# room: centre 7.5 67.2, radius 37), stays there while A falls and picks with the d-pad, then goes down itself (the
+# bots under the room stay up: no group defeat).
+#! saves 02-deku
+#! expect B coop: downed: P1 is down
+#! expect B coop: downed: alive -> downed
+#! never B -> game_over
+#! never B coop: boss: boss beaten
+mark start
+warp InsideTheDekuTree StartPos_Get_StoneOfForest
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 2400               # the intro and into the fight
+mark fight
+goto 18.7 67.6 0.5 600  # 12 m east of the arrival
+wait 1500
+mark b-down
+life 0
+wait 1500
+mark end

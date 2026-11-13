@@ -1,0 +1,44 @@
+# meca-limpia-deku (A): Deku Tree: the basement's Skulltula wave beaten opens room E for everyone (F9)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room E (the basement): the spider wave (InsideTheDekuTree_RoomE_KillSpiderWave) and the room's clear
+# (InsideTheDekuTree_RoomE_Cleared), both in daurosk's list. A sets them as the last kill would. B is at the
+# entrance, then walks in at room E's door (Obj_SwitchShutter_A_01 6d7a57153d8ed910, -12.39 78.36 16.54): open,
+# and no wave starts for B. Not checked here: B's copies of the enemies dying (#133: needs a real kill, F1).
+# Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag InsideTheDekuTree_RoomE_KillSpiderWave \(0x46e8fcf9\) = 1: queued
+#! expect A coop: test flag InsideTheDekuTree_RoomE_Cleared \(0x32797f0c\) = 1: queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag InsideTheDekuTree_RoomE_KillSpiderWave 1
+wait 120
+flag InsideTheDekuTree_RoomE_Cleared 1
+wait 120
+mark flag
+wait 1500
+place -12.39 78.9 16.54       # A at the same door, for its own capture
+wait 240
+toward -12.99 14.45 20
+press ZL 10
+mark abierta
+wait 900
+mark end

@@ -1,0 +1,12 @@
+# seis-caer, the five bots: around A, 1.2 m off; bot1 down beside A; bots 2 and 3 revive A when it falls.
+#! never script line \d+
+#! never until P1 down: timed out
+scene KokiriForest_Child
+follow 1 1.2
+wait 25
+@1 down
+@1 until 1 down 120                       # A falls once bot1 is up again
+@2-3 until 1 down 120
+@2-3 revive 1
+wait 60
+mark done

@@ -1,0 +1,31 @@
+# pueblo-kakariko-alterno (B: in KakarikoVillage_Adult_Alternative: the chest's event waits there too (Kakariko), the grotto crosses at once)
+# docs/PUEBLOS.md (the town list, tools/release/kit/shared_dungeon_towns.txt).
+# Run with --transport ws (r03_pareja reads #! switches and #! saves); the list files next to the
+# emulator, as the kit puts them. Not run yet (code wave, 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 17-sombra
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.
+#! timeout 240
+#! expect B coop: lists: .*: \d+ flags and keys added, \d+ taken off, \d+ once, \d+ held in their area, \d+ one-time keys within boot..
+#! expect B coop: dungeon: room gimmick flags from another player held until we leave this dungeon or load within cofre..end
+#! never B coop: flags debug: bool 0x398e5400 \(entry \d+\) 0 -> 1
+#! expect B coop: flags debug: bool 0xbdbf9ba5 \(entry \d+\) 0 -> 1 within cofre..end
+mark start
+warp KakarikoVillage_Adult_Alternative Kakariko_GraveYardSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark cofre
+wait 900
+wait 300
+mark end

@@ -1,0 +1,19 @@
+# enemigo-caido (B), ORM enemigos: into the same room 60 s after A; B stands and does nothing. Once A is down,
+# B's game is told it owns A's enemies (epoch 1 or more) and runs them, against B's Link.
+#! expect B coop: downed: P\d is down \(PLAYER_STATUS dead\)
+#! expect B coop: objects: share owner 0x[0-9a-f]+ is player \d epoch [1-9]\d* group \d+
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 2400
+mark end

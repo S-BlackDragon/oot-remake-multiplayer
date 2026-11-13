@@ -1,0 +1,55 @@
+# objetos-uso (ORM, docs/OBJETOS_EN_USO.md), B: adult in Kakariko by day too (as held-adult.B), backs off, faces A
+# and watches A use each item. B's log and screenshots are the check: each line below names the mechanism (puppet's
+# hand slot, spawn copy, stand-in) that should show it. The copies' lines need the shooter's pack to have the
+# stand-ins (puppet pack rebuilt with this tool); the 'wears' lines do not.
+#! saves 20-magia
+#! expect B coop: puppet: P\d: create CoopPuppet_Adult
+#! expect B P\d wears \w+ 'Weapon_Range_(Hookshot|Longshot)'
+#! expect B coop: spawn: got Shootable_Hook(Long)? #
+#! expect B spawn: CoopShot_Hook(Long)?: create copy
+#! expect B coop: spawn: got NormalArrow #
+# A's three arrows are fire, ice and light: each copy is its element's stand-in (riesgos-visual, the pack has them
+# since efectos2); the plain CoopShot_Arrow only for a pack without them, which the check line calls the risk seen.
+#! expect B spawn: CoopShot_Arrow(_Fire|_Ice|_Light)?: create copy
+#! expect B coop: check: arrow element ok P\d's (fire|ice|light) arrow drawn as CoopShot_Arrow_(Fire|Ice|Light) \(his PLAYER_EQUIP arrow
+#! never B coop: check: arrow element fallback
+#! expect B coop: spawn: got Item_Bombchu #
+#! expect B spawn: Item_Bombchu: create copy
+#! expect B coop: spawn: got ExpandFireField #
+#! expect B spawn: CoopShot_DinFire: create copy
+# Farore's Wind sets its warp point only in a dungeon: none in Kakariko (sondas7), so nothing to see of it here.
+#! expect B P\d wears head 'Armor_(Adult_|Child_)?GlassTruth'
+#! expect B P\d wears [\w ]+ 'Weapon_Hammer'
+#! expect B P\d wears boots 'Armor_Adult_HeavyBoot'
+#! expect B P\d wears shield 'Weapon_Shield_Mirror'
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 200
+stick 0 -0.6 30         # walk back toward the camera
+stick 0 0.3 8           # turn to face up the path
+press ZL                # camera behind B
+wait 60
+mark ready
+wait 600
+mark hook_seen          # marks spread over A's items, for the screenshots
+wait 600
+mark arrows_seen
+wait 600
+mark spells_seen
+wait 600
+mark lens_seen
+wait 600
+mark hammer_seen
+wait 2400               # A waits to see us, then 70 s of uses: stay until the spells
+mark end

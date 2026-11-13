@@ -1,0 +1,62 @@
+# meca-agua-templo (A): the Water Temple's three levels for everyone. Both adult at the entrance from Lake Hylia.
+# A plays the three triforce events (the game's own SageOfWater/WaterTemple_WaterLevelChange0N: each plays
+# Dm_WaterTemple_0020/0021/0022 and writes the level Int 0, 1, 2 and the one-hot Bools). B: the Int arrives (at
+# once, or after its wait while B's Link swims), B's one-hot Bools follow it (derived, not shared), and the gimmick
+# probe says whether B's loaded water planes moved (the live question of AGUA.md, section 5).
+# Mutant: without LICHII_COOP_WATER the B 'water:' lines go red (the Int still crosses: daurosk shares it).
+# Run with --transport ws; run.ps1 reads #! switches. Doc: docs/AGUA.md (PLAN_100 F6/E13).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_WATER=1,LICHII_COOP_GIMMICK_PROBE=1,LICHII_COOP_OBJECTS=1
+#! timeout 600
+#! expect A coop: water: on: \d+ level flags added, 4 taken off within boot..
+#! expect B coop: water: on: \d+ level flags added, 4 taken off within boot..
+#! expect A coop: test event WaterTemple_WaterLevelChange01: Link within low..mid
+#! expect A coop: flags debug: int 0xbeb09982 \(entry \d+\) 2 -> 0 within low..mid
+#! expect B coop: flags debug: int 0xbeb09982 \(entry \d+\) 2 -> 0 within low..mid
+#! expect B coop: water: WaterTemple_Room00_WaterLevel (2 -> 0 \(P\d\): written in WaterTemple, live|.*waited [0-9.]+ s: written) within low..mid
+#! expect B coop: water: WaterTemple_Room00_WaterLevel is 0: WaterTemple_WaterLevelChange01 1 within low..mid
+#! expect A coop: flags debug: int 0xbeb09982 \(entry \d+\) 0 -> 1 within mid..high
+#! expect B coop: flags debug: int 0xbeb09982 \(entry \d+\) 0 -> 1 within mid..high
+#! expect B coop: water: WaterTemple_Room00_WaterLevel is 1: WaterTemple_WaterLevelChange01 0, WaterTemple_WaterLevelChange02 1 within mid..high
+#! expect A coop: flags debug: int 0xbeb09982 \(entry \d+\) 1 -> 2 within high..end
+#! expect B coop: flags debug: int 0xbeb09982 \(entry \d+\) 1 -> 2 within high..end
+#! expect B coop: water: WaterTemple_Room00_WaterLevel is 2: WaterTemple_WaterLevelChange02 0, WaterTemple_WaterLevelChange03 1 within high..end
+#! expect B coop: gimmick probe: .*WaterPlane.* words stepped within low..end
+#! never B coop: water: .*not a level
+# Live or at load (docs/RIESGOS_RESUELTOS.md, "Mundo e historia"): B watches its water planes (objects walk) 10 s
+# after the first level and says which: "live: a water plane moved" or "not live: ... applies it on its next load"
+# (then "applied on load" when the room loads again). "live unknown" means no WaterPlane actor was read: red.
+#! expect B coop: water: WaterTemple_Room00_WaterLevel: (live: (a water plane moved|the water planes changed)|not live: no water plane moved) within low..end
+#! never B coop: water: WaterTemple_Room00_WaterLevel: live unknown
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+await mate              # B lands up to two minutes after us (cold harness)
+wait 900                # B's marks run 5 s ahead of ours from here
+mark low
+event WaterTemple_WaterLevelChange01
+# The game refuses these events asked through Link (they belong to the Triforce plaques: returned 0, 2026-11-12):
+# the level the event would set is written as the plaque's flow writes it, so the sharing is what is tested.
+int WaterTemple_Room00_WaterLevel 0
+wait 2400               # the cutscene (about 20 s), then B's wait if B swims (at most 20 s)
+mark mid
+event WaterTemple_WaterLevelChange02
+int WaterTemple_Room00_WaterLevel 1
+wait 2400
+mark high
+event WaterTemple_WaterLevelChange03
+int WaterTemple_Room00_WaterLevel 2
+wait 2400
+mark end

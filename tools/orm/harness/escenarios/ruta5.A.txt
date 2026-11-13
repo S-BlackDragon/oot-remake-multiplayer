@@ -1,0 +1,24 @@
+# ruta5: after the tunnel (see charla) Link ends at about -77.3 -10.8 (the root base, 4.5 m from the Kokiri, A does nothing
+# there). Probe around: points to the east and south of that, a mark after each, with the position log.
+mark start
+wait 60
+goto -76.3 13.4 1.2 1500
+toward -73.0 13.4 10
+wait 10
+press A 12
+wait 120
+stick 0 1 600
+wait 60
+mark out-tunnel
+goto -73.0 -12.0 1.5 400
+mark p1_x73_z-12
+goto -73.0 -18.0 1.5 400
+mark p2_x73_z-18
+goto -76.0 -20.0 1.5 400
+mark p3_x76_z-20
+goto -79.0 -20.0 1.5 400
+mark p4_x79_z-20
+goto -78.9 -17.0 1.5 400
+mark p5_x79_z-17
+wait 30
+mark end

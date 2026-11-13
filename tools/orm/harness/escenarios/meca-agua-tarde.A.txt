@@ -1,0 +1,33 @@
+# meca-agua-tarde (A): a late joiner gets the current level. A loads and lowers the water to level 0; B stays on
+# the title screen meanwhile, then loads its save (level 2 in it) into the temple. B: its load's 2 is put back to
+# the group's 0 (FlagWatcher's load rule) and its one-hot Bools follow while it loads, so the side planes load right.
+# Run with --transport ws; run.ps1 reads #! switches. Doc: docs/AGUA.md (PLAN_100 F6/E13).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_WATER=1,LICHII_COOP_GIMMICK_PROBE=1
+#! timeout 700
+#! expect A coop: flags debug: int 0xbeb09982 \(entry \d+\) 2 -> 0 within low..joined
+#! expect B coop: test mark b-loads
+#! expect B coop: water: WaterTemple_Room00_WaterLevel is 0: WaterTemple_WaterLevelChange01 1 within b-loads..b-end
+#! never B coop: flags debug: int 0xbeb09982 \(entry \d+\) \d+ -> 2 within b-in..b-end
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark low
+event WaterTemple_WaterLevelChange01
+wait 2400
+mark joined
+wait 6000               # B loads meanwhile
+mark end

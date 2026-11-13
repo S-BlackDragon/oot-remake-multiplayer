@@ -1,0 +1,40 @@
+# historia-tumba-real-rezagado, B: marks the cutscene played here at once (A's start is then ignored: 'is set here'), reads
+# the steps, only watches while A plays it, and reads the steps again at the end (the target or later).
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 500
+#! expect B coop: test flag HavePlayedEvent\.RoyalFamilyTomb_BlowOcarina \(0x[0-9a-f]{8}\) = 1 within after..flagged
+#! expect B coop: story: STORY_EVENT start received from P\d \('RoyalFamilyTomb_BlowOcarina' in Graveyard_Child\): ignored, HavePlayedEvent\.RoyalFamilyTomb_BlowOcarina is set here within flagged..end
+#! never B coop: story: STORY_EVENT start received from P\d \('RoyalFamilyTomb_BlowOcarina' in Graveyard_Child\): starting
+#! never B coop: story: event running 'RoyalFamilyTomb_BlowOcarina' as P\d asked
+#! expect B coop: story: GraveYard_RoyalFamilyTomb_Open 0 -> 1 within asked..end
+#! expect B coop: story: GraveYard_RoyalFamilyTomb_Breaked 0 -> 1 within asked..end
+#! expect B coop: story: Step_SubEvent_GetMelodySun \S+ -> GetMelodySun within asked..end
+#! expect B coop: test enum Step_SubEvent_GetMelodySun \(0x[0-9a-f]{8}\): find_type -?\d+, value (GetMelodySun|Complete) \(0x within played..end
+mark start
+warp Graveyard_Child GraveYard_KakarikoSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+flag HavePlayedEvent.RoyalFamilyTomb_BlowOcarina 1
+wait 30
+flag HavePlayedEvent.RoyalFamilyTomb_BlowOcarina 1   # twice: a queued write may miss the frame the game applies
+mark flagged
+enum Step_SubEvent_GetMelodySun
+wait 570
+mark asked
+wait 8550       # only watches while A plays it
+mark played
+enum Step_SubEvent_GetMelodySun
+wait 600
+mark end

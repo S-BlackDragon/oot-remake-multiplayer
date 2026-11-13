@@ -1,0 +1,168 @@
+# seis-montana (PLAN_100 F14, box 6 of block 7, Montaña de la Muerte y Ciudad Goron; docs/BOTS.md,
+# docs/SEIS_BLOQUES_1_10.md): one game and five bots. A walks the rooms of recorrido-montana (legs 1, 2) in one run
+# from the entrance save; the bots (seis-montana.bots.txt) follow it room to room and through each scene change it
+# walks. In r01-entrada A falls (life 0) and bots 2 and 3 revive it; then bot1 goes down 1 m from A and A holds A
+# beside it. bot1 sends one of the block's shared flags (GoronCity_Candle01_ON) and A's game shows it 0 -> 1; bot5
+# goes to another scene and follows A back.
+#   python -I tools/orm/harness/r03_pareja.py --scenario seis-montana --scen-dir tools/orm/harness/escenarios
+# 1 game, 5 bots, puppets and min-fps 25 come from the name (seis-*); transport and bot-arg are in the .bots.txt.
+#! noload
+#! start coop: test warp done
+#! saves entrada-montana
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 1800
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! never A coop: server refused
+#! count A coop: player \d+ 'bot\d' joined >= 5 within boot..
+#! count A coop: puppet: P\d+ CoopPuppet_\w+ spawned >= 5
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: flags debug: \w+ 0xfd51f9f7 \(entry \d+\) 0 -> 1
+#! never A coop: flags debug: \w+ 0xfd51f9f7 \(entry \d+\) 1 -> 0
+#! expect A coop: downed: alive -> downed within caida..levanta
+#! expect A downed -> reviving: revive requested by P\d within caida..levanta
+#! expect A reviving -> alive: revived \(by P\d within caida..levanta
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within caida..levanta
+#! expect A REVIVE sent to P\d within levanta..levantado
+#! expect A coop: downed: P\d is up again within levanta..fin
+#! never A -> game_over
+#! expect A coop: test place \-31\.42 90\.78 65\.30: done within r01-entrada..r02-cueva
+#! expect A coop: test place \-42\.25 111\.07 0\.12: done within r02-cueva..r03-goron
+#! expect A coop: test place \-10\.62 118\.39 \-48\.25: done within r03-goron..salida
+#! expect A coop: drops: asked for the drops of GoronCity within salida..fin
+#! expect A coop: test place 1\.65 116\.30 35\.22: done within r04-entrada..r05-vasija
+#! expect A coop: test place 0\.00 100\.60 6\.00: done within r05-vasija..r06-antorchas
+#! expect A coop: test flag GoronLargePot_IsGetHeartPiece \(0x1d1793e9\) = 1 within r05-vasija..r06-antorchas
+#! expect A coop: test place 0\.00 98\.70 \-33\.00: done within r06-antorchas..r07-darunia
+#! expect A coop: test place \-0\.15 98\.80 \-41\.35: done within r07-darunia..fin
+#! expect A coop: test flag IsZeldaLullabyPlayed_DaruniaEntrance \(0x453e571b\) = 1 within r07-darunia..fin
+#! expect A coop: event running 'Get_StoneOfFire_MeetDarnia' within r07-darunia..fin
+mark start
+warp DeathMountainTrail_Child MountainTrail_KakarikoSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 1200               # the bots follow A into its scene (they joined at the title)
+mark r01-entrada            # la entrada desde Kakariko
+place -31.42 90.78 65.30
+wait 120
+goto -35.00 50.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark caida              # A falls here (life 0): bots 2 and 3 come and hold A beside it
+life 0
+wait 2400               # their 3.5 s and the game's 6 s revive; then bot1 goes down 1 m from A
+mark levanta
+hold A 300              # A revives bot1 (reach 1.5)
+mark levantado
+wait 900                # bot1 gets up 6 s after the request
+mark r02-cueva            # ante la roca de la Cueva de los Dodongos
+place -42.25 111.07 0.12
+wait 120
+goto -44.30 -10.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark r03-goron            # el desvío a la Ciudad Goron
+place -10.62 118.39 -48.25
+wait 120
+goto -10.62 -53.25 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark salida             # a la Ciudad Goron
+goto -10.62 -58.50 0.8 900
+wait 1800               # the scene change; the bots follow A in
+mark r04-entrada            # la entrada (piso alto)
+place 1.65 116.30 35.22
+wait 120
+goto 8.00 26.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark r05-vasija            # la vasija grande (piso bajo)
+place 0.00 100.60 6.00
+wait 120
+goto 4.00 10.00 1.5 900
+flag GoronLargePot_IsGetHeartPiece 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r06-antorchas            # las antorchas de la sala de Darunia
+place 0.00 98.70 -33.00
+wait 120
+goto -3.00 -37.00 1.5 900
+# (flag GoronCity_Candle01_ON: bot1 sends it, docs/BOTS.md)
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r07-darunia            # la puerta de Darunia
+place -0.15 98.80 -41.35
+wait 120
+goto 0.00 -44.00 1.5 900
+flag IsZeldaLullabyPlayed_DaruniaEntrance 1
+wait 60
+event Get_StoneOfFire_MeetDarnia
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 300                # the bots catch up (4 m/s)
+mark fin
+wait 600

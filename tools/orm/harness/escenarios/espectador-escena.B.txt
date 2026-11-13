@@ -1,0 +1,26 @@
+# espectador-escena, B: stands while A falls and picks it, then the charla way into the Kokiri camp; talks to a Kokiri
+# and, while the talk (an event) runs, warps to Kakariko (KakarikoVillage_Child, by the well).
+#! expect B coop: downed: P1 is down
+#! expect B coop: test warp done
+#! never B -> game_over
+mark start
+wait 900                     # A falls and picks
+goto -76.3 13.4 1.2 1500     # the crawl-space lintel (charla.A.txt)
+toward -73.0 13.4 10
+wait 10
+press A 12
+wait 120
+stick 0 1 600
+wait 60
+goto -73.0 -12.0 1.5 400
+goto -73.0 -18.0 1.5 400
+goto -78.9 -17.0 1.5 600
+toward -78.91 -14.98 8
+mark at-npc
+press A 12                   # talk: an event runs
+wait 60
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 2400
+mark in-kakariko
+wait 900
+mark end

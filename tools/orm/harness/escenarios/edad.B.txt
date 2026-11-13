@@ -1,0 +1,8 @@
+# edad, B: walks about 4 m off its start (so "Link put back where he stood" is checked against the other
+# age's scene start), then stands still; the age changes are A's, B's game follows them by itself.
+mark start
+wait 120
+goto -82.0 37.5 1.0 600
+mark moved
+wait 8700
+mark end

@@ -1,0 +1,40 @@
+# epona-rancho, B: adult in Lon Lon Ranch too (12-epona-rancho), walks 6 m off the ranch's Epona and watches A get
+# on, ride and get off (see the A file).
+#! noload
+#! start coop: test warp done
+#! saves 12-epona-rancho
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_HORSE=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect B coop: epona: riders drawn on a horse, actor (CoopPuppet_Horse|by the horse he is on) within boot..
+#! expect B coop: epona: P\d gets on: a horse beside him within ready..end
+#! expect B coop: epona: P\d rides within ready..end
+#! expect B horse coop: puppet: P\d CoopPuppet_Horse\w* spawned after within ready..end
+#! expect B coop: epona: P\d got off: his horse waits where he left it within ready..end
+#! never B (?<!fairy )coop: puppet: P\d show -> hide \((riding|getting on)\)
+#! never B coop: epona: CoopPuppet_Horse was not made twice
+#! never B coop: objects: share .*Animal_Epona_Adult
+#! expect B coop: check: saddle (ok \(.*an earlier run|ok \(.*LICHII_ORM_HORSE_SADDLE|fallback \(0\.00, 1\.20, 0\.00\), the estimate: we have not sat still)
+#! expect B coop: check: horse gaits (ok|fallback)
+mark start
+warp HyruleField_Adult StartPos_Get_Epona_Race adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+await mate
+wait 300
+goto -75.0 226.0 1.0 1200    # 6 m off her, on the side A walks up from
+toward -69.12 223.79 12
+wait 30
+mark ready
+wait 2400               # A walks up, gets on, rides, stops, gets off
+mark watched
+wait 600
+mark end

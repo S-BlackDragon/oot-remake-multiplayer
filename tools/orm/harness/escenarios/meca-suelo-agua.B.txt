@@ -1,0 +1,29 @@
+# meca-suelo-agua (ORM, docs/MECANISMOS_ADULTO.md, family F2, Templo del Agua), B: lands where A does, is put by the mechanism; A's marks at the same times; the checks are in A's file.
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 224
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+place -23.50 100.60 20.15   # B by the mechanism, out of A's way
+mark pisa
+wait 480
+mark abierta
+wait 300
+mark abierta2
+wait 300
+wait 300
+mark end

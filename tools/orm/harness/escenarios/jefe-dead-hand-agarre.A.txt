@@ -1,0 +1,43 @@
+# jefe-dead-hand-agarre (docs/JEFES.md section 9, family grab; ZMP D-134, D-135, D-168), A: both in Dead Hand's room (BottomOfTheWell, Banc room 8), A walks into its hands.
+# A stands where its grabber reaches and lets it grab: A's game finds the part that holds its Link
+# ('grab: our Link is held by'), its samples of the group carry owner_keeps (so B, nearer or hitting,
+# never takes it mid-hold) and its PLAYER_SAMPLE rides the part; B draws A's puppet on its copy of the
+# part. If A is never grabbed (the grab is the AI's choice), move A's 'bait' place: the lines below are
+# the test. A 'check: grab fallback' line means the part's name or reach in boss_rules.cpp is wrong.
+# Dead Hand is no boss of coop_boss.cpp's table (a mini-boss, docs/JEFES.md section 5): no boss room lines.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario jefe-dead-hand-agarre --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-12, a code-only batch). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_BOSS=1
+#! timeout 600
+#! expect A coop: grab: our Link's AS command \S+ is a held one within bait..end
+#! expect A coop: grab: our Link is held by Enemy_DeadHand(_Hand)? [0-9a-f]{16} \(Dead Hand\), [0-9.]+ m from it; ours: within bait..end
+#! expect A coop: check: grab ok our Link held by Enemy_DeadHand(_Hand)? within bait..end
+#! expect A coop: grab: our Link is let go by Enemy_DeadHand(_Hand)? within bait..end
+#! never A coop: check: grab fallback
+#! never A coop: grab: .*a copy P\d owns
+mark start
+warp BottomOfTheWell StartPos_SubEvent_GetStormSong child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark a-in
+wait 300
+mark bait
+goto -1.5 -101.0 0.5 900   # among the hands, 4 m from Dead Hand (-0.16 92.31 -105.06)
+wait 1200
+mark held
+hold A 600
+mark held-end
+wait 1800
+mark end

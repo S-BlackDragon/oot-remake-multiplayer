@@ -1,0 +1,186 @@
+# historia-tormenta-molino (ORM, docs/HISTORIAS_ESCENARIOS.md; block Kakariko, Cementerio, Montaña, Ciudad Goron (niño)), A: The same, played inside the windmill (Npc_Hylia_009_Child; plays Dm_Kakariko_0050; moves SubEvent_GetStormSong to step03).
+# Both games warp to KakarikoVillage_Child Kakariko_WellSide; A asks for PlayStormSong_InWindmill with the test command `event` (the hook's
+# request by name, CINEMATICAS.md P1) and both press A every 2 s for 150 s to move the texts on.
+# Run: python tools/orm/harness/r03_pareja.py --scenario historia-tormenta-molino --transport ws --scen-dir tools/orm/harness/escenarios --timeout 500 --env LICHII_COOP_STORY=1
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand. Not run yet.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 500
+#! expect A coop: story: owner: our game started 'PlayStormSong_InWindmill' in KakarikoVillage_Child; STORY_EVENT start to the others within asked..end
+#! expect A coop: story: STORY_EVENT start sent \('PlayStormSong_InWindmill' in KakarikoVillage_Child, within asked..end
+#! expect A coop: event running 'PlayStormSong_InWindmill' within asked..end
+#! expect A coop: story: HavePlayedEvent\.PlayStormSong_InWindmill 0 -> 1 within asked..end
+#! expect A coop: story: KakarikoVillage_Npc_Hylia_009_Child_DeleteWaterPlane 0 -> 1 within asked..end
+#! expect A coop: story: KakarikoVillage_DeleteDummyLadder 0 -> 1 within asked..end
+#! expect A coop: story: Step_SubEvent_GetStormSong \S+ -> step03 within asked..end
+#! never A coop: story: 'PlayStormSong_InWindmill' runs here again
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark asked
+event PlayStormSong_InWindmill
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+wait 600
+mark end

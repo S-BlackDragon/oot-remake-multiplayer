@@ -1,0 +1,28 @@
+# caer-derrota (ORM "downed, not dead", P4, docs/CAIDO_REVIVIR.md), A: two players in the room,
+# A's life to 0, B's 2 s later (caer-derrota.B.txt). Both are down (PLAYER_STATUS bit 4): 2 s after
+# the second, the server sends GROUP_DEFEAT to both, each game opens its gate and the original game
+# over runs; A for its top choice (Continue) reloads the save and both are alive again.
+# Run with --transport ws --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_ANIM=1. Expect in A's log: "alive -> downed", the dead bit on,
+# "coop: downed: group defeat: GROUP_DEFEAT from the server (2 down", "downed -> game_over: group
+# defeat (2 down)", the gate open, "coop: event running", after the press the reload, then
+# "game_over -> alive: back after the game over" and the dead bit off. The server log: "group
+# defeat: all 2 players down".
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: downed: alive -> downed within downed..over
+#! expect A group defeat: GROUP_DEFEAT from the server \(2 down
+#! expect A downed -> game_over: group defeat
+#! expect A game_over -> alive: back after the game over within pressed..end
+# Which path names the game over's event (docs/RIESGOS_RESUELTOS.md "Mundo e historia"): GameOver in its
+# name, or another name taken as it because it ran during the game over; either holds the Continue.
+#! expect A coop: continue: the game over event is '[^']+' \(its name has (GameOver|no GameOver: taken as the game over's, it runs while our game over does)\): the Continue waits while it runs within downed..end
+mark start
+wait 120
+life 0
+mark downed
+wait 1200                     # B down at +2 s, the defeat at +4 s, the screen takes A 10 s later
+mark over
+press A 12                    # the top choice (Continue)
+mark pressed
+wait 1200                     # the reload takes about 13 s
+mark end

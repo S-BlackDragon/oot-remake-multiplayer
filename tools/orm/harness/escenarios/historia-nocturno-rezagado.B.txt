@@ -1,0 +1,38 @@
+# historia-nocturno-rezagado, B: marks the cutscene played here at once (A's start is then ignored: 'is set here'), reads
+# the steps, only watches while A plays it, and reads the steps again at the end (the target or later).
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 500
+#! expect B coop: test flag HavePlayedEvent\.KakarikoVillage_MelodyGet_Shadow \(0x[0-9a-f]{8}\) = 1 within after..flagged
+#! expect B coop: story: STORY_EVENT start received from P\d \('KakarikoVillage_MelodyGet_Shadow' in KakarikoVillage_Adult\): ignored, HavePlayedEvent\.KakarikoVillage_MelodyGet_Shadow is set here within flagged..end
+#! never B coop: story: STORY_EVENT start received from P\d \('KakarikoVillage_MelodyGet_Shadow' in KakarikoVillage_Adult\): starting
+#! never B coop: story: event running 'KakarikoVillage_MelodyGet_Shadow' as P\d asked
+#! expect B coop: story: Step_SageOfShadow \S+ -> (GoToDungeon|GotGlassTruth) within asked..end
+#! expect B coop: test enum Step_SageOfShadow \(0x[0-9a-f]{8}\): find_type -?\d+, value (GoToDungeon|GotGlassTruth|GetGlassTruth|MeetBoss|BattleOnShip|BeforeBossRoom|DefeatBoss|GoToWarpPoint|Complete) \(0x within played..end
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+flag HavePlayedEvent.KakarikoVillage_MelodyGet_Shadow 1
+wait 30
+flag HavePlayedEvent.KakarikoVillage_MelodyGet_Shadow 1   # twice: a queued write may miss the frame the game applies
+mark flagged
+enum Step_SageOfShadow
+wait 570
+mark asked
+wait 8550       # only watches while A plays it
+mark played
+enum Step_SageOfShadow
+wait 600
+mark end

@@ -1,0 +1,52 @@
+# recorrido-montana-1 (ORM, docs/RECORRIDOS.md, bloque 7. Montaña de la Muerte y Ciudad Goron), A: tramo 1, el camino hasta la Ciudad Goron.
+# DeathMountainTrail_Child: warp to MountainTrail_KakarikoSide, then room by room with place/goto; see recorrido-montana.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-montana-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 07-montana
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-entrada
+#! never A (?<!fairy )coop: puppet: P\d show -> hide within r01-entrada..salida
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: test place \-31\.42 90\.78 65\.30: done within r01-entrada..r02-cueva
+#! expect A coop: test place \-42\.25 111\.07 0\.12: done within r02-cueva..r03-goron
+#! expect A coop: test place \-10\.62 118\.39 \-48\.25: done within r03-goron..salida
+#! expect A coop: drops: asked for the drops of GoronCity within salida..fin
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within salida..fin
+mark start
+warp DeathMountainTrail_Child MountainTrail_KakarikoSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 3000               # B loads after A (r03_pareja) or with it (run.ps1): wait for it
+mark r01-entrada            # la entrada desde Kakariko
+place -31.42 90.78 65.30
+wait 120
+goto -35.00 50.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-cueva            # ante la roca de la Cueva de los Dodongos
+place -42.25 111.07 0.12
+wait 120
+goto -44.30 -10.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-goron            # el desvío a la Ciudad Goron
+place -10.62 118.39 -48.25
+wait 120
+goto -10.62 -53.25 1.5 900
+wait 300                # the other one sees us in this room
+mark salida             # a la Ciudad Goron
+goto -10.62 -58.50 0.8 900
+wait 1800               # the scene change, then the other one lands too
+mark fin

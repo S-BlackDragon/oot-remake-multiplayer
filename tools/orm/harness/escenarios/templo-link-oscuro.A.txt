@@ -1,0 +1,48 @@
+# templo-link-oscuro (ORM, docs/TEMPLOS.md section 2, Templo del Agua; the doc's 'templo-oscuro'), A: both ADULT at
+# the Water Temple's entrance (15-agua). Rule: one Dark Link for the group (a mini-boss with an owner, its death
+# shared), but the room and fight state is each player's: WaterTemple_DarkLink_InBattle,
+# WaterTemple_IsPlayerInDarkLinkRoom, WaterTemple_DarkLinkRoom_DoorSide and _RightSide are in no list, and
+# WaterTemple_DarkLinkRoom_Locked is taken out by the adult list ('unshare:'). A sets all five as the room would
+# (A in the room, the doors locked behind it) and, as the control, the boss key (an item: shared). B, far from the
+# room, must get the key and none of the five.
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS: daurosk's own list shares the Locked flag, and B's 'never'
+# line on 0x5eb654bd turns red (if it stays green, Locked was never shared: note it in TEMPLOS.md).
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario templo-link-oscuro --scen-dir tools/orm/harness/escenarios
+#   --transport ws. Hashes checked against GameDataList (Bool, save file 0). Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect A coop: test flag WaterTemple_DarkLinkRoom_Locked \(0x5eb654bd\) = 1: queued within room..end
+#! expect A coop: test flag WaterTemple_DarkLink_InBattle \(0x127c57f8\) = 1: queued within room..end
+#! expect A coop: test flag DungeonInfo\.WaterTemple\.IsGetBossKey \(0x79daf80a\) = 1: queued within room..end
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 9000               # B starts 60 s after our warp and lands about 60 s after that
+mark room
+flag WaterTemple_IsPlayerInDarkLinkRoom 1
+wait 30
+flag WaterTemple_DarkLinkRoom_Locked 1
+wait 30
+flag WaterTemple_DarkLinkRoom_DoorSide 1
+wait 30
+flag WaterTemple_DarkLinkRoom_RightSide 1
+wait 30
+flag WaterTemple_DarkLink_InBattle 1
+wait 120
+mark key
+flag DungeonInfo.WaterTemple.IsGetBossKey 1
+wait 600
+mark end

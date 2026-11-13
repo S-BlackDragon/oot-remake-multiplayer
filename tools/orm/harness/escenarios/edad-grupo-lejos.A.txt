@@ -1,0 +1,358 @@
+# edad-grupo-lejos (ORM, docs/EDAD.md "La decision de S-BlackDragon", 2026-11-13), A: one player changes age at the Temple of Time
+# and the group follows through the game's own era change. A draws the Master Sword (the test command `event`) and
+# comes back adult; B, far away in another area (Kokiri Forest), is told "<A> ha cambiado de época: moviendo al grupo al Templo del Tiempo...", counts
+# 3, 2, 1 and runs the game's own era change (Market_Child_Field_ChildToAdult): it lands adult in the Temple of
+# Time (Market_Adult). A is told "Moviendo al grupo contigo..." and, once B is adult, "Grupo reunido en el Templo del
+# Tiempo"; B the same on arrival. Captures at the marks show the big notice in the middle of the picture.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario edad-grupo-lejos --transport ws --scen-dir tools/orm/harness/escenarios --capture-marks
+#   Needs daurosk branch orm/edad-grupo (on orm/t10-integrado). Not run yet (written 2026-11-13, a code-only task).
+# Player numbers vary: P\d. If the game refuses the era change, B logs "the game refused" and, after two tries,
+# "given up, no move" with the notice "No se pudo cambiar de época": the era stays a child's.
+#! noload
+#! start coop: test warp done
+#! saves 11-tiempo
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_STORY_EVENTS=1,LICHII_ORM_AGE=1
+#! timeout 1200
+#! expect A coop: age: on \(LICHII_ORM_AGE\): a mate's age change is followed by the game's own era change
+#! expect A coop: age: we changed age ourselves \(child -> adult\): the group follows us within draw..end
+#! expect A coop: age: notice moving_you: Moviendo al grupo contigo within draw..end
+#! expect A coop: age: every mate is our age: the group is gathered within adult..end
+#! expect A coop: age: notice gathered: Grupo reunido en el Templo del Tiempo within adult..end
+#! never A coop: age: reloading as
+#! never A coop: age: given up
+#! expect B coop: age: P\d is adult now \(was child\) within moved..end
+#! expect B coop: age: we follow: reload as adult within moved..end
+#! expect B coop: age: notice announce: \S+ ha cambiado de época: moviendo al grupo al Templo del Tiempo within moved..end
+#! expect B coop: age: notice countdown: .* / 3 within moved..end
+#! expect B coop: age: notice countdown: .* / 2 within moved..end
+#! expect B coop: age: notice countdown: .* / 1 within moved..end
+#! expect B coop: age: reloading as adult: KokiriForest_Child -> Market_Adult within moved..end
+#! expect B the game took 'Market_Child_Field_ChildToAdult' within moved..end
+#! expect B coop: age: now adult in Market_Adult, [\d.]+ s after the reload began: the game's own era change within moved..end
+#! expect B coop: age: notice gathered: Grupo reunido en el Templo del Tiempo within moved..end
+#! never B coop: age: notice moving_you
+#! never B coop: age: given up
+#! never B coop: age: Sequence_IsChildhood <-
+mark start
+warp Market_Child LightPrelude
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 4800               # B lands about 60 s after us and goes to its place
+place 131.00 105.20 -34.00   # before the pedestal (recorrido-tiempo r03)
+wait 120
+mark draw
+event Market_Child_DoorOfTime_Draw
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark adult
+wait 6000               # B sees us adult (2 s), counts 3 s, runs the era change and lands in the temple
+mark gathered
+wait 600
+mark end

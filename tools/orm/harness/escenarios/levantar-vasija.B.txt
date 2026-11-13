@@ -1,0 +1,42 @@
+# levantar-vasija (B), ORM "Levantar" (docs/DETALLES_MARIONETA.md, branch orm/levantar): put 4 m from
+# the pots up the Kakariko hill (pots-place), facing them, B watches A lift a pot, carry it and throw it (A's file).
+# B's copy of the pot goes in the hands of A's puppet (bone or actor frame), follows A's throw, and breaks with A's
+# break (WORLD_BREAK). Captures of B at A's marks lifted, carried and thrown are the check that counts.
+# Not run yet (written 2026-11-11 with the branch orm/levantar).
+# Log checks (r03_pareja; player numbers and addresses vary: P\d, 0x[0-9a-f]+):
+#! expect B coop: carry: on \(lifted objects claimed and carried
+#! expect B coop: carry: P\d holds Obj_Pot_A_08 0x[0-9a-f]+: drawn in the puppet's hands \((bone \d+|actor frame)\) within b-placed..b-end
+#! expect B coop: carry: P\d let go of 0x[0-9a-f]+: it follows the samples within b-placed..b-end
+#! expect B coop: carry: 5 s: (?:[1-9]\d* carried copy-frames on a puppet's bone, \d+|\d+ carried copy-frames on a puppet's bone, [1-9]\d*) on its actor frame
+#! never B coop: carry: P\d holds Obj_Pot_A_08 0x[0-9a-f]+ but has no puppet here
+#! expect B coop: world: [0-9a-f]+ Obj_Pot_A_08 broken by another player within b-placed..b-end
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_CARRY=1
+#! timeout 360
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: carry bone ok the puppet's bone \d+ reads as a rigid frame within b-placed..b-end
+#! never B coop: check: carry bone fallback
+#! expect B coop: check: carry hold (fix )?ok within b-placed..b-end
+#! never B coop: check: carry hold fix fallback
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 300                # the landing's event first: a place before it is undone (sondas4)
+place -17.5 103.3 37.5
+wait 240
+toward -17.5 30.7 10    # face the pots and A
+press ZL 10             # hold the camera behind B, looking at A
+mark b-placed
+wait 2700
+mark b-end

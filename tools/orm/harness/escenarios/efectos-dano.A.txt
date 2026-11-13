@@ -1,0 +1,56 @@
+# efectos-dano (ORM efectos2, docs/DETALLES_MARIONETA.md "Efectos 2"; D-R37), A: both CHILD at the Dodongo's
+# Cavern entrance (08-dodongo; the start and the entrance room's lava pool as peligro-lava has them, from the Banc).
+# A waits for B, then is hurt three times, far enough apart for each to flash on its own: a fall from 12 m onto the
+# start, and twice into the lava pool (hearts filled before each, so A never goes down). B watches from the start
+# (efectos-dano.B.txt): A's puppet blinks (drawn under the floor every other 50 ms for 1.2 s) at each hit, its
+# knock-back comes with its pose and place, and it never shows the crystal. Whether the game's lava burns Link
+# (Damage_Burning: the burn stand-in) or only hurts him is what this run tells; B's log says which (the 'shows burn'
+# line, or none). Freeze (a Freezard, Ice Cavern) and shock (Barinade's jellyfish) have no scenario yet.
+# Needs the hook from orm/efectos2.
+# Mutant: the same run with LICHII_ORM_DAMAGE_FLASH=0 on B turns B's flash lines red.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario efectos-dano --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks. Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect A coop: effects: commands under the pose on, damage flash on within boot..
+#! never A coop: downed: alive -> downed
+mark start
+warp DodongoCavern EntrancePos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+place 0.00 102.50 38.00    # 3 m in front of the start, toward the pool
+wait 120
+toward 0.00 41.00 8     # face the start, where B stands
+wait 7200               # B lands about 120 s after us
+mark fall
+life 48                 # full hearts (up to Link's most)
+wait 30
+place 0.00 114.50 38.00    # 12 m up: the fall hurts
+wait 360
+mark lava
+life 48
+wait 30
+place 1.43 102.50 25.63    # over the lava pool, as peligro-lava
+wait 240
+place 0.00 102.50 38.00    # back on firm ground
+wait 600
+mark lava2
+life 48
+wait 30
+place 1.43 102.50 25.63
+wait 240
+place 0.00 102.50 38.00
+wait 600
+mark end

@@ -1,0 +1,34 @@
+# montana-link-goron (B: in adult Goron City with A: Link the Goron stopped and waiting, the statue moved; A's way in stays A's)
+# docs/MONTANA_SOMBRA.md (the mountain list, tools/release/kit/shared_dungeon_montana.txt).
+# Run with --transport ws (r03_pareja reads #! switches and #! saves); the list files next to the
+# emulator, as the kit puts them. Not run yet (code wave, 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_montana.txt
+#! timeout 240
+#! expect B coop: lists: .*shared_dungeon_montana\.txt: \d+ flags and keys added, 1 taken off, 12 once, 3 held in their area, 25 one-time keys within boot..
+#! expect B coop: flags debug: bool 0x07bac3ce \(entry \d+\) 0 -> 1 within goron..end
+#! expect B coop: flags debug: bool 0xc9f273ba \(entry \d+\) 0 -> 1 within goron..end
+#! expect B coop: flags debug: bool 0x0bc25f5d \(entry \d+\) 0 -> 1 within goron..end
+#! expect B coop: flags debug: bool 0x87e4f819 \(entry \d+\) 0 -> 1 within goron..end
+#! expect B coop: flags debug: bool 0x56f40096 \(entry \d+\) 0 -> 1 within goron..end
+#! never B coop: flags debug: bool 0x737d2078 \(entry \d+\) 0 -> 1
+mark start
+warp GoronCity_Adult GoronCity_MountainTrailSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark goron
+wait 900
+wait 300
+mark end

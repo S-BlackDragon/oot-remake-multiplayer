@@ -1,0 +1,72 @@
+# peligro-vacio (ORM, docs/PELIGROS.md sections 0, 3 and 6), A: both CHILD at the Kokiri Forest's Lost Woods start
+# (01-kokiri; KokiriForest_FrontOfLostWood at -32.27 121.07 -65.77, Banc). B (the later game, so A is surely in)
+# stands 20 s on the start, then falls 30 m under the ground with a quarter heart and dies in the void
+# (peligro-vacio.B.txt). Rule Peligros-2: the others see a Link down where nobody can reach him at his last firm
+# ground, and revive him there. A stands 0.8 m from that start and holds A over and over through the window where
+# B goes down (B's landing time is known only to about 30 s); one hold of 5.5 s is enough (3 s needed, 1.5 m reach).
+# Expect: A sees B down and sends the revive; B's log says 'down in the void' and the firm ground it sends; B up.
+# Mutant: the same run with LICHII_COOP_HAZARDS=0: B's real place (in the void) is sent, A never reaches it, and
+# A's REVIVE line and B's hazards lines turn red.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario peligro-vacio --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (needs the hook from orm/peligros). Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 01-kokiri
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 600
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within holding..end
+#! expect A coop: downed: REVIVE sent to P\d within holding..end
+#! never A coop: downed: REVIVE sent to P\d \(NOT sent\)
+#! never A coop: downed: alive -> downed
+mark start
+warp KokiriForest_Child KokiriForest_FrontOfLostWood
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+place -31.55 121.10 -65.45  # 0.8 m from the start, where B lands and stands
+wait 120
+toward -32.27 -65.77 8  # face the start
+wait 6000               # B lands about 120 s after us and falls 20 s later
+mark holding
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+mark held
+wait 900
+mark end

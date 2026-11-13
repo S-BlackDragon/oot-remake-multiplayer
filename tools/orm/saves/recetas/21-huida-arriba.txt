@@ -1,0 +1,13 @@
+# 21-huida loaded at the top of the collapsing castle (final-huida-reloj, final-huida, historia-huida-*). 21-huida
+# keeps 20-ganon's scene (GanonCastle, outside), so every escape scenario warps first; CrumblingGanonCastle is a Banc
+# of the GanonCastle folder (partida.py finds its StartPos there now). The escape's own step at its start: Ready, the
+# value the game's reset entry writes (EscapeFromCrumblingGanonCastle, Reset_Npc_Hylia_Zelda_Adult_StepStart, with
+# the AfterStep flags 0; the base save already reads Ready: written for any other base); the arrival
+# (CrumblingGanonCastle_Arrive, Dm_InsideGanonCastle_0110) is still not seen.
+include 21-huida.txt
+scene CrumblingGanonCastle CrumblingGanonCastle_StartPos
+step EscapeFromCrumblingGanonCastle Ready
+bool EscapeFromCrumblingGanonCastle_AfterStep03 0
+bool EscapeFromCrumblingGanonCastle_AfterStep05 0
+bool EscapeFromCrumblingGanonCastle_AfterStep08 0
+bool EscapeFromCrumblingGanonCastle_AfterStep10 0

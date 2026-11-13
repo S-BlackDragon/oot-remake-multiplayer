@@ -1,0 +1,36 @@
+# pueblo-carta-ruto (A: finds Ruto's letter at the lake (its bottle in A's slot A, its flag); mutant: without LICHII_COOP_DUNGEON_LISTS B's expect goes red)
+# docs/PUEBLOS.md (the town list, tools/release/kit/shared_dungeon_towns.txt).
+# Run with --transport ws (r03_pareja reads #! switches and #! saves); the list files next to the
+# emulator, as the kit puts them. Not run yet (code wave, 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 09-zora
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_towns.txt
+#! timeout 240
+#! expect A coop: lists: .*shared_dungeon_towns\.txt: \d+ flags and keys added, 0 taken off, 7 once, 4 held in their area, 13 one-time keys within boot..
+#! expect A coop: test bottle A Letter:  within carta..end
+#! expect A coop: test flag Get_StoneOfWater_GetRutoLetter \(0x77dc0488\) = 1: queued within carta..end
+mark start
+warp HyruleField_Child HyruleField_FromLakeHylia
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark carta
+bottle A Letter          # the letter is in the finder's bottle: never shared
+flag Get_StoneOfWater_GetRutoLetter 1          # the letter found: once for the group
+wait 600
+mark deshacer
+flag Get_StoneOfWater_GetRutoLetter 0          # a 0 never undoes a once: flag
+bottle A restore
+wait 600
+wait 300
+mark end

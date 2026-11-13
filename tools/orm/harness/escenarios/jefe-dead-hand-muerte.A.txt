@@ -1,0 +1,44 @@
+# jefe-dead-hand-muerte (docs/JEFES.md section 5: 'derrota para todos'), A: both in Dead Hand's room; once B is
+# in, A queues Dead Hand's defeat flag (what its death writes; the fight itself is not played here) and the
+# room's cleared record: B gets both live and its Dead Hand goes (capture 'gone' of B). The real death by
+# the sword, seen by both, is the next step once a game runs (a Dead Hand with little life:
+# LICHII_COOP_OBJECTS_CHEAT, PLAN_100 F1).
+# Dead Hand is the Well's key fight (PLAN_100 block 16, J = F1 without a boss room): its room (Banc room 8, the
+# flags say room 06) has StartPos_SubEvent_GetStormSong (3.61 92.37 -97.19) inside and
+# StartPos_SubEvent_GetStormSong_BeforeBossRoom (0.08 102.19 -92.96) outside its door (0.01 102.17 -89.05);
+# Dead Hand stands at -0.16 92.31 -105.06 with its hands round it. It is no boss of coop_boss.cpp's table, so
+# no 'boss room' lines: what is shared is its two flags in the built-in dungeon list,
+# BottomOfTheWell_Level_Room_06_Boss_Appear (0x71e13575) and _Boss_Defeat (0xf2a863c4) (docs/JEFES.md section 5),
+# and the actor has one owner (a mini-boss with the boss rule, docs/ENEMIGOS.md E4). Save 16-pozo (child).
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario jefe-dead-hand-muerte --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1
+#! timeout 600
+#! expect A coop: test flag BottomOfTheWell_Level_Room_06_Boss_Defeat \(0xf2a863c4\) = 1: queued within beaten..end
+#! expect A coop: test flag BottomOfTheWell_Level_Room_06_A_Clear \(0xf14a8758\) = 1: queued within beaten..end
+mark start
+warp BottomOfTheWell StartPos_SubEvent_GetStormSong child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 70 s after that: wait for it
+mark beaten
+flag BottomOfTheWell_Level_Room_06_Boss_Defeat 1
+wait 300
+flag BottomOfTheWell_Level_Room_06_A_Clear 1
+wait 600
+mark gone
+wait 600
+mark end

@@ -1,0 +1,77 @@
+# efectos-magia (ORM efectos2, docs/DETALLES_MARIONETA.md "Efectos 2"; D-R37), A: both adult in Kakariko by day
+# (as objetos-uso). A gets magic and the three spells, faces B and casts Din's Fire, Farore's Wind and Nayru's Love,
+# then rolls twice. B watches (efectos-magia.B.txt): its puppet of A plays the casts and the rolls under the copied
+# pose (for their effect and sound events), Nayru's crystal stand-in comes after the cast and goes after its time
+# (LICHII_ORM_NAYRU_S=20 here), and no attack, damage, item or demo command is ever played on the puppet.
+# Needs the hook from orm/efectos2 and a puppet pack built by its tools/puppet_pack (Link's effect user and the
+# CoopFx_* stand-ins are in it by default now).
+# Mutant: the same run with LICHII_ORM_EFFECTS=0 and LICHII_ORM_STATUS_FX=0 turns B's effects lines red.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario efectos-magia --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks. Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 20-magia
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_CHEATS=1,LICHII_COOP_OBJECTS_CHEAT=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_NAYRU_S=20
+#! timeout 600
+#! expect A coop: effects: commands under the pose on, damage flash on within boot..
+#! expect A coop: test int PlayerStatus\.MP \(0x[0-9a-f]+\) = 48: queued
+#! expect A coop: spawn: sent ExpandFireField #
+#! expect A coop: puppet: P\d effects: '[^']+' played under the copied pose \(its effect and sound events\)
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+# Round 7 (sondas21r7): the save's own scene loads twice (the save, then the warp's reload, 32 s apart) and
+# every cast came before the second load and before B landed: wait for B in our scene first.
+await mate
+wait 600
+give PouchData.Item_DinFire.StockNum
+give PouchData.Item_FaroreWind.StockNum
+give PouchData.Item_NayruLove.StockNum
+int PlayerStatus.MPMax 48
+int PlayerStatus.MP 48
+wait 600
+stick 0 0.6 100         # a step ahead, then turn to face B
+stick 0.7 0 30
+stick 0 -0.4 12
+wait 60
+mark din
+assign DinFire
+wait 30
+press ZR
+wait 240
+mark nayru
+assign NayruLove
+wait 30
+press ZR
+wait 300
+mark rolls
+stick 0 0.8 20 A        # run and roll: the dust of the roll
+wait 60
+stick 0 -0.8 20 A       # and back
+wait 60
+mark farore
+assign FaroreWind
+wait 30
+press ZR                # sets the warp point
+wait 200
+press A                 # a message box, if one comes
+wait 60
+int PlayerStatus.MP 48  # full again for Nayru's Love
+# Round 7 (sondas22r7, sondas23r7): in a dungeon Farore's cast and setting run 30 s or more; Nayru and the rolls
+# came inside it: Farore last now.
+wait 600
+mark crystal            # the crystal stays on our puppet in B for 20 s from the cast's end
+wait 1500
+mark after_crystal
+wait 300
+mark end

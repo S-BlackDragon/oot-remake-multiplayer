@@ -1,0 +1,221 @@
+# historia-largo, B: waits for A's cutscene to start here, then presses A every 2 s for 200 s and
+# pushes the stick up for 1 s.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect B coop: event running 'KokiriForest_Meet_DekuTree within watching..pressed25
+#! expect B coop: story: HavePlayedEvent\.KokiriForest_Meet_DekuTree_MeetDekuTree_01 0 -> 1
+#! expect B coop: event over \(was 'Dm_Kokiri_0075'\)
+#! expect B coop: story: P\d's 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' .* is over there
+mark start
+wait 60
+mark watching
+wait 120
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed25
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed50
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed75
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed100
+wait 120
+mark walk
+stick 0 1 60
+mark walked
+wait 240
+mark end

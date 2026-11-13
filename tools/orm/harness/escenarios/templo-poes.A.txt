@@ -1,0 +1,43 @@
+# templo-poes (ORM, docs/TEMPLOS.md sections 2 and 3, Templo del Bosque), A: both ADULT in the Forest Temple
+# (12-bosque). Once B is in, A sets the four Poe sisters' death flags (ForestTemple_DefeatJoe/Beth/Amy/Meg, as the
+# game does when each one dies; D-209 of the earlier lockstep co-op: the deaths are the group's). B stands in the lobby (room 02) facing
+# the four Poe torches (Obj_ForestTemple_SwitchCandleStick_A_0N at +-4.5 101.3 1.05 / -8.0, Banc) and must get each
+# flag 0 -> 1, never back to 0. By hand, B's captures at 'lit': the four flames lit in B's lobby too (TEMPLOS.md:
+# "por ver en vivo").
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario templo-poes --scen-dir tools/orm/harness/escenarios
+#   --transport ws (the harness captures A's window only: B's lit torches are seen by hand).
+# Mutant: the same run with LICHII_COOP_DUNGEON=0 (the dungeon flags not shared): B's four 'expect' lines turn red.
+# Hashes: murmur3 of the names, checked against GameDataList (Bool, save file 0). Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect A coop: test flag ForestTemple_DefeatJoe \(0xc880790d\) = 1: queued within poes..end
+#! expect A coop: test flag ForestTemple_DefeatBeth \(0x55e84841\) = 1: queued within poes..end
+#! expect A coop: test flag ForestTemple_DefeatAmy \(0x93ac8a38\) = 1: queued within poes..end
+#! expect A coop: test flag ForestTemple_DefeatMeg \(0x53a6cb87\) = 1: queued within poes..end
+mark start
+warp ForestTemple ForestTemple adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands
+mark a-in
+wait 9000               # B starts 60 s after our warp and lands about 60 s after that
+mark poes
+flag ForestTemple_DefeatJoe 1
+wait 60
+flag ForestTemple_DefeatBeth 1
+wait 60
+flag ForestTemple_DefeatAmy 1
+wait 60
+flag ForestTemple_DefeatMeg 1
+wait 600
+mark end

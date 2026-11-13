@@ -1,0 +1,28 @@
+# choque-encima (ORM choque, docs/CHOQUE.md), A: our Link stands on a mate's head. OoT's Link has no free
+# jump, so A walks off to 3 m (B's body turns solid), is placed 1.5 m over B's head (the test place, a write
+# of A's own position, as the other scenarios' place) and falls onto the head disc of B's body
+# (CoopPuppet_Child_Body's CoopTop: GroundObject, ridable). Expect A to stand there: "our Link stands on
+# P2's head (1.17 m over his feet)" (BodyGate's self-check, after 1 s up there), and B's body never turned
+# into a ghost under him. With LICHII_ORM_BODY_TOP=0 (the sides alone, unridable) A should slide off instead:
+# run it both ways once.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: bodies: colliders on within start..apart
+#! expect A bodies: P\d's body solid within start..drop
+#! expect A coop: test place -82.00 124.93 33.65: done within drop..stand
+#! expect A bodies: our Link stands on P\d's head within drop..end
+#! never A bodies: P\d's body a ghost within drop..end
+#! never A coop: check: bodies: collider fallback
+mark start
+wait 240
+goto -82.6 32.9 0.4 300       # first away from where B is drawn on one Continue spot (1 m to +0.77 -0.64: his body is there)
+goto -82.0 30.6 0.4 600
+mark apart
+wait 120
+mark drop
+place -82.0 124.93 33.65      # B's feet 122.26 + his head 1.17 + 1.5
+wait 180
+mark stand
+wait 300                      # still up there
+goto -82.0 31.0 0.4 300       # walk off the head
+wait 120
+mark end

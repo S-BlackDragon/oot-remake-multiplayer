@@ -1,0 +1,32 @@
+# jefe-bongo-bongo-entrada (docs/JEFES.md, familia F1 of PLAN_100): A loads the save straight into the
+# boss room of ShadowTemple (warp ShadowTemple StartPos_SageOfShadow, taken in the event after the load).
+# B loads into the same room (the dungeon's entrance StartPos is not known yet: por averiguar).
+# Both: the intro (Dm_ShadowTemple_BossIn) started and ended, nobody's boss beaten. Age: the save's.
+# Run with --transport ws --env LICHII_COOP_DEBUG_BOSS=1 --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja):
+#! expect A coop: boss: in the boss room of ShadowTemple: Enemy_DungeonBoss_BongoBongo
+#! expect A coop: boss: intro started \(
+#! expect A coop: boss: intro ended
+#! never A coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 17-sombra
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp ShadowTemple StartPos_SageOfShadow
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro and into the fight
+mark fight
+wait 1800
+mark end

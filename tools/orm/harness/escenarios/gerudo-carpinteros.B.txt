@@ -1,0 +1,23 @@
+# gerudo-carpinteros, B: lands where A does and watches: the freed carpenters and the mended count reach it; the checks are in
+# A's file.
+# Needs daurosk branch orm/tiempo2. Not run yet (written 2026-11-11, no game that day).
+#! noload
+#! start coop: test warp done
+#! saves 18-gerudo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+mark start
+warp GerudoFortress_Adult GerudoFortress_FromGerudoValley
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 3000
+mark end

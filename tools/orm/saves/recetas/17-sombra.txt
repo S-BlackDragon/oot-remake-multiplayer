@@ -1,0 +1,23 @@
+# Block 17, the Shadow Temple and Bongo Bongo (adult): the Lens of Truth (the well), Din's Fire, magic (the Great
+# Fairy), the Nocturne of Shadow (Kakariko burning). Starts in the Graveyard at the temple's stairs.
+include 16-pozo.txt
+age adult
+scene Graveyard_Adult GraveYard_ShadowTempleSide
+item Armor_GlassTruth
+item Item_DinFire
+item Item_FairyBless_MP
+# Magic: the original game's single bar is 48; the remake's unit is not confirmed (PARTIDAS_SINTETICAS.md)
+int PlayerStatus.MPMax 48
+int PlayerStatus.MP 48
+song ShadowNocturne
+dungeon BottomOfTheWell map compass
+seen Dm_Kakariko_0030 Dm_Kakariko_0040 Dm_MelodyGet_Shadow
+step SubEvent_GetStormSong Complete
+step SubEvent_GetGlassTruth Complete
+step Meet_GreatFairy Complete
+step SageOfShadow GoToDungeon
+equip weapon Weapon_Sword_Master
+equip shield Weapon_Shield_Hylian
+equip armor -
+other-era weapon Weapon_Sword_Kokiri
+other-era shield Weapon_Shield_Deku

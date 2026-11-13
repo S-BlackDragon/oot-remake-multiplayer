@@ -1,0 +1,49 @@
+# sombra-barca (ORM, docs/MONTANA_SOMBRA.md "Barca", docs/TEMPLOS.md "Plataformas", hook lichii/hook/coop_ride.h),
+# A: both ADULT on the Shadow Temple's boat (17-sombra), each on his own copy of it (: each player rides
+# his own boat; only whoever is aboard travels). A sets off first ('sale-a': the boat's own event,
+# ShadowTemple_Gimmick_Departure, as the lullaby starts it), B ten seconds later ('sale-b'). Meanwhile B sees A's
+# puppet sail away where A really is (B's boat stays at the dock: 'drawn where they are'); once both boats sail or
+# are at the far end together, each draws the other on his own deck ('drawn on our floor'). Control: A's departure
+# flag never reaches B (it is each game's: daurosk leaves it out).
+# Positions from the Banc (deck by the attention point, 130.96 46.22 -62.25), not walked yet; the event name from
+# GameDataList (HavePlayedEvent.ShadowTemple_Gimmick_Departure, 0x99d6bb15). A 'coop: story:' line saying the game
+# did not take the event, or a 'test place ...: failed', is the scenario's gap, not the code's.
+# Shots by hand at 'sale-b' (B's window: A sailing over the water where A is) and 'llegada' (both: the other on the
+# deck, moving with it).
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario sombra-barca --scen-dir
+#   tools/orm/harness/escenarios --transport ws --capture-marks (relay server from the same branch).
+# Mutant: --env LICHII_ORM_RIDE=0: every 'ride:' line turns red, the flag control stays green.
+# Not run yet (written 2026-11-11, daurosk branch orm/plataformas).
+#! noload
+#! start coop: test warp done
+#! saves 17-sombra
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1
+#! timeout 420
+#! expect B coop: puppet: P\d: create CoopPuppet_Adult
+#! expect A ride: we ride Obj_ShadowTemple_PaddleShip_A_01 45506786c4d7d94f, at within sale-a..end
+#! expect A ride: P\d rides 45506786c4d7d94f: drawn on our floor within sale-b..end
+mark start
+warp ShadowTemple StartPos_SageOfShadow_BattleOnShip adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark cubierta
+place 131.00 46.40 -60.50   # on the deck of Obj_ShadowTemple_PaddleShip_A_01 45506786c4d7d94f
+wait 180
+mark sale-a
+event ShadowTemple_Gimmick_Departure
+wait 600                # B's boat waits at the dock
+mark sale-b
+wait 2400               # 40 s: both sail, then are at the far end
+mark llegada
+wait 600
+mark end

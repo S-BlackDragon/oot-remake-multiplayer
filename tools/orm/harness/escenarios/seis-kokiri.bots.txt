@@ -1,0 +1,22 @@
+# seis-kokiri, the five bots (remake-bot -script, docs/BOTS.md). They start about 10 s before A's script.
+# Letterless directives here read the bots' log.
+#! count joined as player >= 6
+#! expect bot3: mark back
+#! expect bot4: scene BotElsewhere -> KokiriForest_Child
+#! never script line \d+
+scene KokiriForest_Child
+follow 1 3
+wait 20
+@1 flag BotTest.SeisKokiri bool 1           # a made-up flag: the host's game keeps or drops it, nothing else
+@2 story start BotSeisPrueba                # a made-up event: no game plays it, the server keeps it
+@2 wait 5
+@2 story end BotSeisPrueba
+@3 reconnect 3
+@3 mark back
+@4 stand
+@4 scene BotElsewhere 1                     # its puppet goes away in A
+@4 wait 5
+@4 follow 1 3                               # and following brings it back into A's scene
+@5 chat hola desde bot5
+wait 150
+mark done

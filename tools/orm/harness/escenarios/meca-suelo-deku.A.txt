@@ -1,0 +1,42 @@
+# meca-suelo-deku (A): Deku Tree: room D's floor switch pressed in one game opens the room for everyone (F2)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room D's floor switch Obj_StepSwitch_A_02 d22a395cb75bc832 (-17.47 119.6 -4.9, CountTime 20.2) writes
+# InsideTheDekuTree_RoomD_StepSwitch_On_01 (saved, shared) and the room's clear; the platform event
+# HavePlayedEvent ..._Gimmick_RoomD_PlatformUp is held in B. A is put ON the switch (a real press), stays 5 s,
+# steps off: the switch must stay pressed for both (never 1 -> 0). B is put by room D's shutter
+# (Obj_SwitchShutter_A_01 75cf1a8660b122c7, -14.01 119.29 0.0) and watches. If 'pisado' shows A beside the
+# switch and no flag line, move the place (the switch's top may be higher). Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: flags debug: \w+ 0x6fb4f455 \(entry \d+\) 0 -> 1 within pisado..end
+#! never A coop: flags debug: \w+ 0x6fb4f455 \(entry \d+\) 1 -> 0
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 600
+place -17.47 120.1 -4.9    # on the switch
+wait 60
+mark pisado
+wait 300
+place -17.47 119.9 -1.5    # off it
+wait 240
+toward -14.01 0.0 20
+press ZL 10
+mark abierta
+wait 1200
+mark end

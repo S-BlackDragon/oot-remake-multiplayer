@@ -1,0 +1,29 @@
+# choque-bloqueo (ORM choque, docs/CHOQUE.md), A: a mate's body stops our Link. B turns /choque on and stands
+# still at the Kokiri Forest start (about -82 122.26 33.65); A walks 3.6 m off toward the signboard (-z, the
+# open side: cartel walks there), waits for B's body to turn solid, then walks straight at B's feet with a
+# 0.2 m goto: it must stop at the two bodies (two children: 0.46 m) and the goto time out; then it pushes
+# into B for 3 s more and walks off again. No game is moved by the hook (no "moved Link to").
+# Run after make-puppet-pack (its coop_puppet.json must list CoopPuppet_*_Body).
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: bodies: colliders on within start..apart
+#! expect A coop: check: bodies: collider ok CoopPuppet_\w+_Body
+#! expect A bodies: P\d's body solid within start..walk
+#! expect A coop: test goto timed out within walk..push
+#! expect A bodies: our Link against P\d's body within walk..push
+#! never A bodies: P\d's body a ghost until clear: on our Link within walk..end
+#! never A coop: check: bodies: collider fallback
+#! never A moved Link to
+mark start
+wait 240                      # B's /choque on comes through the server
+goto -82.6 32.9 0.4 300       # first away from where B is drawn on one Continue spot (1 m to +0.77 -0.64: his body is there)
+goto -82.0 30.0 0.4 600
+mark apart
+wait 120                      # B's body: clear for 0.3 s, then solid
+toward -82.0 33.65 8
+mark walk
+goto -82.0 33.65 0.2 300      # at B's feet: never reached
+mark push
+goto -82.0 33.65 0.2 180      # keep pushing into B for 3 s
+wait 30
+goto -82.0 30.0 0.4 600       # and away: nobody wedged
+mark end

@@ -1,0 +1,42 @@
+# ajustes-amiibo (ORM, docs/AJUSTES_GRUPO.md, 'La tabla' and 'Qué ve el jugador'), A: the host (in first). Both
+# CHILD in Kokiri (01-kokiri). amiibo (OptionData.IsUseAmiibo, option.sav) is a world option: the host's holds for
+# every guest while in the room. Once B is in, A turns its amiibo off and then on (through the game's flag queue, as
+# the options menu would); B must take each value of the host's. Later B turns its own off (a guest changing it in
+# the menu) and must go back to on by itself ('amiibo stays on: the host decides it' in its chat). The host never
+# takes a guest's value and nobody gives back its own while the room lasts.
+# Needs the hook and orm_server built from orm/ajustes (message GROUP_SETTINGS, type 246). Run:
+#   python -I tools/orm/harness/r03_pareja.py --scenario ajustes-amiibo --scen-dir tools/orm/harness/escenarios
+#   --transport ws --server-exe <orm_server built at <your folder>/ajustes>. Mutant: the same run with
+#   LICHII_ORM_GROUP_SETTINGS=0: B's two 'the host's' lines turn red. Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 01-kokiri
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 600
+#! expect A coop: settings: group settings on: amiibo and ZELDA NOTES follow the host, \d+ co-op switches are compared
+#! expect A coop: test flag OptionData\.IsUseAmiibo \(0xb84dd626\) = 0: queued within zero..host-on
+#! expect A coop: test flag OptionData\.IsUseAmiibo \(0xb84dd626\) = 1: queued within host-on..end
+#! never A coop: settings: OptionData\.IsUseAmiibo: \w+ -> \w+ \(the host's
+#! never A coop: settings: OptionData\.IsUseAmiibo back to this player's own
+#! never A coop: settings: no settings from the host
+mark start
+warp KokiriForest_Child KokiriForest_FrontOfLostWood
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 9000               # B starts 60 s after our warp and lands about 60 s after that
+mark zero
+flag OptionData.IsUseAmiibo 0
+wait 600                # B follows within a step (every second at most)
+mark host-on
+flag OptionData.IsUseAmiibo 1
+wait 3600               # B changes its own about 30 s after this
+mark end

@@ -1,0 +1,6 @@
+# Block 5, Hyrule Castle and Zelda: Castle Town seen, Malon met (the Weird Egg). Starts at the Market's castle gate.
+include 04-mercado.txt
+scene Market_Child Market_FrontOfHyruleCastle
+seen Dm_HrlCastle_0005 Dm_HrlCastle_0000
+step Goto_HyruleCastle Step02_01
+item Item_WeirdEgg

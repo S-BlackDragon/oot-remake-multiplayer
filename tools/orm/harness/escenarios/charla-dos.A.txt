@@ -1,0 +1,50 @@
+# charla-dos (A), ORM "Dos jugadores con el mismo PNJ" (docs/NPC_COMPARTIDOS.md, section 10): A walks
+# into the Kokiri camp (the charla-pose route) and talks to the Kokiri by the fire; B (charla-dos.B.txt) comes the
+# same way, stands a metre and a half east of A and talks to the same Kokiri about two seconds after A. A's talk
+# claims the Kokiri (or keeps it, when A's game listed the camp first) and holds it until A is done; B's game plays
+# its own talk on its own copy and never asks for it, and when B is done its copy blends back to A's pose.
+# Run both games with an emulator built from orm/npc-dos (a patch file), LICHII_COOP_NPC=1,
+# LICHII_COOP_NPC_POSE=1 and LICHII_COOP_PUPPET=1:
+#   python -I tools/orm/harness/r03_pareja.py --scenario charla-dos --scen-dir tools/orm/harness/escenarios
+#     --env LICHII_COOP_NPC=1 --env LICHII_COOP_NPC_POSE=1 --env LICHII_COOP_PUPPET=1 --timeout 480 --capture-marks
+# Not run yet (written 2026-11-11 with the branch orm/npc-dos). Which game lists the camp first varies, so A's talk
+# line says "ours" or "owner P<n>, claimed". What must not show in A's log (checked by hand): "talks with its owner"
+# (A is the first talker) and an "objects: share owner" line for the Kokiri moving it to B while A talks. Captures
+# of A at `talking-both` and `closed`: A's Kokiri faces A, no snap. Player numbers vary: P\d.
+#! expect A coop: npc: talking to Npc_Kokiri_\w+ 0x[0-9a-f]+ \((ours|owner P\d, claimed)\)
+#! expect A coop: npc pose: sending Npc_Kokiri_\w+ 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\)
+#! expect A coop: npc: talk over, claim let go
+#! env LICHII_COOP_NPC=1
+#! env LICHII_COOP_NPC_POSE=1
+#! env LICHII_COOP_PUPPET=1
+#! env LICHII_COOP_TALK=shared_talk.txt
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+mark start
+# 2026-11-12 (rojos2): both games start at the Continue spot; A, joined second, was pushed by B's puppet to
+# -82.5 32.7 and walked on the spot until every goto ran out. A starts 2.5 m along the way B walked (y 122.2).
+place -81.3 122.2 31.9
+wait 60
+goto -76.3 13.4 1.2 1500     # straight to the crawl-space lintel (ruta/ruta2 shots: the open ground ends there)
+toward -73.0 13.4 10         # face the tunnel (+x)
+wait 10
+mark at-tunnel
+press A 12                   # "Enter": the crawl-space
+wait 120
+stick 0 1 600                # forward through the tunnel (the camera is fixed along it)
+mark out-tunnel
+wait 60
+goto -73.0 -12.0 1.5 900     # the root ledge east of the Kokiri (the straight way to -78.9 -13 is blocked by the trunk)
+goto -73.0 -18.0 1.5 600     # times out at about -70.8 -17.3 (a wall west of there): harmless
+goto -78.9 -17.0 1.5 900     # from there the way west at z -16 is open: into the Kokiri camp, by the fire
+toward -78.91 -14.98 8
+mark at-npc
+wait 200                     # B comes the same way 30 frames behind and stops east of here
+press A 12                   # talk (B presses 2 to 3 s after this)
+wait 120
+mark talking-both
+wait 300                     # A's talk stays open while B's starts
+talkthrough 1800             # the text, page by page, to its end (the remake's Kokiri talk is longer than
+                             # four presses: no talk ever closed in rojos2)
+mark closed
+wait 600                     # B finishes its own talk; A's Kokiri stays A's
+mark end

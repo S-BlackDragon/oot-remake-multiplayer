@@ -1,0 +1,50 @@
+# botella-contenido (A: writes its bottle A four times): what is in a bottle never travels: A puts a fairy, blue fire, a fish and a Big Poe in its bottle A; B's bottle A stays empty.
+# docs/BOTELLAS_TRUEQUES.md (the bottle and trade list, tools/release/kit/shared_dungeon_trades.txt).
+# Run with --transport ws and an --env for each #! switches item (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them (an emulator from orm/t9-integrado + orm/botellas2:
+# the `int` and `enum` test commands). Written 2026-11-11, not run yet (no games that day).
+# Mutant: no switch shares BottleItem (each player's in the item table; the item rules refuse it,
+# CAIDO_REVIVIR.md): a build with BottleItem shared turns B's never lines red. Both games load the same save:
+# both empty their bottle A first (a test fake, restored at the end), so B's reads start from Empty.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_trades.txt
+#! expect A coop: lists: .*shared_dungeon_trades\.txt: 28 flags and keys added, 3 taken off, 5 once, 0 held in their area, 0 one-time keys within boot..
+#! expect A coop: test bottle A Empty: written \(now Empty within control..fairy
+#! expect A coop: test bottle A Fairy: written \(now Fairy within fairy..fire
+#! expect A coop: test bottle A BlueFire: written \(now BlueFire within fire..fish
+#! expect A coop: test bottle A Fish: written \(now Fish within fish..poe
+#! expect A coop: test bottle A BigPoe: written \(now BigPoe within poe..end
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+bottle A Empty
+wait 300
+mark fairy
+bottle A Fairy
+wait 300
+mark fire
+bottle A BlueFire
+wait 300
+mark fish
+bottle A Fish
+wait 300
+mark poe
+bottle A BigPoe
+wait 600
+bottle A restore
+wait 120
+mark end

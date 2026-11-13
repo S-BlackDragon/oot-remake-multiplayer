@@ -1,0 +1,51 @@
+# seis-kokiri (PLAN_100 F14, docs/BOTS.md): one game and five bots in the Kokiri Forest. A walks small loops for
+# two minutes; the bots (seis-kokiri.bots.txt) follow A, each 3 m off at its own angle, at a game's sample rate,
+# each in its own colour; meanwhile one sends a flag, one a story event, one drops its connection and comes back,
+# one goes to another scene and follows A back, one chats. A must show five puppets, keep 25 fps, and see the
+# reconnected bot join again.
+#   python -I tools/orm/harness/r03_pareja.py --scenario seis-kokiri --scen-dir tools/orm/harness/escenarios
+#! players 1
+#! bots 5
+#! transport ws
+#! bot-arg -real -look auto
+#! puppets
+#! min-fps 25
+#! count A coop: player \d+ 'bot\d' joined >= 6 within boot..
+#! count A coop: player \d+ 'bot3' joined >= 2 within boot..
+#! expect A coop: puppet: P\d+ CoopPuppet_\w+ spawned
+#! never A coop: server refused
+#! expect server story: player \d+ starts 'BotSeisPrueba'
+mark start
+stick 0 0.6 120
+stick 0 -0.6 120
+stick 0.6 0 90
+stick -0.6 0 90
+wait 60
+stick 0 0.6 120
+stick 0 -0.6 120
+stick 0.6 0 90
+stick -0.6 0 90
+wait 60
+stick 0 0.6 120
+stick 0 -0.6 120
+stick 0.6 0 90
+stick -0.6 0 90
+wait 60
+mark mid
+stick 0 0.6 120
+stick 0 -0.6 120
+stick 0.6 0 90
+stick -0.6 0 90
+wait 60
+stick 0 0.6 120
+stick 0 -0.6 120
+stick 0.6 0 90
+stick -0.6 0 90
+wait 60
+stick 0 0.6 120
+stick 0 -0.6 120
+stick 0.6 0 90
+stick -0.6 0 90
+wait 60
+wait 3600
+mark end

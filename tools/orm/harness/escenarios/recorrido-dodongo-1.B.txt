@@ -1,0 +1,115 @@
+# recorrido-dodongo-1 (ORM, docs/RECORRIDOS.md, bloque 8. Cueva de los Dodongos y Rey Dodongo), B: tramo 1, de la entrada a la sala del cráneo.
+# DodongoCavern: warp to DodongoCavern_MountainTrailSide, then room by room with place/goto (B 1.2 m beside A); see recorrido-dodongo.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-dodongo-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect B coop: test warp done
+#! never B coop: test goto timed out
+#! never B coop: test place .*: failed
+#! expect B coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-entrada
+#! never B (?<!fairy )coop: puppet: P\d show -> hide within r01-entrada..fin
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect B coop: test place 1\.20 102\.74 41\.00: done within r01-entrada..r02-gran-sala
+#! expect B coop: test place 15\.45 112\.28 \-23\.00: done within r02-gran-sala..r03-este
+#! expect B coop: flags debug: \w+ 0xcf5e43e4 \(entry \d+\) 0 -> 1 within r02-gran-sala..fin
+#! never B coop: flags debug: \w+ 0xcf5e43e4 \(entry \d+\) 1 -> 0
+#! expect B coop: test place 82\.35 100\.55 \-6\.50: done within r03-este..r04-lizalfos
+#! expect B coop: test place 77\.17 100\.55 \-59\.62: done within r04-lizalfos..r05-antorchas
+#! never B coop: flags debug: \w+ 0xeb055de5 
+#! expect B coop: test place 45\.60 100\.30 \-42\.90: done within r05-antorchas..r06-interruptor
+#! expect B coop: flags debug: \w+ 0x67b834a5 \(entry \d+\) 0 -> 1 within r05-antorchas..fin
+#! never B coop: flags debug: \w+ 0x67b834a5 \(entry \d+\) 1 -> 0
+#! expect B coop: test place 43\.70 100\.05 \-28\.40: done within r06-interruptor..r07-escalera
+#! expect B coop: flags debug: \w+ 0x03061f09 \(entry \d+\) 0 -> 1 within r06-interruptor..fin
+#! never B coop: flags debug: \w+ 0x03061f09 \(entry \d+\) 1 -> 0
+#! expect B coop: test place \-26\.30 101\.55 \-23\.00: done within r07-escalera..r08-oeste-alto
+#! never B coop: flags debug: \w+ 0x7d1f6539 
+#! expect B coop: test place \-40\.90 111\.44 \-8\.00: done within r08-oeste-alto..r09-este-alto
+#! expect B coop: flags debug: \w+ 0x0e57bc50 \(entry \d+\) 0 -> 1 within r08-oeste-alto..fin
+#! never B coop: flags debug: \w+ 0x0e57bc50 \(entry \d+\) 1 -> 0
+#! expect B coop: test place 41\.24 113\.16 \-8\.75: done within r09-este-alto..r10-lizalfos2
+#! expect B coop: flags debug: \w+ 0x4bf8ba8a \(entry \d+\) 0 -> 1 within r09-este-alto..fin
+#! never B coop: flags debug: \w+ 0x4bf8ba8a \(entry \d+\) 1 -> 0
+#! expect B coop: test place 111\.20 116\.21 \-18\.10: done within r10-lizalfos2..r11-craneo
+#! expect B coop: flags debug: \w+ 0x8d6783cd \(entry \d+\) 0 -> 1 within r10-lizalfos2..fin
+#! never B coop: flags debug: \w+ 0x8d6783cd \(entry \d+\) 1 -> 0
+#! expect B coop: flags debug: \w+ 0x317d56a8 \(entry \d+\) 0 -> 1 within r10-lizalfos2..fin
+#! never B coop: flags debug: \w+ 0x317d56a8 \(entry \d+\) 1 -> 0
+#! expect B coop: test place 1\.20 102\.35 \-36\.00: done within r11-craneo..fin
+#! expect B coop: flags debug: \w+ 0x92b110e6 \(entry \d+\) 0 -> 1 within r11-craneo..fin
+#! never B coop: flags debug: \w+ 0x92b110e6 \(entry \d+\) 1 -> 0
+#! expect B coop: flags debug: \w+ 0x4088069a \(entry \d+\) 0 -> 1 within r11-craneo..fin
+#! never B coop: flags debug: \w+ 0x4088069a \(entry \d+\) 1 -> 0
+mark start
+warp DodongoCavern DodongoCavern_MountainTrailSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 600                # the other game is in already, or lands now
+mark r01-entrada            # sala 0, la entrada
+place 1.20 102.74 41.00
+wait 120
+goto 1.20 25.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-gran-sala            # sala 1, la gran sala (interruptor de suelo)
+place 15.45 112.28 -23.00
+wait 120
+goto 1.20 -10.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-este            # salas 2-4, el pasillo del este
+place 82.35 100.55 -6.50
+wait 120
+goto 71.20 -7.60 1.5 900
+wait 300                # the other one sees us in this room
+mark r04-lizalfos            # sala 5, los dos Lizalfos
+place 77.17 100.55 -59.62
+wait 120
+goto 91.20 -52.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r05-antorchas            # sala 8, las antorchas
+place 45.60 100.30 -42.90
+wait 120
+goto 45.20 -55.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r06-interruptor            # sala 9, el interruptor del atajo
+place 43.70 100.05 -28.40
+wait 120
+goto 31.20 -25.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r07-escalera            # sala 10, la escalera que cae
+place -26.30 101.55 -23.00
+wait 120
+goto -47.80 -38.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r08-oeste-alto            # sala 12, el piso alto del oeste
+place -40.90 111.44 -8.00
+wait 120
+goto -47.80 -12.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r09-este-alto            # sala 13, el piso alto del este (bloque)
+place 41.24 113.16 -8.75
+wait 120
+goto 41.20 -15.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r10-lizalfos2            # sala 16, Lizalfos otra vez
+place 111.20 116.21 -18.10
+wait 120
+goto 105.20 -30.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r11-craneo            # sala 1 arriba: los ojos del cráneo
+place 1.20 102.35 -36.00
+wait 120
+goto 1.20 -40.00 1.5 900
+wait 300                # the other one sees us in this room
+mark fin

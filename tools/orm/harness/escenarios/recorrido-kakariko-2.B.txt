@@ -1,0 +1,47 @@
+# recorrido-kakariko-2 (ORM, docs/RECORRIDOS.md, bloque 6. Kakariko y Cementerio), B: tramo 2, el Cementerio de punta a punta.
+# Graveyard_Child: warp to GraveYard_KakarikoSide, then room by room with place/goto (B 1.2 m beside A); see recorrido-kakariko.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-kakariko-2 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 06-kakariko
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect B coop: test warp done
+#! never B coop: test goto timed out
+#! never B coop: test place .*: failed
+#! expect B coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-entrada
+#! never B (?<!fairy )coop: puppet: P\d show -> hide within r01-entrada..fin
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect B coop: test place \-35\.30 98\.31 8\.48: done within r01-entrada..r02-tumbas
+#! expect B coop: test place 27\.19 103\.32 2\.59: done within r02-tumbas..r03-fondo
+#! expect B coop: test place 65\.85 109\.27 2\.48: done within r03-fondo..fin
+mark start
+warp Graveyard_Child GraveYard_KakarikoSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 600                # the other game is in already, or lands now
+mark r01-entrada            # la entrada (Dampé)
+place -35.30 98.31 8.48
+wait 120
+goto -16.07 8.38 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-tumbas            # las tumbas
+place 27.19 103.32 2.59
+wait 120
+goto 41.20 2.60 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-fondo            # el fondo, lado del Templo de la Sombra
+place 65.85 109.27 2.48
+wait 120
+goto 70.98 2.56 1.5 900
+wait 300                # the other one sees us in this room
+mark fin

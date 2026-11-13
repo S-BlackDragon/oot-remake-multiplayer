@@ -1,0 +1,50 @@
+# puertas-deku (B), ORM doors and chests (docs/PUERTAS.md): B stands inside the Deku Tree slingshot room,
+# 5.5 m from its shutter, and watches A come in through it and open the big chest on the ledge (puertas-deku.A.txt).
+# Shots: door1..3 (the shutter up for A's puppet, then down), chest1..3 (the lid going up with the kick; the chest
+# still there at the end).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_DOORS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 480
+#! expect B coop: doors: P\d 'Evt_?Door_?Shutter\w*': Obj_SwitchShutter_A_01 opens here \(ToOpen\) within watching..end
+#! expect B coop: doors: P\d is through Obj_SwitchShutter_A_01: (closing it \(ToClose\)|left as the game has it) within watching..end
+#! expect B coop: doors: P\d '\w*(TreasureBox|OpenBox)\w*': Obj_TBox_A_02 opens here \((Open_Front_Dungeon|FrontOpen)\) within watching..end
+#! never B coop: objects: Obj_TBox_A_02 \S+: taken or opened in another game, removed here
+#! never B coop: doors: .* not played
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: door mirror ok Obj_\w+ kept our '\w+' 300 ms within watching..end
+#! never B coop: check: door mirror fallback
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+place -36.0 110.3 6.0   # inside room C, 5.5 m from the shutter
+wait 120
+toward -30.5 10.2 8     # the door
+press ZL 10
+mark watching
+wait 1500               # A pushes the shutter about 25 s from here
+mark door1
+wait 60
+mark door2
+wait 120
+mark door3
+toward -54.4 12.2 8     # the chest on the ledge
+press ZL 10
+wait 600
+mark chest1
+wait 60
+mark chest2
+wait 300
+mark chest3
+wait 900
+mark end

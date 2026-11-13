@@ -1,0 +1,39 @@
+# mirada-pnj, A (ORM "PNJ que mira a la marioneta", docs/NPC_MIRADA.md; LICHII_COOP_NPC_GAZE=1): A takes the charla
+# way into the Kokiri camp and stops about 5 m from the camp's Kokiri (Npc_Kokiri_002/003/004_Child, -76 to -79 x,
+# -15 to -18 z), near enough for them to perceive our Link (their slot that links him is the one turned). B walks
+# right up to them (1 m, mirada-pnj.B.txt): nearer than A by more than the margin, so in A's game their heads turn
+# to B's puppet. Then B talks to one (the talker wins, even if A came nearer), and walks 15 m away (given back).
+# Run (from the repo root) with
+#   python tools/orm/harness/r03_pareja.py --scenario mirada-pnj --scen-dir tools/orm/harness/escenarios
+#   --transport ws --env LICHII_COOP_NPC=1 --env LICHII_COOP_NPC_GAZE=1 --capture-marks --timeout 480
+# By hand: A's captures at b-near and b-talks show the Kokiri's head turned to B's puppet; at b-away to A's Link again.
+# The self-check says whether the game kept the slot as written (ok) or set it again every frame (fallback: as before).
+#! expect A coop: npc gaze: on
+#! expect A coop: npc gaze: Npc_Kokiri_\d+_Child 0x[0-9a-f]+ looks at P\d \(nearest within b-near..b-talks
+#! expect A coop: npc gaze: Npc_Kokiri_\d+_Child 0x[0-9a-f]+ (slot \d+ links our Link|: no slot links our Link)
+#! expect A coop: check: npc gaze (ok|fallback)
+#! expect A coop: npc gaze: Npc_Kokiri_\d+_Child 0x[0-9a-f]+ looks at P\d \(talks to it within b-talks..b-away
+#! expect A looks as the game has it again within b-away..end
+#! never A (?<!fairy coop: puppet: P\d )show -> hide
+mark start
+wait 60
+goto -76.3 13.4 1.2 1500     # the crawl-space lintel (charla.A.txt)
+toward -73.0 13.4 10
+wait 10
+press A 12                   # "Enter": the crawl-space
+wait 120
+stick 0 1 600                # through the tunnel
+mark out-tunnel
+wait 60
+goto -73.0 -12.0 1.5 400     # the root ledge east of the Kokiri
+goto -73.0 -18.0 1.5 400     # times out near -70.8 -17.3 (a wall): about 6 m east of the camp, harmless
+toward -78.9 -17.0 8         # face the camp
+mark a-placed
+wait 900                     # B comes in and stands at the Kokiri
+mark b-near
+wait 900                     # B talks to one
+mark b-talks
+wait 900                     # B walks away
+mark b-away
+wait 600
+mark end

@@ -1,0 +1,36 @@
+# jefe-bongo-bongo-caer (D-R13, D-R17; ESPECTADOR_Y_JEFES.md J2): both load into the boss room of ShadowTemple.
+# Once past the intro, A's life to 0: A lies down (the gate shut), B holds A beside A's body and
+# gets A up. No game over, and neither game takes the revive (the game over event's fairy branch)
+# for the boss's death: no 'boss beaten' anywhere, A's sync logs the event as not the boss's.
+# Run with --transport ws --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_BOSS=1 --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja):
+#! expect A coop: downed: alive -> downed within dying..end
+#! expect A downed -> reviving: revive requested by P\d
+#! expect A reviving -> alive: revived \(by P\d
+#! expect A coop: boss: an event while down: not the boss's
+#! never A -> game_over
+#! never A coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 17-sombra
+#! switches LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 400
+mark start
+warp ShadowTemple StartPos_SageOfShadow
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro and into the fight
+mark dying
+life 0
+wait 1500
+mark end

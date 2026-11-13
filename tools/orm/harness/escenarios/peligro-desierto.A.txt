@@ -1,0 +1,50 @@
+# peligro-desierto (ORM, docs/PELIGROS.md sections 0, 1 and 3, the doc's 'peligro-poe'), A: both ADULT at the
+# Haunted Wasteland's fortress side (18-gerudo; HountedWasteland_FromGerudoFortress at 115.79 95.40 53.64, Banc).
+# Rule Peligros-3: the guide Poe is each game's own (never shared as a townsperson: Npc_GuidePoe*), and so are the
+# desert's and the Lens of Truth's flags. Once B is in, A sets five of them as its own walk would (the Poe seen and
+# guiding, the storm's checkpoint and set-back, the Lens on) and, as the control, the Spirit Temple's boss key (an
+# item: shared). B must get the key and none of the five; no game may share the Poe as an object.
+# Mutant: none turns the flag lines red today (only ForestTemple_IsInFallingCeilingRoom was ever shared); with
+# LICHII_COOP_HAZARDS=0 A's and B's 'on' lines turn red. The Poe rule is always on.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario peligro-desierto --scen-dir tools/orm/harness/escenarios
+#   --transport ws (needs the hook from orm/peligros). Hashes from hazards.cpp, checked against GameDataList.
+#   Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 18-gerudo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_NPC=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect A coop: hazards: on \(LICHII_COOP_HAZARDS\): 20 per-player flags kept out of sharing
+#! expect A coop: test flag GuidePoe_IsGuiding \(0xc5c8d274\) = 1: queued within desert..end
+#! expect A coop: test flag PlayerStatus\.IsActiveGlassTruth \(0x0187aaa2\) = 1: queued within desert..end
+#! expect A coop: test flag DungeonInfo\.SpiritTemple\.IsGetBossKey \(0x1984c03f\) = 1: queued within desert..end
+#! never A coop: objects: .*Npc_GuidePoe
+mark start
+warp HountedWasteland_Adult HountedWasteland_FromGerudoFortress
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 9000               # B starts 60 s after our warp and lands about 60 s after that
+mark desert
+flag GuidePoe_HaveSeen 1
+wait 30
+flag GuidePoe_IsGuiding 1
+wait 30
+flag HountedWasteland_IsRespawnAtGuidePoeRuins 1
+wait 30
+flag HountedWasteland_RestartedOnce 1
+wait 30
+flag PlayerStatus.IsActiveGlassTruth 1
+wait 120
+mark key
+flag DungeonInfo.SpiritTemple.IsGetBossKey 1
+wait 600
+mark end

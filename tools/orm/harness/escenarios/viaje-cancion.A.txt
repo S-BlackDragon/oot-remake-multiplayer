@@ -1,0 +1,80 @@
+# viaje-cancion (ORM, docs/CANCIONES.md, PLAN_100 F15), A: the one who stays and follows. Both child in
+# Kakariko by the well; B plays the Minuet of Forest and leaves alone for the Sacred Forest Meadow; A's game sees B land
+# on the Minuet's pad and offers the trip for 10 s; A holds L (1 s, every 2 s for 30 s), then takes the Ocarina out:
+# the trip's scene change is taken only during an event (docs/scenes.md), and playing the Ocarina is one. A must end
+# in SacredForestMeadow_Child beside B.
+# Needs a save with the Fairy Ocarina on the D-pad (as ocarina-mano). B gives itself the Minuet with `flag`.
+# Run (from , PowerShell; ORM_BUILD_BIN = a build with the branch orm/canciones):
+#   python tools/harness/r03_pareja.py --scenario viaje-cancion --transport ws --capture-marks --timeout 900
+#     --env LICHII_COOP_PUPPET=1 --env LICHII_COOP_WARP_INVITE=1
+# Mutant: the same run with --env LICHII_COOP_WARP_INVITE=0 turns every A line red (no invitation, no trip).
+# Not run yet (written 2026-11-11, no game that day).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_WARP_INVITE=1,LICHII_COOP_OCARINA_PROBE=1
+#! expect A coop: songs: warp-song invitation on within boot..
+#! expect A coop: songs: P\d warped from KakarikoVillage_Child to SacredForestMeadow_Child \(ForestMinuet\) with the ForestMinuet: invitation open within played..end
+#! expect A coop: notice: .* se ha ido con el Minueto del Bosque al Prado Sagrado\. Manten L(\+R)? para ir tambien within played..end
+#! expect A coop: songs: following P\d to SacredForestMeadow_Child \(held L(\+R)?\) within played..end
+#! expect A coop: teleport: asked player \d where they are within played..end
+#! never A coop: songs: P\d went from KakarikoVillage_Child to SacredForestMeadow_Child with no Ocarina out before
+#! never A coop: songs: P\d went from KakarikoVillage_Child to SacredForestMeadow_Child: not seen on a warp pad
+#! saves 16-pozo
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+await mate              # B lands up to two minutes after us (cold harness)
+wait 600                # the other game lands too
+mark ready
+wait 4200               # B waits 40 s for its landing, takes the Ocarina out, plays and answers the warp (sondas10: the invitation
+                        # opened about 80 s after it lands; the L presses below last 30 s)
+mark played
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+hold L 60
+wait 60
+mark ocarina
+press DLEFT 12          # takes the Ocarina out: an event, so the trip's scene change is taken
+wait 1800               # the load, then the trip moves Link beside B
+mark arrived
+press B 12              # puts the Ocarina away if it is still out
+wait 120
+press B 12
+wait 300
+mark end

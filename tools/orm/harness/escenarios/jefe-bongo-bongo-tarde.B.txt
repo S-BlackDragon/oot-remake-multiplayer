@@ -1,0 +1,22 @@
+# jefe-bongo-bongo-tarde, B: waits 40 s at the title, then loads into A's boss room.
+#! saves 17-sombra
+#! expect B coop: boss: in the boss room of ShadowTemple: Enemy_DungeonBoss_BongoBongo within late..end
+#! expect B coop: boss: (another player's intro is over: skipping ours|no intro: the fight has begun here|intro ended) within late..end
+#! never B coop: boss: boss beaten
+mark start
+warp ShadowTemple StartPos_SageOfShadow
+wait 1200
+mark title
+wait 2400               # 40 s late
+mark late
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 1800
+mark end

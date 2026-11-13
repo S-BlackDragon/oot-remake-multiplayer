@@ -1,0 +1,55 @@
+# menu-salir (ORM, docs/MENUS_PAUSA.md M6 and M7), A: from the pause menu's System page A goes back to the title
+# screen (ConfirmationBackToTitle), stays there 12 s, then loads its save again (Continue, as load.txt). A's log:
+# "-> title" once no Link and no scene for 3 s, then "title -> playing" when its Link is back; never a menu save.
+# B's log (menu-salir.B.txt): "salió al menú principal" and later "volvió a la partida" in the chat (not "entró":
+# A was in the world before), A's PLAYER_STATUS title then playing.
+# EXPLORATORY, the buttons: PLUS opens the menu and L x4 is its first page (menu-gear); the System page and the place
+# of "Volver al título" on it are not known yet (MENUS_PAUSA.md "Falta ver en partida"): this guesses one L more
+# (from the first page round to the last) and the last entry of the page, and each step has a capture mark
+# (menu, system, asked, title) to fix the presses from. If the confirm is not reached the script closes nothing:
+# the expects on 'title' fail and the captures say where it stopped.
+# Run with --transport ws.
+# Needs the hook of orm/menus2 (coop_menus.cpp, the paused hold in scene.hpp).
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 900
+#! expect A coop: menus: on \(LICHII_ORM_MENUS\) within boot..
+#! expect A coop: menus: playing -> paused within start..asked
+#! expect A coop: menus: (playing|paused) -> title within asked..reload
+#! expect A coop: menus: title -> playing within reload..end
+#! never A coop: menus: menu save seen
+mark start
+wait 300
+press PLUS
+wait 60
+press L
+wait 30
+press L
+wait 30
+press L
+wait 30
+press L
+wait 30
+mark menu
+press L                 # guess: round from the first page to the last, System
+wait 45
+mark system
+press DUP               # guess: "Volver al título" is the page's last entry
+wait 30
+press A
+wait 60
+mark asked
+press DLEFT             # guess: the confirm's "Sí" is on the left
+wait 30
+press A
+wait 720                # the title screen: 3 s with no Link and no scene, then 9 s more
+mark title
+mark reload
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # Continue: the save loads
+wait 900
+mark end

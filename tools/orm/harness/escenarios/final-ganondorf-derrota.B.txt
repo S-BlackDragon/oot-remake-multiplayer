@@ -1,0 +1,36 @@
+# final-ganondorf-derrota, B: into the same room, life to 0 at its own 'dying' mark (A is down already), the
+# group's game over and Continue.
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 600
+#! expect B group defeat: GROUP_DEFEAT from the server \(2 down
+#! expect B coop: boss: loaded again after the game over: the boss room starts over within pressed..end
+#! expect B coop: boss: respawn: (Continue left us in the boss room|back in the boss room of InsideGanonCastle) within pressed..end
+#! never B coop: boss: boss beaten
+mark start
+warp InsideGanonCastle StartPos_Defeat_Ganon adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+mark b-in
+wait 2400
+mark dying
+life 0
+wait 1200
+mark over
+press A 12
+mark pressed
+wait 2400
+mark reloaded
+wait 900
+mark end

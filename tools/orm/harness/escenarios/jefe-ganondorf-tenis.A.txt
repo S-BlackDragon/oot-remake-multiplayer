@@ -1,0 +1,114 @@
+# jefe-ganondorf-tenis (docs/JEFES.md section 9, family tennis; ZMP INVENTARIO F5 and G4, D-124), A: both at the top of the tower (InsideGanonCastle room 63) through the first half.
+# The ball is the boss's own, in its owner's game: it flies at the owner's Link, and only the owner's
+# game returns it. While a ball is in the owner's game its samples of the boss carry owner_keeps:
+# B's hits and B standing nearer never take the boss mid-volley (no 'share owner ... is player' line for the boss
+# between the volley's start and end). A swings at every ball (B, the sword). EXPLORATORY for S-BlackDragon: who
+# owns the boss when the first ball flies decides which game's lines say 'tennis:'; look at both.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario jefe-ganondorf-tenis --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-12, a code-only batch). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_BOSS=1
+#! timeout 600
+#! expect A coop: boss: in the boss room of InsideGanonCastle
+#! never A coop: check: tennis fallback
+#! never A coop: boss: boss beaten
+mark start
+warp InsideGanonCastle StartPos_Defeat_Ganon adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark a-in
+wait 2400               # the intro and into the fight
+mark volley
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+press B
+wait 60
+mark volley-end
+mark end

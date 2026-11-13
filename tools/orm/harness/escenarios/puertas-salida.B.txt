@@ -1,0 +1,44 @@
+# puertas-salida (B), ORM passages (docs/PUERTAS.md): B waits in Kakariko 4 m from the Graveyard exit
+# and watches A walk out and come back (puertas-salida.A.txt). Shots: w-out1..3 (every 0.5 s around A's exit: the
+# puppet at the exit, then gone), w-in1..4 (A coming back: nobody mid-room, then A at the entrance walking out).
+#! noload
+#! start coop: test warp done
+#! saves 06-kakariko
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 480
+#! expect B coop: puppet: P\d show -> hide \(left the scene\) within watching..end
+#! expect B coop: puppet: P\d show -> hide \(arriving\) within watching..end
+#! expect B coop: puppet: P\d hide -> show within watching..end
+mark start
+warp KakarikoVillage_Child Kakariko_GraveYardSide
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+goto -6.0 71.0 1.0 300  # 4 m west of the start point, out of A's way
+toward 16.7 64.1 8      # facing the exit
+press ZL 10
+mark watching
+wait 1500               # A leaves about 25 s from here
+mark w-out1
+wait 30
+mark w-out2
+wait 30
+mark w-out3
+wait 1260               # A is in the Graveyard, then comes back
+mark w-in1
+wait 60
+mark w-in2
+wait 60
+mark w-in3
+wait 120
+mark w-in4
+wait 900
+mark end

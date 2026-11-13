@@ -1,0 +1,43 @@
+# meca-rompe-deku (A): Deku Tree: room I's web burned in one game is gone for a player who comes in later (F8)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room I's web Obj_InsideTheDekuTree_SpiderWeb_A_02 73531f0d83a3ad60 (-68.57 82.38 6.51; burned with a stick
+# lit at Obj_CandleStick_A_01 d3da9d654d5945a8) is a one-time key (daurosk's list). A sets it with
+# A:LICHII_COOP_SET_KEY64 (100 s after the game is up) and the room's event HavePlayedEvent ..._Gimmick_
+# CandleAndSpiderWeb (held in B). B is at the entrance when it happens: its key table takes the 1 ('taken or
+# opened in another game, removed here' if the web is loaded); B then walks into room I: no web (capture
+# abierta). A's own web stays (the key setter breaks no actor: only the key crosses). Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x73531f0d83a3ad60,LICHII_COOP_SET_KEY64=73531f0d83a3ad60,LICHII_COOP_SET_AFTER=100 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag HavePlayedEvent.InsideTheDekuTree_Gimmick_CandleAndSpiderWeb \(0x429126ef\) = 1: queued
+#! expect A coop: flags debug: set_key64\(0x73531f0d83a3ad60, 1\) queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x73531f0d83a3ad60,A:LICHII_COOP_SET_KEY64=73531f0d83a3ad60,A:LICHII_COOP_SET_AFTER=100
+#! timeout 420
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag HavePlayedEvent.InsideTheDekuTree_Gimmick_CandleAndSpiderWeb 1
+wait 120
+mark flag
+wait 3600
+place -62.0 82.8 9.0       # A at the same door, for its own capture
+wait 240
+toward -68.57 6.51 20
+press ZL 10
+mark abierta
+wait 900
+mark end

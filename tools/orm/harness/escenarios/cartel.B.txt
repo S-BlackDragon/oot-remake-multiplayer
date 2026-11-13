@@ -1,0 +1,9 @@
+# cartel, B: stays by the start, faces the signboard and watches A read it.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! never B show -> hold
+mark start
+wait 60
+toward -84.83 24.14 10
+mark watching
+wait 1200
+mark end

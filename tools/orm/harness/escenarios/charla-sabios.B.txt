@@ -1,0 +1,30 @@
+# charla-sabios (B), ORM F12 charlas (charla-sabios.A.txt): B waits in the Chamber of Sages while A plays Rauru's
+# cutscene. Nothing of the talk claim may reach B: no copy follows a pose, no puppet hides.
+# Command and precondition: charla-sabios.A.txt.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect B coop: talk: sharing \d+ talk flags within boot..
+#! never B coop: npc: talking to
+#! never B coop: npc pose: copies following their owner's pose
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp SageRoom
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+mark watching
+wait 7200               # A's cutscene starts about 30 s after this mark
+mark watched
+wait 600
+mark end

@@ -1,0 +1,13 @@
+# seis-jefe, the five bots: they join while A is at the title and follow A into the boss room, 2 m off. When A
+# falls the first time, bots 2 and 3 revive it; the second time all five go down with it.
+#! never script line \d+
+#! expect bot1: scene \S+ -> InsideTheDekuTree
+scene KokiriForest_Child
+follow 1 2
+until 1 down 400
+@2-3 revive 1
+until 1 up 60                           # the revive takes 6 s: A is still down meanwhile
+until 1 down 120
+down
+wait 60
+mark done

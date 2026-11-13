@@ -1,0 +1,40 @@
+# puertas-salida (A), ORM passages (docs/PUERTAS.md, coop/host/passages.hpp): A walks out of Kakariko
+# into the Graveyard (the loading zone at 16.7 117.3 64.1, Dm_SY_BancChangeGo) and back, as host-save-load does it the
+# other way round; B stays in Kakariko by that exit and watches (puertas-salida.B.txt). In B's game A's puppet must
+# walk into the exit and vanish there (not stand frozen 2 s, not show 500 m down), then, when A comes back, be made
+# out of sight and appear at the entrance walking out of it (not mid-room, not sliding from the Graveyard's place).
+# Run (emulator built from orm/puertas), from the repo root:
+#   python -I tools/orm/harness/r03_pareja.py --scenario puertas-salida --scen-dir tools/orm/harness/escenarios
+#     --transport ws --capture-marks --timeout 480
+# Not run yet (written 2026-11-11, no game that day). The sticks are host-save-load's: from Kakariko_GraveYardSide
+# 'up' goes into the Graveyard, from GraveYard_KakarikoSide 'down' comes back.
+#! noload
+#! start coop: test warp done
+#! saves 06-kakariko
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 480
+#! never A (?<!fairy )coop: puppet: P\d show -> hide \(left the scene\)
+mark start
+warp KakarikoVillage_Child Kakariko_GraveYardSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 7800               # B starts 60 s after our warp and lands about 50 s after that: wait for it
+mark leave
+stick 0 1 240           # up the path into the Graveyard
+wait 600
+mark graveyard
+wait 300
+stick 0 -1 150          # back down into Kakariko
+wait 600
+mark back
+wait 300
+mark end

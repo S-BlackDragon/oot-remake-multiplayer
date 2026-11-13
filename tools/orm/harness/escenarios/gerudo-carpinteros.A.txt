@@ -1,0 +1,51 @@
+# gerudo-carpinteros (ORM, docs/GERUDO_ESPIRITU.md), A: the carpenters' count mends itself. Both adult at the
+# Gerudo Fortress. A plays a rescue lost to two at once: two carpenters freed (GerudoFortress_IsAfterHelpCarpenter
+# _013 and _014, shared lines of the adult list) and the count (NumOfCarpenterHelped, 0x290a6222) at 1, as when two
+# games added one to the same 0. After 3 s with nothing running the count is raised to 2 in A's game (and B's: both
+# may write the same 2). Then A writes 3 (more than the freed): never lowered. The card line (four free, no card)
+# never comes with two free. The guard's posts (once:) are checked by the adult list tests, not here.
+# Mutant: LICHII_ORM_GERUDO=0 turns the 'count mended' lines red.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario gerudo-carpinteros --transport ws --scen-dir tools/orm/harness/escenarios --capture-marks
+#   (r03_pareja reads #! switches, #! saves and #! timeout). Needs daurosk branch orm/tiempo2.
+# Not run yet (written 2026-11-11, a code-only wave: no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 18-gerudo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect A coop: gerudo: on \(LICHII_ORM_GERUDO\)
+#! expect A coop: gerudo: in GerudoFortress_Adult: each game runs its own guards
+#! expect A coop: test int GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped \(0x290a6222\) = 1 within lost..mended
+#! expect A coop: gerudo: carpenters: 2 free here, the count says 1: mended in 3 s if nothing runs here within lost..mended
+#! expect A coop: gerudo: carpenters: count mended: helped 1 -> 2 within lost..mended
+#! expect A coop: gerudo: set_int GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped = 2: queued within lost..mended
+#! never A coop: gerudo: set_int .*NOT queued
+#! never A coop: gerudo: carpenters: count mended: helped 3
+#! never A coop: gerudo: carpenters: all four are free
+#! expect B coop: flags debug: bool 0xf1eb5977 \(entry \d+\) 0 -> 1 within after..end
+#! expect B coop: flags debug: int 0x290a6222 \(entry \d+\) [01] -> 2 within after..end
+#! never B coop: gerudo: carpenters: count mended: helped 3
+mark start
+warp GerudoFortress_Adult GerudoFortress_FromGerudoValley
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 3600               # B lands about 60 s after us
+mark lost
+flag GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_013_Adult 1
+flag GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_014_Adult 1
+int GerudoFortress_Meet_FourCarpenter_NumOfCarpenterFound 2
+int GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped 1
+wait 600                # 3 s calm, the write, the next reading
+mark mended
+int GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped 3
+wait 600
+mark end

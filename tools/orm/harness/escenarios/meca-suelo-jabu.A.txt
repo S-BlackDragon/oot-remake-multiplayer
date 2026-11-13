@@ -1,0 +1,48 @@
+# meca-suelo-jabu (A): Jabu-Jabu: room 7's heavy switch solved with one game's Ruto opens for everyone; her sensor stays (F2)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room 7's step switch (Obj_InsideJabu_Jabu_StepSwitch_A_03 5607f182c6c46c85, 7.72 92.35 -141.34) needs Ruto
+# on it (ZMP J4). Its solve (InsideJabuJabuBelly_Room07_StepSwitch_Clear_OnlyRuto) and room 7's
+# Insidejabujabu_Room7_01_Cleared cross (daurosk); 'Ruto is on it' (..._Room07_StepSwitch_Ruto) is a sensor of A's
+# Ruto, taken off by the child list: B's Ruto must not be told she stands there. A sets the sensor first, then
+# the solve. B walks in at the switch and faces the door (f15e60745b7bbb5f, 16.88 94.26 -141.06).
+# Mutants: LICHII_COOP_DUNGEON=0 (the solve line red); no LICHII_COOP_DUNGEON_LISTS (the never line red).
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag InsideJabuJabuBelly_Room07_StepSwitch_Ruto \(0x0a8079db\) = 1: queued
+#! expect A coop: test flag InsideJabuJabuBelly_Room07_StepSwitch_Clear_OnlyRuto \(0xf79b37eb\) = 1: queued
+#! expect A coop: test flag Insidejabujabu_Room7_01_Cleared \(0xf13c8337\) = 1: queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag InsideJabuJabuBelly_Room07_StepSwitch_Ruto 1
+wait 120
+flag InsideJabuJabuBelly_Room07_StepSwitch_Clear_OnlyRuto 1
+wait 120
+flag Insidejabujabu_Room7_01_Cleared 1
+wait 120
+mark flag
+wait 1500
+place 7.72 92.8 -141.34       # A at the same door, for its own capture
+wait 240
+toward 16.88 -141.06 20
+press ZL 10
+mark abierta
+wait 900
+mark end

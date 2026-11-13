@@ -1,0 +1,20 @@
+# Block 3, Hyrule Field and Lon Lon Ranch: Gohma beaten, the Kokiri Emerald, the slingshot and the Fairy Ocarina
+# (Saria on the bridge). Starts at the field's end of the Lost Woods bridge, before Kaepora.
+include 02-deku.txt
+scene HyruleField_Child HyruleField_FrontOfLostWoodBridge
+hearts 4
+item Weapon_Range_SlingShot
+item Item_Stone_Forest
+item Item_Ocarina_Fairy
+dungeon InsideTheDekuTree map compass
+bool Gohma_DefeatBoss 1
+seen Dm_Deku_0000 Dm_Deku_0003 Dm_Deku_0010 Dm_Deku_BossIn Dm_Deku_BossOut
+seen Dm_Kokiri_0080 Dm_Kokiri_0090 Dm_Kokiri_0095 Dm_Kokiri_0130 Dm_Kokiri_0140 Dm_Kokiri_0145
+seen Dm_Kokiri_0150 Dm_Kokiri_0155
+step Get_StoneOfForest Complete
+step Goto_HyruleCastle Step01
+# The Kokiri who blocks the forest exit stands aside (daurosk docs/flags.md, issue 173)
+bool KokiriForest_Npc_Kokiri_007_Child_Blocker 0
+bool KokiriForest_Npc_Kokiri_007_Child_Blocker_00 0
+# The Ocarina out on its button (2026-11-12: with EquipOcarina empty the d-pad took nothing out, ocarina-mano)
+equip ocarina Item_Ocarina_Fairy

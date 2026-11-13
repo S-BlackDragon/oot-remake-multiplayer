@@ -1,0 +1,10 @@
+# Block 7, Death Mountain Trail and Goron City: Epona's Song (Lon Lon), the Sun's Song (the Royal Tomb), the letter
+# shown to the guard. Starts at Kakariko's mountain gate.
+include 06-kakariko.txt
+scene KakarikoVillage_Child Kakariko_MountainTrailSide
+seen Dm_LonLon_0010 Dm_MelodyGet_Epona Dm_Graveyard_0000 Dm_Graveyard_0010 Dm_MelodyGet_Sun Dm_MelodyGet_Sun_03
+song EponaSong
+song SunSong
+step Get_Epona AfterGetEponaSong
+step SubEvent_GetMelodySun Complete
+step Get_StoneOfFire DeathMtTrailIn

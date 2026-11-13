@@ -1,0 +1,33 @@
+# jefe-morpha-entrada (docs/JEFES.md, familia F1 of PLAN_100): A loads the save straight into the
+# boss room of WaterTemple (warp WaterTemple StartPos_SageOfWater, taken in the event after the load).
+# B loads into the dungeon's entrance (WaterTemple_FromLakeHylia) and must be moved in by the boss sync once A's
+# intro has started (issue 148: only past the door moves anyone).
+# Both: the intro (Dm_WaterTemple_BossIn) started and ended, nobody's boss beaten. Age: the save's.
+# Run with --transport ws --env LICHII_COOP_DEBUG_BOSS=1 --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja):
+#! expect A coop: boss: in the boss room of WaterTemple: Enemy_DungeonBoss_Morpha
+#! expect A coop: boss: intro started \(
+#! expect A coop: boss: intro ended
+#! never A coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp WaterTemple StartPos_SageOfWater
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro and into the fight
+mark fight
+wait 1800
+mark end

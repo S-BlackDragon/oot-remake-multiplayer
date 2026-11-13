@@ -1,0 +1,47 @@
+# mascaras-lente (ORM, docs/DETALLES_MARIONETA.md "Mascaras, sedal y cadena"), A: adult in Kakariko by day, with
+# magic. A puts the Lens of Truth on (assign, ZR), walks and turns with it, takes it off. The lens is a head piece
+# bound by bone name like a mask (Armor_Adult_GlassTruth, SameBoneModelBind RotTrans), sent as the head while it is
+# on (orm/objetos-uso). B (mascaras-lente.B.txt) must see it on the face of A's puppet, then none.
+# Emulator: orm/t9-integrado + orm/mascaras. Written 2026-11-11, not run yet (no games that day).
+# Mutant: LICHII_ORM_MASK_FOLLOW=0 on B turns B's 'placed on it every frame' line red.
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_MASK_FOLLOW=1
+#! expect A coop: test assign GlassTruth: set
+#! expect A coop: test int PlayerStatus\.MP \(0x76b18200\) = 48: queued
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+give PouchData.Armor_GlassTruth.StockNum
+int PlayerStatus.MPMax 48
+int PlayerStatus.MP 48
+wait 120
+stick 0 0.6 100         # a step ahead, then turn to face B
+stick 0.7 0 30
+stick 0 -0.4 12
+wait 60
+mark before
+assign GlassTruth
+wait 30
+press ZR 10             # on
+wait 180
+mark lens_on
+stick 0.5 0 40          # turns and walks: the lens must stay on the face
+wait 120
+mark lens_walk
+press ZR 10             # off
+wait 240
+mark lens_off
+wait 300
+mark end

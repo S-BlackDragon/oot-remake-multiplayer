@@ -1,0 +1,27 @@
+# jefe-derrota, B: into the same boss room as A, life to 0 2 s after A, then the same game over and
+# Continue. Read B's scene and place after the reload.
+#! saves 15-agua
+mark start
+warp WaterTemple StartPos_SageOfWater
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 2520               # 2 s after A
+mark dying
+life 0
+wait 1080               # presses at the same time as A
+mark over
+press A 12
+mark pressed
+wait 2400
+mark after
+wait 600
+mark end

@@ -1,0 +1,15 @@
+# ruta4: enter the crawl-space at the lintel (about -76.3 13.4, tunnel to +x) and watch what comes out the other side:
+# press A, wait without touching anything, then push the stick forward, with positions and a shot every 3 s.
+mark start
+wait 60
+goto -76.3 13.4 1.2 1500
+toward -73.0 13.4 10
+wait 10
+press A 12
+mark pressed
+wait 240
+mark waited
+stick 0 1 240
+mark pushed
+wait 120
+mark end

@@ -150,8 +150,46 @@ try {
     [System.IO.File]::WriteAllText($opt, "auto_update = ask`r`n")
     Set-KitServerPassword $opt 'x'
     Check ([System.IO.File]::ReadAllText($opt) -eq "auto_update = ask`r`nserver_password = x`r`n") 'no server_password line at all: added at the end'
+    # ORM (kit 0.11): our own switches (LICHII_ORM_*) reach the emulator too.
+    [System.IO.File]::WriteAllText($opt, "LICHII_ORM_STORY_EVENTS=1`r`n# LICHII_ORM_STORY_LIST=shared_story.txt`r`nLICHII_COOP_STORY=1`r`nLICHII_ORMX=1`r`n")
+    $o = Read-KitOptions $opt 6>$null
+    Check ((($o.Keys | ForEach-Object { "$_=$($o[$_])" }) -join ',') -eq 'LICHII_ORM_STORY_EVENTS=1,LICHII_COOP_STORY=1') "coop-options.ini passes LICHII_ORM_* lines [$(($o.Keys | ForEach-Object { "$_=$($o[$_])" }) -join ',')]"
 } finally {
     Remove-Item -LiteralPath $opt -Force -ErrorAction SilentlyContinue
+}
+
+# --- ORM: kit files in a switch's value become full paths, each entry of a comma list too
+# (kit 0.10's LICHII_COOP_DUNGEON_LISTS; before, only a value of one file was resolved).
+$rk = Join-Path ([System.IO.Path]::GetTempPath()) ('oot-coop-kit-paths-' +[Guid]::NewGuid().ToString('N').Substring(0, 8))
+try {
+    foreach ($f in 'shared_dungeon_child.txt', 'shared_dungeon_adult.txt', 'shared_story.txt') { Write-File (Join-Path $rk $f) "x`r`n" }
+    $full = [System.IO.Path]::GetFullPath($rk)
+    Check ((Resolve-KitOptionValue $rk 'shared_story.txt') -eq "$full\shared_story.txt") 'one kit file: its full path'
+    $v = Resolve-KitOptionValue $rk 'shared_dungeon_child.txt,shared_dungeon_adult.txt'
+    Check ($v -eq "$full\shared_dungeon_child.txt,$full\shared_dungeon_adult.txt") "a comma list of kit files: each a full path [$v]"
+    $v = Resolve-KitOptionValue $rk 'shared_dungeon_child.txt, missing.txt'
+    Check ($v -eq "$full\shared_dungeon_child.txt, missing.txt") "a list with a missing file: that entry kept as it is [$v]"
+    Check ((Resolve-KitOptionValue $rk '.') -eq $full) 'the kit folder itself (".")'
+    Check ((Resolve-KitOptionValue $rk '1') -eq '1') 'a plain value: unchanged'
+    Check ((Resolve-KitOptionValue $rk 'C:\x\a.txt,shared_story.txt') -eq "C:\x\a.txt,$full\shared_story.txt") 'a full path stays, a kit file beside it is resolved'
+    Check ((Resolve-KitOptionValue $rk '') -eq '') 'an empty value: empty'
+} finally {
+    Remove-Item -LiteralPath $rk -Recurse -Force -ErrorAction SilentlyContinue
+}
+# A kit folder with a comma in its path: the hook cuts a list at each comma, so the entries are
+# given from kit\emulator (..\name), where play.ps1 starts the emulator.
+$rc = Join-Path ([System.IO.Path]::GetTempPath()) ('oot-coop-kit, comma ' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+try {
+    foreach ($f in 'shared_dungeon_child.txt', 'shared_dungeon_adult.txt') { Write-File (Join-Path $rc $f) "x`r`n" }
+    $v = Resolve-KitOptionValue $rc 'shared_dungeon_child.txt,shared_dungeon_adult.txt'
+    Check ($v -eq '..\shared_dungeon_child.txt,..\shared_dungeon_adult.txt') "a kit path with a comma: entries from kit\emulator [$v]"
+    $emuDir = Join-Path $rc 'emulator'
+    New-Item -ItemType Directory -Force -Path $emuDir | Out-Null
+    Push-Location -LiteralPath $emuDir
+    try { $found = @($v.Split(',') | Where-Object { Test-Path -LiteralPath $_ }).Count } finally { Pop-Location }
+    Check ($found -eq 2) "those entries are found from kit\emulator [$found of 2]"
+} finally {
+    Remove-Item -LiteralPath $rc -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # --- The puppet pack hint (kit-paths.ps1, issue 131): sound, and the pack tool's hash.

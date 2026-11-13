@@ -1,0 +1,9 @@
+# historia-tarde, B: sets its own HavePlayedEvent of the meeting at once (twice: a queued write
+# may miss the frame the game applies its queue), then stands and waits.
+mark start
+flag HavePlayedEvent.KokiriForest_Meet_DekuTree_MeetDekuTree_01 1
+wait 30
+flag HavePlayedEvent.KokiriForest_Meet_DekuTree_MeetDekuTree_01 1
+mark flagged
+wait 1800
+mark end

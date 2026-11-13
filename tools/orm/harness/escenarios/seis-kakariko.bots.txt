@@ -1,0 +1,41 @@
+# seis-kakariko, the five bots (remake-bot -script, docs/BOTS.md). They join while A is at the title and follow it
+# 3 m off into KakarikoVillage_Child and on through every scene A walks into; bot1 sends the block's flag; when A falls
+# (r01-entrada) bots 2 and 3 revive it, then bot1 goes down beside A for A to revive; bot5 goes away and back.
+# Letterless directives read the bots' log; 'server' the server's.
+#! transport ws
+#! bot-arg -real -look auto
+#! never script line \d+
+#! never until P1 .*timed out
+#! never revive: nobody down
+#! count scene \S+ -> KakarikoVillage_Child >= 5
+#! count scene KakarikoVillage_Child -> Graveyard_Child >= 5
+#! expect bot1: flags: FLAG_SET sent \(0xc7fe3216\[0\]
+#! expect bot[23]: A held .* REVIVE sent to P1
+#! expect bot1: alive -> downed
+#! expect bot1: reviving -> alive: revived \(by P1\)
+#! expect bot5: scene BotElsewhere -> \S+
+#! count server player \d+ joined: bot\d >= 5
+#! never server group defeat
+#! never server refused a connection
+scene BotLobby                              # not A's scene: following A in is a scene change
+follow 1 3
+until 1 scene KakarikoVillage_Child 400
+wait 30
+@1 flag 0xc7fe3216 bool 1                  # KakarikoVillage_Windmill_DoorOpened
+until 1 down 1200                           # A's life 0 in r01-entrada (mark caida)
+@2-3 revive 1
+until 1 up 120
+@2-3 follow 1 3
+@1 follow 1 1
+@1 wait 8
+@1 down                                     # A holds A beside it (mark levanta)
+@1 wait 60                                  # the request, then up 6 s later (a revived bot stands)
+@1 follow 1 3
+@5 wait 20
+@5 stand
+@5 scene BotElsewhere 1                     # its puppet goes away in A
+@5 wait 5
+@5 follow 1 3                               # and following brings it back into A's scene
+until 1 scene Graveyard_Child 1200
+wait 1800                                   # following A to the end (the harness stops the bots)
+mark done

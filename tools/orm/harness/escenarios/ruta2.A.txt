@@ -1,0 +1,8 @@
+# ruta2: one long goto straight at the Kokiri NPC (-78.9 -13.0) with a 60 s budget, to read the path Link
+# really takes from the "you at" lines (run with --env LICHII_COOP_DEBUG_CAMERA=1 --capture-every 5).
+mark start
+wait 60
+goto -78.9 -13.0 0.8 3600
+mark arrived
+wait 30
+mark end

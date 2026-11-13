@@ -1,0 +1,177 @@
+# seis-dodongo (PLAN_100 F14, box 6 of block 8, Cueva de los Dodongos y Rey Dodongo; docs/BOTS.md,
+# docs/SEIS_BLOQUES_1_10.md): one game and five bots. A walks the rooms of recorrido-dodongo (legs 1, 2) in one run
+# from the entrance save; the bots (seis-dodongo.bots.txt) follow it room to room. In r02-gran-sala A falls (life 0)
+# and bots 2 and 3 revive it; then bot1 goes down 1 m from A and A holds A beside it. bot1 sends one of the block's
+# shared flags (DodongoCavern_StepSwitch_01) and A's game shows it 0 -> 1; bot5 goes to another scene and follows A
+# back. Last, A goes into Dodongo's room with the five behind it: the intro plays, nobody fights (the fight is jefe-*
+# and recorrido-dodongo-2).
+#   python -I tools/orm/harness/r03_pareja.py --scenario seis-dodongo --scen-dir tools/orm/harness/escenarios
+# 1 game, 5 bots, puppets and min-fps 25 come from the name (seis-*); transport and bot-arg are in the .bots.txt.
+#! noload
+#! start coop: test warp done
+#! saves entrada-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 1800
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! never A coop: server refused
+#! count A coop: player \d+ 'bot\d' joined >= 5 within boot..
+#! count A coop: puppet: P\d+ CoopPuppet_\w+ spawned >= 5
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: flags debug: \w+ 0xcf5e43e4 \(entry \d+\) 0 -> 1
+#! never A coop: flags debug: \w+ 0xcf5e43e4 \(entry \d+\) 1 -> 0
+#! expect A coop: downed: alive -> downed within caida..levanta
+#! expect A downed -> reviving: revive requested by P\d within caida..levanta
+#! expect A reviving -> alive: revived \(by P\d within caida..levanta
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within caida..levanta
+#! expect A REVIVE sent to P\d within levanta..levantado
+#! expect A coop: downed: P\d is up again within levanta..fin
+#! never A -> game_over
+#! never A coop: boss: boss beaten
+#! expect A coop: test place 0\.00 102\.74 41\.00: done within r01-entrada..r02-gran-sala
+#! expect A coop: test place 14\.25 112\.28 \-23\.00: done within r02-gran-sala..r03-este
+#! expect A coop: test place 81\.15 100\.55 \-6\.50: done within r03-este..r04-lizalfos
+#! expect A coop: test place 75\.97 100\.55 \-59\.62: done within r04-lizalfos..r05-antorchas
+#! expect A coop: test flag DodongoCavern_Room05_NearTreasureBox \(0xeb055de5\) = 1 within r04-lizalfos..r05-antorchas
+#! expect A coop: test place 44\.40 100\.30 \-42\.90: done within r05-antorchas..r06-interruptor
+#! expect A coop: test flag DodongoCavern_CandleStick \(0x67b834a5\) = 1 within r05-antorchas..r06-interruptor
+#! expect A coop: test place 42\.50 100\.05 \-28\.40: done within r06-interruptor..r07-escalera
+#! expect A coop: test flag DodongoCavern_StepSwitch_02 \(0x03061f09\) = 1 within r06-interruptor..r07-escalera
+#! expect A coop: test place \-27\.50 101\.55 \-23\.00: done within r07-escalera..r08-oeste-alto
+#! expect A coop: test flag DodongoCavern_Room10_PlayerOutOfRoom \(0x7d1f6539\) = 1 within r07-escalera..r08-oeste-alto
+#! expect A coop: test place \-42\.10 111\.44 \-8\.00: done within r08-oeste-alto..r09-este-alto
+#! expect A coop: test flag DodongoCavern_StepSwitch_03 \(0x0e57bc50\) = 1 within r08-oeste-alto..r09-este-alto
+#! expect A coop: test place 40\.04 113\.16 \-8\.75: done within r09-este-alto..r10-lizalfos2
+#! expect A coop: test flag DodongoCavern_Room13_MovableBox \(0x4bf8ba8a\) = 1 within r09-este-alto..r10-lizalfos2
+#! expect A coop: test place 110\.00 116\.21 \-18\.10: done within r10-lizalfos2..r11-craneo
+#! expect A coop: test flag DodongoCavern_Lizalfos_C_Dead \(0x8d6783cd\) = 1 within r10-lizalfos2..r11-craneo
+#! expect A coop: test flag DodongoCavern_Lizalfos_D_Dead \(0x317d56a8\) = 1 within r10-lizalfos2..r11-craneo
+#! expect A coop: test place 0\.00 102\.35 \-36\.00: done within r11-craneo..fin
+#! expect A coop: test flag DodongoCavern_BlastedLeftEye \(0x92b110e6\) = 1 within r11-craneo..fin
+#! expect A coop: test flag DodongoCavern_BlastedRightEye \(0x4088069a\) = 1 within r11-craneo..fin
+#! expect A coop: test place 7\.46 92\.40 \-77\.94: done within r12-craneo..r13-antesala
+#! expect A coop: test flag DodongoCavern_Room19_MovableBox \(0x940530ab\) = 1 within r12-craneo..r13-antesala
+#! expect A coop: test place 13\.16 92\.40 \-77\.94: done within r13-antesala..jefe
+#! expect A coop: boss: in the boss room of DodongoCavern: Enemy_DungeonBoss_Dodongo within jefe..dentro
+#! expect A coop: boss: intro started \( within jefe..dentro
+#! expect A coop: boss: intro ended within jefe..dentro
+mark start
+warp DodongoCavern DodongoCavern_MountainTrailSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 1200               # the bots follow A into its scene (they joined at the title)
+mark r01-entrada            # sala 0, la entrada
+place 0.00 102.74 41.00
+wait 120
+goto 0.00 25.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark r02-gran-sala            # sala 1, la gran sala (interruptor de suelo)
+place 14.25 112.28 -23.00
+wait 120
+goto 0.00 -10.00 1.5 900
+# (flag DodongoCavern_StepSwitch_01: bot1 sends it, docs/BOTS.md)
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark caida              # A falls here (life 0): bots 2 and 3 come and hold A beside it
+life 0
+wait 2400               # their 3.5 s and the game's 6 s revive; then bot1 goes down 1 m from A
+mark levanta
+hold A 300              # A revives bot1 (reach 1.5)
+mark levantado
+wait 900                # bot1 gets up 6 s after the request
+mark r03-este            # salas 2-4, el pasillo del este
+place 81.15 100.55 -6.50
+wait 120
+goto 70.00 -7.60 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark r04-lizalfos            # sala 5, los dos Lizalfos
+place 75.97 100.55 -59.62
+wait 120
+goto 90.00 -52.00 1.5 900
+flag DodongoCavern_Room05_NearTreasureBox 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r05-antorchas            # sala 8, las antorchas
+place 44.40 100.30 -42.90
+wait 120
+goto 44.00 -55.00 1.5 900
+flag DodongoCavern_CandleStick 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r06-interruptor            # sala 9, el interruptor del atajo
+place 42.50 100.05 -28.40
+wait 120
+goto 30.00 -25.00 1.5 900
+flag DodongoCavern_StepSwitch_02 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r07-escalera            # sala 10, la escalera que cae
+place -27.50 101.55 -23.00
+wait 120
+goto -49.00 -38.00 1.5 900
+flag DodongoCavern_Room10_PlayerOutOfRoom 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r08-oeste-alto            # sala 12, el piso alto del oeste
+place -42.10 111.44 -8.00
+wait 120
+goto -49.00 -12.00 1.5 900
+flag DodongoCavern_StepSwitch_03 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r09-este-alto            # sala 13, el piso alto del este (bloque)
+place 40.04 113.16 -8.75
+wait 120
+goto 40.00 -15.00 1.5 900
+flag DodongoCavern_Room13_MovableBox 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r10-lizalfos2            # sala 16, Lizalfos otra vez
+place 110.00 116.21 -18.10
+wait 120
+goto 104.00 -30.00 1.5 900
+flag DodongoCavern_Lizalfos_C_Dead 1
+wait 60
+flag DodongoCavern_Lizalfos_D_Dead 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r11-craneo            # sala 1 arriba: los ojos del cráneo
+place 0.00 102.35 -36.00
+wait 120
+goto 0.00 -40.00 1.5 900
+flag DodongoCavern_BlastedLeftEye 1
+wait 60
+flag DodongoCavern_BlastedRightEye 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r12-craneo            # sala 19, dentro del cráneo
+place 7.46 92.40 -77.94
+wait 120
+goto -5.00 -78.00 1.5 900
+flag DodongoCavern_Room19_MovableBox 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r13-antesala            # sala 21, la antesala del jefe
+place 13.16 92.40 -77.94
+wait 120
+goto 28.00 -78.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark jefe               # into the boss room together
+place 24.00 73.71 -77.60
+wait 120
+goto 24.00 -77.60 1.5 900
+wait 2400               # the intro
+mark dentro             # the six in the boss room: the intro played, nobody fights
+wait 1200
+mark fin
+wait 600

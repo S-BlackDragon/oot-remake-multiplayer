@@ -1,0 +1,40 @@
+# peligro-vacio (ORM, docs/PELIGROS.md), B: lands on the start, stands 20 s (firm ground, more than 0.3 s still),
+# then a quarter heart, 30 m straight down under the ground, and its life to 0 after 3 s if the fall has not
+# killed it. B must lie down for A at its last firm ground (the start), be revived by A there and get up; the game
+# brings it back from the void when the revive's fairy event runs.
+#! noload
+#! start coop: test warp done
+#! saves 01-kokiri
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 600
+#! expect B coop: hazards: on \(LICHII_COOP_HAZARDS\): \d+ per-player flags kept out of sharing
+#! expect B coop: downed: alive -> downed within fall..end
+#! expect B coop: hazards: down in the void \('[^']*', [\d.]+ m below and [\d.]+ m from our last firm ground\): the others see us lying there within fall..end
+#! never B coop: hazards: down in the void \('[^']*'\), no firm ground known near
+#! expect B coop: downed: reviving -> alive within fall..end
+#! expect B coop: hazards: (up again|back on firm ground .*): our real place is sent again within fall..end
+# docs/RIESGOS_RESUELTOS.md ("Mundo e historia"): the down line says what told its kind, and after the revive B says whether the game brought it back to firm ground.
+#! expect B coop: hazards: down in the void .*; kind by its height within fall..end
+#! expect B coop: hazards: (back on firm ground|after the revive in the void: (on firm ground again|down again|not on firm ground)) within fall..end
+mark start
+warp KokiriForest_Child KokiriForest_FrontOfLostWood
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 1200               # 20 s on the start: our last firm ground
+mark fall
+life 1
+place -32.27 91.10 -65.77   # 30 m under the start
+wait 180
+life 0                  # if the void-out damage has not done it
+mark down
+wait 4800               # A holds A at the start; the fairy event and getting up
+mark end

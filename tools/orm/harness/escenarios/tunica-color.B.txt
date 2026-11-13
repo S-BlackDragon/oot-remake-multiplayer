@@ -1,0 +1,18 @@
+# tunica-color (ORM, docs/COLOR_JUGADOR.md "Túnica teñida", D-R24), B: watches A's puppet. B's log is the check:
+# the colour is put on the puppet's model (the game's own extra colour, ExecuteSetModelExtraColor's) and holds for
+# 30 frames; the screenshots at front_seen, side_seen and back_seen must show A's Link tinted in A's colour (the
+# same as A's name tag over its head), the face and hands only lightly.
+# Emulator: orm/t9-integrado + orm/tunica.
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_TUNIC_TINT=1
+#! expect B coop: puppet: P\d: create CoopPuppet_Child
+#! expect B coop: check: tunic tint ok P\d's model holds #[0-9A-F]{6} at \d+ % \(Kokiri tunic, whole body\) for 30 frames
+#! never B coop: check: tunic tint fallback
+mark start
+wait 500
+mark front_seen
+wait 160
+mark side_seen
+wait 140
+mark back_seen
+wait 300
+mark end

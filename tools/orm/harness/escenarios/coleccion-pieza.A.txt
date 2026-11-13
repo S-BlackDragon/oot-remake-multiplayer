@@ -1,0 +1,55 @@
+# coleccion-pieza (A: takes a loose heart piece in Kakariko, then sets three prize flags as the game's setter; B's checks are in B's file): a loose heart piece one player takes is gone for all (a one-time key), the piece count goes to everyone, and a heart piece a person gives is given once for the group.
+# docs/COLECCIONABLES.md (the collectible list, tools/release/kit/shared_dungeon_collectibles.txt, written by tools/romfs/collectible_list.py).
+# A is put on Kakariko's piece (Obj_Heart_Piece f8c7601da7dd887e at -44.07 107.97 112.00, Banc KakarikoVillage_Child_Static,
+# a ResetTypeValue 24 key of the list) and presses A through the get-item text. B is in the Market, another scene: its key
+# table must take the 1 so the piece is not there when B gets to Kakariko. Both watch the key with LICHII_COOP_DEBUG_KEY64.
+# A waits long after landing on purpose: B's script starts 60 s after A's warp is done and B lands about a minute later;
+# A takes the piece once B is in (B's checks read from its mark b-in).
+# Por comprobar: that `place` on the piece takes it (else a hueco of the scenario, not of the code); that the save does not
+# have this piece yet (A's get_key64 line reads "= 1 (was 0)": if it reads 1 from the start, use the other Kakariko piece,
+# b9d0070b468f26d2, in the switches and the lines).
+# Run with --transport ws (r03_pareja; run.ps1 reads #! switches); the list files next to the emulator, as the kit puts them.
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS turns B's key and prize lines red (no list shares them).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_collectibles.txt,LICHII_COOP_DEBUG_KEY64=0xf8c7601da7dd887e
+#! timeout 600
+#! expect A coop: lists: .*shared_dungeon_collectibles\.txt: 30 flags and keys added, 0 taken off, 16 once, 0 held in their area, 14 one-time keys within boot..
+#! expect A coop: test place -44\.07 108\.27 112\.00: done
+#! expect A coop: flags debug: get_key64\(0xf8c7601da7dd887e\) = 1 \(was 0\) within puesto..end
+#! expect A coop: flags debug: int 0x51ec97b3 \(entry \d+\) -?\d+ -> -?\d+ item PouchData\.Obj_Heart_Piece\.StockNum within puesto..end
+#! expect A coop: test flag Npc_Hylia_045_HasDived \(0xad7a21ce\) = 1: queued
+#! expect A coop: test flag KakarikoVillage_IsAfterSave_Npc_Hylia_025 \(0x85d8113a\) = 1: queued
+#! expect A coop: test flag MiniGame_FrogTenors_InsectRepellent \(0x8ffec767\) = 1: queued
+mark start
+warp KakarikoVillage_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark a-in
+wait 3600               # B's script starts 60 s after A's warp is done...
+wait 3600               # ...and B lands about a minute later
+wait 3600
+mark puesto
+place -44.07 108.27 112.00   # on the piece: touching it takes it
+wait 300
+press A                 # the get-item text
+wait 180
+press A
+wait 180
+press A
+wait 300
+mark tomada
+flag Npc_Hylia_045_HasDived 1                       # a heart piece given: once for the group
+flag KakarikoVillage_IsAfterSave_Npc_Hylia_025 1    # a heart piece given: once for the group
+flag MiniGame_FrogTenors_InsectRepellent 1          # a heart piece given: once for the group
+wait 600
+wait 1200
+mark end

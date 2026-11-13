@@ -1,0 +1,98 @@
+# historia-pozo-tarde (ORM, PLAN_100 F11, block 16 Pozo de Kakariko), A: the latecomer case of the Well's event:
+# A plays the room 01 lullaby event alone, long before B joins (B loads 40 s later than usual); B arrives in a
+# Well whose room 01 is already drained (the two Bools from the server's flags on joining) and never plays
+# the event itself.
+# The Well's one story event (Event/EventFlow BottomOfTheWell, entry BottomOfTheWell_Level_Room_01_Ocarina:
+# Zelda's Lullaby on room 01's triforce; it hands over to BottomOfTheWell_Level_Room01_WaterLevel_Down) is in no
+# story list: each game plays its own. The world it leaves is shared: its two Bools are in the built-in dungeon
+# list (BottomOfTheWell_Room_01_Blow_Ocarina 0x7a8ac442, _StopWater 0x82ae3628). PLAN_100 box C: whoever does not
+# see it ends with the same world (meca-agua-pozo queues the same Bools without the event; this one plays it).
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario historia-pozo-tarde --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_STORY=1,LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1
+#! timeout 600
+#! expect A coop: event running 'BottomOfTheWell_Level_Room_01_Ocarina' within asked..end
+#! expect A coop: flags debug: bool 0x7a8ac442 \(entry \d+\) 0 -> 1 within asked..end
+mark start
+warp BottomOfTheWell Well_KakarikoSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600
+mark asked
+event BottomOfTheWell_Level_Room_01_Ocarina
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+wait 12000              # B joins after this
+mark end

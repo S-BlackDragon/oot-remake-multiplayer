@@ -1,0 +1,37 @@
+# jefe-dead-hand-caer, B: into the same room; at its own 'dying' mark (A is down by then: a downed player stays
+# down until revived) B walks 1 m beside the spot A went to (1.60 -101.00), faces it and holds A for 4 s (3 s
+# needed).
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 600
+#! expect B coop: downed: P\d is down \(PLAYER_STATUS dead\)
+#! expect B REVIVE sent to P\d within beside..end
+#! expect B coop: downed: P\d is up again
+#! never B coop: flags debug: bool 0xf2a863c4 \(entry \d+\) 0 -> 1
+mark start
+warp BottomOfTheWell StartPos_SubEvent_GetStormSong child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+mark b-in
+wait 1800
+mark dying
+wait 120
+goto 2.60 -101.00 0.4 600
+toward 1.60 -101.00 8
+wait 120
+mark beside
+hold A 240
+mark held
+wait 900
+mark end

@@ -1,0 +1,142 @@
+# recorrido-castillo-1 (ORM, docs/RECORRIDOS.md, bloque 5. Castillo de Hyrule y Zelda), A: tramo 1, de la entrada al patio de Zelda.
+# HyruleCastle: warp to HyruleCastle_Entrance, then room by room with place/goto; see recorrido-castillo.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-castillo-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 05-castillo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-entrada
+#! never A (?<!fairy )coop: puppet: P\d show -> hide within r01-entrada..fin
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: test place 13\.35 105\.54 \-13\.18: done within r01-entrada..r02-guardias
+#! expect A coop: test place 26\.00 108\.40 \-60\.00: done within r02-guardias..r03-talon
+#! expect A coop: test place 28\.33 117\.34 \-140\.83: done within r03-talon..r04-patio
+#! expect A coop: test flag Talon_AfterWakeUp \(0x31060ce0\) = 1 within r03-talon..r04-patio
+#! expect A coop: test flag HyruleCastle_IsBoxMoveCorrectPos \(0x723c2faf\) = 1 within r03-talon..r04-patio
+#! expect A coop: test place 5\.13 127\.14 \-229\.41: done within r04-patio..fin
+#! expect A coop: event running 'HyruleCastle_Goto_HyruleCastle_MeetZelda' within r04-patio..fin
+#! expect A coop: story: owner: our game started 'HyruleCastle_Goto_HyruleCastle_MeetZelda' in HyruleCastle within r04-patio..fin
+mark start
+warp HyruleCastle HyruleCastle_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 3000               # B loads after A (r03_pareja) or with it (run.ps1): wait for it
+mark r01-entrada            # la entrada (Malon)
+place 13.35 105.54 -13.18
+wait 120
+goto 17.63 -22.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-guardias            # el camino de los guardias
+place 26.00 108.40 -60.00
+wait 120
+goto 20.00 -70.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-talon            # Talon dormido y las cajas
+place 28.33 117.34 -140.83
+wait 120
+goto 28.00 -146.00 1.5 900
+flag Talon_AfterWakeUp 1
+wait 60
+flag HyruleCastle_IsBoxMoveCorrectPos 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r04-patio            # el patio: Impa y Zelda
+place 5.13 127.14 -229.41
+wait 120
+goto 5.13 -236.39 1.5 900
+event HyruleCastle_Goto_HyruleCastle_MeetZelda
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 300                # the other one sees us in this room
+mark fin

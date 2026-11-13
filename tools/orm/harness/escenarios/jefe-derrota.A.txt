@@ -1,0 +1,36 @@
+# jefe-derrota (ORM D-R17, J1 of docs/ESPECTADOR_Y_JEFES.md): the probe of where Continue puts a group
+# defeated in a boss room. A loads the save straight into the Water Temple boss room (daurosk's `boss`:
+# warp WaterTemple StartPos_SageOfWater, taken in the event after the load); B into the same room. Once
+# both are past the intro, A's life to 0, B's 2 s later (jefe-derrota.B.txt): GROUP_DEFEAT, the game
+# over, A for its top choice (Continue), the reload. Read in both logs: the scene and Link's place
+# after the reload ("coop: life: ... scene ..., at ..."), the boss sync's lines ("coop: boss:"), and
+# whether the room starts over ("loaded again after the game over").
+# Run with --transport ws --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_BOSS=1 --timeout 400.
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+mark start
+warp WaterTemple StartPos_SageOfWater
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro (Dm_WaterTemple_BossIn) and into the fight
+mark dying
+life 0
+wait 1200               # B down at +2 s, the defeat at +4 s, the screen takes A 10 s later
+mark over
+press A 12              # the top choice (Continue)
+mark pressed
+wait 2400               # the reload
+mark after
+wait 600
+mark end

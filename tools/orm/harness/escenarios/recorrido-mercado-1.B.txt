@@ -1,0 +1,73 @@
+# recorrido-mercado-1 (ORM, docs/RECORRIDOS.md, bloque 4. Ciudadela (Mercado)), B: tramo 1, del puente levadizo al camino del castillo.
+# Market_Child: warp to Market_Entrance, then room by room with place/goto (B 1.2 m beside A); see recorrido-mercado.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-mercado-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 04-mercado
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect B coop: test warp done
+#! never B coop: test goto timed out
+#! never B coop: test place .*: failed
+#! expect B coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-puente
+#! never B (?<!fairy )coop: puppet: P\d show -> hide within r01-puente..salida
+#! expect B coop: test place \-0\.51 102\.54 65\.77: done within r01-puente..r02-plaza
+#! expect B coop: story: STORY_EVENT start received from P\d \('Dm_SY_BancChangeArrive_Market' in Market_Child\): starting within r01-puente..fin
+#! expect B coop: event running 'Dm_SY_BancChangeArrive_Market' within r01-puente..fin
+#! expect B coop: test place \-12\.46 100\.39 6\.75: done within r02-plaza..r03-castillo
+#! expect B coop: test place \-0\.84 100\.39 \-12\.10: done within r03-castillo..salida
+#! expect B coop: drops: asked for the drops of HyruleCastle within salida..fin
+#! expect B coop: puppet: P\d:? (create )?CoopPuppet_Child within salida..fin
+mark start
+warp Market_Child Market_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 600                # the other game is in already, or lands now
+mark r01-puente            # el puente levadizo: primera vez en la Ciudadela
+place -0.51 102.54 65.77
+wait 120
+goto -0.60 50.00 1.5 900
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 300                # the other one sees us in this room
+mark r02-plaza            # la plaza
+place -12.46 100.39 6.75
+wait 120
+goto -13.05 -12.43 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-castillo            # el camino del castillo (Kaepora)
+place -0.84 100.39 -12.10
+wait 120
+goto -0.84 -16.10 1.5 900
+wait 300                # the other one sees us in this room
+mark salida             # al castillo
+goto -0.54 -30.54 0.8 900
+wait 1800               # the scene change, then the other one lands too
+mark fin

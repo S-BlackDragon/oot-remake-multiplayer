@@ -1,0 +1,39 @@
+# peligro-lava (ORM, docs/PELIGROS.md), B: lands on the Dodongo's Cavern start, stands 20 s (firm ground), then a
+# quarter heart and down into the entrance room's lava pool, 1 m above its surface; its life to 0 after 3 s if the
+# lava has not killed it. B must lie down for A at the start (15 m from the pool), be revived there and get up.
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 600
+#! expect B coop: hazards: on \(LICHII_COOP_HAZARDS\): \d+ per-player flags kept out of sharing
+#! expect B coop: downed: alive -> downed within fall..end
+#! expect B coop: hazards: down in lava \('[^']*', -?[\d.]+ m below and [\d.]+ m from our last firm ground\): the others see us lying there within fall..end
+#! never B coop: hazards: down on the ground \('[^']*'\): our real place is sent
+#! expect B coop: downed: reviving -> alive within fall..end
+#! expect B coop: hazards: (up again|back on firm ground .*): our real place is sent again within fall..end
+# docs/RIESGOS_RESUELTOS.md ("Mundo e historia"): the down line says what told its kind, and after the revive B says whether the game brought it back to firm ground.
+#! expect B coop: hazards: down in lava .*; kind by (its dead command|the command before it) within fall..end
+#! expect B coop: hazards: after the revive in lava: (on firm ground again|down again|not on firm ground) within fall..end
+mark start
+warp DodongoCavern EntrancePos
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 1200               # 20 s on the start: our last firm ground
+mark fall
+life 1
+place 1.43 102.50 25.63    # over the lava pool
+wait 180
+life 0                  # if the lava has not done it
+mark down
+wait 4800               # A holds A at the start; the fairy event and getting up
+mark end

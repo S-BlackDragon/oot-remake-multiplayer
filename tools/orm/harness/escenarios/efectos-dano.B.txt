@@ -1,0 +1,42 @@
+# efectos-dano (ORM efectos2, docs/DETALLES_MARIONETA.md "Efectos 2"), B: lands on the Dodongo's Cavern start and
+# watches A, 3 m away toward the lava pool, be hurt three times (a fall, the lava twice). B's log is the check: a
+# flash line for each new hit (at least two: the fall and the lava may be one if the game reads the fall as no hit),
+# no crystal, and the puppet never parked by the flash for good (it is shown again after each). The screenshots at
+# B's marks catch the blink (half of them show A's puppet gone, half not: both are right).
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect B coop: effects: commands under the pose on, damage flash on within boot..
+#! expect B coop: puppet: P\d effects: flash \('[^']+'\) within watch..end
+#! count B coop: puppet: P\d effects: flash \( >= 2 within watch..end
+#! never B coop: puppet: P\d effects: crystal on
+#! never B coop: puppet: P\d effects: '[^']*(Attack|Damage|Lift|Demo)[^']*' played
+#! never B coop: puppet: P\d not present \(state
+mark start
+warp DodongoCavern EntrancePos
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+toward 0.00 38.00 8     # face A, toward the pool
+wait 600
+mark watch
+wait 1500
+mark blink_1            # spread over A's hits, for the screenshots
+wait 400
+mark blink_2
+wait 700
+mark blink_3
+wait 900
+mark blink_4
+wait 1800
+mark end

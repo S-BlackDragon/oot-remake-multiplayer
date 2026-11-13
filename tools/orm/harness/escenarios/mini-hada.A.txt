@@ -1,0 +1,29 @@
+# mini-hada (A: sets the flags as the game's setter; the checks of B are in B's file): today a Great Fairy's meeting is each player's (its lines are written commented out, MINIJUEGOS.md): A meets one, B never sees it. When the lines are turned on (with the FairyBless items shared) this pair flips: move the line to an expect.
+# docs/MINIJUEGOS.md (the minigame list, tools/release/kit/shared_dungeon_minigames.txt).
+# Run with --transport ws and --env for each of LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them. Mutant: the same run without
+# LICHII_COOP_DUNGEON_LISTS turns B's expect lines of a prize red (no list shares it).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt
+#! expect A coop: lists: .*shared_dungeon_minigames\.txt: 30 flags and keys added, 0 taken off, 28 once, 0 held in their area, 0 one-time keys within boot..
+#! expect A coop: test flag Meet_GreatFairy_02 \(0xf8106300\) = 1: queued
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+flag Meet_GreatFairy_02 1          # this player's own: never crosses
+wait 600
+wait 300
+mark end

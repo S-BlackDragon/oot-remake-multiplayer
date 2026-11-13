@@ -1,0 +1,26 @@
+# corazon (ORM, docs/JEFES.md "Corazones" the heart container "comparte capacidad"; daurosk issue 88), A:
+# a heart container through the test give (PlayerStatus.MaxLife + 4, the cheat path: needs LICHII_COOP_CHEATS=1).
+# A's own rule takes it from the flag and raises A's Link (the hearts are drawn from Link's Life component, not from
+# the flag); B gets the new max from A (corazon.B.txt) and keeps its current life. Both games load the save as usual.
+# Run with --transport ws --env LICHII_COOP_CHEATS=1 --timeout 300 --capture-marks and an emulator built from
+# orm/huida. Mutant: --env LICHII_COOP_HEARTS_TO_LINK=0 turns the "our Link's max" lines (A and B) red.
+#! switches LICHII_COOP_CHEATS=1
+#! expect A coop: test give PlayerStatus\.MaxLife
+#! expect A coop: hearts: max life \d+ \((ours|the MaxLife flag), first reading\) within boot..
+#! expect A coop: hearts: max life \d+ -> \d+ \(the MaxLife flag\) within container..end
+#! expect A coop: hearts: our Link's max \d+ -> \d+ \(life \d+ kept\) within container..end
+#! never A coop: hearts: our Link's life \d+ brought down
+#! env LICHII_ORM_HEARTS=1
+#! expect A coop: hearts: the group's capacity kept one way up within boot..
+mark start
+wait 300
+mark container
+give PlayerStatus.MaxLife
+wait 600
+mark given
+press PLUS               # the menu: one heart more
+wait 240
+mark menu
+press PLUS
+wait 300
+mark end

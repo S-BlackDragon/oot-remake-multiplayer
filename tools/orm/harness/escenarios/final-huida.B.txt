@@ -1,0 +1,23 @@
+# final-huida, B: in the escape; follows A out of it.
+#! expect B group exit: P\d is in FinalBattleField, we are still in CrumblingGanonCastle: following \(first ask\) within after..end
+#! expect B coop: boss: in the boss room of FinalBattleField: Enemy_DungeonBoss_Ganon within after..end
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_STORY=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_GROUP_EXIT=1
+#! timeout 400
+mark start
+warp CrumblingGanonCastle CrumblingGanonCastle_StartPos adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 3600
+mark end

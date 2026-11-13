@@ -1,0 +1,483 @@
+# tiempo-espada (ORM, docs/TEMPLO_TIEMPO.md, D-R17), A: the Master Sword with two players. Part 1: A and B both
+# in the Temple of Time (Market_Child), A draws the sword (the test command `event`): B's game takes A's start and
+# travels with its own cutscene; neither game reloads (the room's age waits while the sword's story runs,
+# AgeInput::wait). Part 2: B goes out to the square (Market_Adult Market_Entrance), A puts the sword back: B's game
+# does not take the start (not in the temple) and reloads as a child where it stands once A is a child.
+# Timing: B starts 60 s after A (r03_pareja): B is in the temple about 20 s before A's draw (A waits 80 s after
+# landing), and in the square about 25 s before A puts the sword back.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario tiempo-espada --transport ws --scen-dir tools/orm/harness/escenarios --capture-marks
+#   (r03_pareja reads #! switches, #! saves and #! timeout). Needs daurosk branch orm/tiempo2.
+# Not run yet (written 2026-11-11, a code-only wave: no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 11-tiempo
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_STORY_EVENTS=1,LICHII_ORM_AGE=1
+#! timeout 900
+#! expect A coop: temple: on \(built in\)
+#! expect A coop: temple: list: agrees with the story list and the shared items
+#! expect A coop: story: owner: our game started 'Market_Child_DoorOfTime_Draw' in Market_Child within draw..adult
+#! expect A coop: temple: the room's age waits: our game runs 'Market_Child_DoorOfTime_Draw' \(travel\) within draw..adult
+#! expect A coop: age: reloads wait: the Temple of Time: within draw..adult
+#! expect A coop: story: owner: our game started 'Market_Adult_Field_AdultToChild' in Market_Adult within back..end
+#! expect A coop: temple: the room's age waits: our game runs 'Market_Adult_Field_AdultToChild' \(travel\) within back..end
+#! never A coop: age: we follow: reload as
+#! never A coop: age: reloading as
+#! expect B coop: temple: P\d's start of 'Market_Child_DoorOfTime_Draw' in Market_Child: our Link is in the Temple of Time within in-temple..square
+#! expect B coop: story: STORY_EVENT start received from P\d \('Market_Child_DoorOfTime_Draw' in Market_Child\): starting within in-temple..square
+#! expect B coop: event running 'Market_Child_DoorOfTime_Draw' within in-temple..square
+#! expect B coop: age: reloads wait: the Temple of Time: within in-temple..square
+#! never B coop: age: reloading as adult
+#! expect B coop: temple: P\d's start of 'Market_Adult_Field_AdultToChild' in Market_Adult: not taken, our Link is not in the Temple of Time within square..end
+#! never B coop: story: STORY_EVENT start received from P\d \('Market_Adult_Field_AdultToChild'
+#! never B coop: event running 'Market_Adult_Field_AdultToChild'
+#! expect B coop: age: P\d is child now \(was adult\) within square..end
+#! expect B coop: age: we follow: reload as child once nothing runs here within square..end
+#! expect B coop: age: reloading as child: Market_Adult -> Market_Child within square..end
+#! expect B coop: age: now child in Market_Child, [\d.]+ s after the reload began within square..end
+mark start
+warp Market_Child LightPrelude
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 4800               # B lands about 60 s after us and walks into the temple
+place 131.00 105.20 -34.00   # before the pedestal (recorrido-tiempo r03)
+wait 120
+mark draw
+event Market_Child_DoorOfTime_Draw
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark adult
+wait 2400               # Sheik's meeting and the last loads; B goes out to the square meanwhile
+place 131.00 105.20 -34.00   # before the pedestal again, adult
+wait 120
+mark back
+event Market_Adult_Field_AdultToChild
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark child
+wait 3600               # B sees us child (2 s), is calm (1 s) and reloads (about 20 s)
+mark end

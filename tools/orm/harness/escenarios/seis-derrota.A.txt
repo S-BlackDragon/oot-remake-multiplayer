@@ -1,0 +1,28 @@
+# seis-derrota (PLAN_100 F14, docs/CAIDO_REVIVIR.md P4 and P8, docs/BOTS.md): all six down. A's life goes to 0;
+# the five bots (seis-derrota.bots.txt) see it and go down too; 2 s later the server sends GROUP_DEFEAT to all six,
+# A's game over runs and A presses Continue; the bots come back after their own game over.
+#! players 1
+#! bots 5
+#! transport ws
+#! bot-arg -real -look auto
+#! switches LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! puppets
+#! min-fps 25
+#! expect A coop: downed: alive -> downed within dying..over
+#! count A coop: downed: P\d is down \(PLAYER_STATUS dead\) >= 5
+#! expect A group defeat: GROUP_DEFEAT from the server \(6 down
+#! expect A downed -> game_over: group defeat
+#! expect A game_over -> alive: back after the game over within pressed..end
+#! expect server group defeat: all 6 players down
+#! count bots downed -> game_over: group defeat \(6 down\) == 5
+#! count bots game_over -> alive: back after the game over == 5
+mark start
+wait 600
+mark dying
+life 0
+wait 1200               # the bots down at once, the defeat 2 s later, the screen takes A 10 s
+mark over
+press A 12              # the top choice (Continue)
+mark pressed
+wait 1500               # the reload, and the bots' own game over (15 s)
+mark end

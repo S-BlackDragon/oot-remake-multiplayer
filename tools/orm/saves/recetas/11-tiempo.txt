@@ -1,0 +1,13 @@
+# Block 11, the Temple of Time and the age change: the three spiritual stones (Barinade beaten: the Zora Sapphire,
+# the boomerang). Starts in Hyrule Field at the drawbridge, before Zelda's escape.
+include 10-jabu.txt
+scene HyruleField_Child HyruleField_FrontOfMarket
+hearts 6
+item Item_Stone_Water
+item Item_Boomerang
+bottle A Empty
+dungeon InsideJabuJabuBelly map compass
+seen Dm_InsideJabu_Jabu_0000 Dm_InsideJabu_Jabu_0010 Dm_InsideJabu_Jabu_0030
+seen Dm_InsideJabu_Jabu_BossIn Dm_InsideJabu_Jabu_BossOut Dm_ZoraFountain_0020 Dm_ZoraFountain_0030
+step Get_StoneOfWater Complete
+step DoorOfTime Step2_2

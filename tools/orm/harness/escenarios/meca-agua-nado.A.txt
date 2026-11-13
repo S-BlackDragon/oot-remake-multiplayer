@@ -1,0 +1,41 @@
+# meca-agua-nado (A): the level drops under a SWIMMING Link (the no-void-out rule). Both adult in the Water
+# Temple; B is put in the central water (the main water volume's placement, 1.5 m up: EXPLORATORY, the surface
+# height of level 2 is not known; if B stands there instead, B's line is the 'live' one and the run says so) and
+# stays still in it. A lowers the water. B's level waits (our Link plays 'Swim...'), is written after the 20 s
+# cap ('written although'), and B never has a game over or respawn event after it.
+# Mutant: without LICHII_COOP_WATER, B's 'waits' line is missing and B's Int moves at once.
+# Run with --transport ws; run.ps1 reads #! switches. Doc: docs/AGUA.md (PLAN_100 F6/E13).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_WATER=1,LICHII_COOP_GIMMICK_PROBE=1
+# Discovery (water.hpp note_swim): where B swims, as a place line for this scenario (AGUA.md 4.2).
+#! expect B coop: water: probe: our Link swims \('[^']+'\) at -?[\d.]+ -?[\d.]+ -?[\d.]+ in WaterTemple
+#! timeout 600
+#! expect B coop: test place 12\.20 101\.00 -3\.80: done within put..low
+#! expect A coop: flags debug: int 0xbeb09982 \(entry \d+\) 2 -> 0 within low..end
+#! expect B coop: water: WaterTemple_Room00_WaterLevel \(the Water Temple's level.*\) from another player waits: our Link plays 'Swim within low..end
+#! expect B coop: water: WaterTemple_Room00_WaterLevel waited [0-9.]+ s: written although within low..end
+#! expect B coop: flags debug: int 0xbeb09982 \(entry \d+\) 2 -> 0 within low..end
+#! never B (?i)coop: event running '.*(gameover|respawn|falldown|void).*'
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+wait 300
+mark put
+wait 600                # B is put in the water and floats still
+mark low
+event WaterTemple_WaterLevelChange01
+wait 3000               # the cutscene, B's 20 s wait, the drop
+mark end

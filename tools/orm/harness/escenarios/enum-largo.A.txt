@@ -1,0 +1,229 @@
+# enum-largo (ORM story steps, docs/BANDERAS_ENUM.md "Resultado en juego"): evento-largo with the
+# Enum flags read before and after. One game, Kokiri start: `enum` logs Step_Meet_DekuTree and
+# Step_Get_StoneOfForest (find_type, value hash and name, the game's own value list, the 0x38-byte
+# entry) before the Deku Tree meeting is asked for and after it played to its end (~140 s); with
+# LICHII_COOP_STORY=1 the story layer also logs each change of the meeting's end flags
+# ("coop: story: Step_Meet_DekuTree NotReady -> Complete", "...OpenDekuTreeMouth 0 -> 1").
+# Expect find_type 6, NotReady / NotReady before, Complete / GoInside after, the mouth 0 -> 1.
+# Run with --players 1 --scen-dir tools/orm/harness/escenarios --timeout 340
+# --env LICHII_COOP_STORY=1 --env LICHII_COOP_DEBUG_BOOL=0x9a60a460
+mark start
+wait 60
+enum Step_Meet_DekuTree
+enum Step_Get_StoneOfForest
+mark before
+event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+mark asked
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed25
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed50
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed75
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed100
+enum Step_Meet_DekuTree
+enum Step_Get_StoneOfForest
+mark after
+wait 120
+mark walk
+stick 0 1 60
+mark walked
+wait 120
+mark end

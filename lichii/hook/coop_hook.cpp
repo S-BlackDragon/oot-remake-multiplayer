@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bit>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -98,6 +100,7 @@
 #include "coop_save.h"
 #include "coop_game_build.h"
 #include "coop_game_scan.h"
+#include "coop_perf.h"  // ORM: LICHII_ORM_PERF
 #include "coop_pickups.h"
 #include "coop_epona.h"
 #include "coop_final_game.h"
@@ -621,6 +624,7 @@ public:
         OrmCommands::FrameStart();  // ORM: the hook's time in a frame, for /stats
         FrameView view;
         view.at = Clock::now();
+        CoopPerf::Lap perf;  // ORM (coop_perf.h): where this frame's time goes
         const auto reading = Read(system, view);
         // Our own event (a talk, a sign, a cutscene) starting and ending: one
         // line each, so a log shows what ran while the others stayed visible
@@ -671,6 +675,7 @@ public:
             }
         }
 
+        perf.Mark(CoopPerf::Part::present_read);
         // The game's flags, when it is the right game and a list is shared.
         std::optional<EmulatorMemory> memory;
         // Item flags are merged, not overwritten (ItemFlagStore, docs/items.md).
@@ -1408,6 +1413,7 @@ public:
         CoopSpawn::Frame(system, report.connected ? session_.get() : nullptr, view.scene, report.server_now_us);
         CoopDrops::Frame(system, report.connected ? session_.get() : nullptr, view.scene, report.server_now_us);
         if (!reading) CoopTime::Loading(report.server_now_us);  // issue 159: a reload, a death
+        perf.Mark(CoopPerf::Part::present_share);
         CoopTime::Frame(system, view.game ? base_ : 0, report.connected ? session_.get() : nullptr,
                         report.server_now_us,
                         reading && reading->event_running.value_or(false));  // issue 192: no nudge in a cutscene
@@ -1504,6 +1510,7 @@ public:
                                downed_state == coop::host::DownedState::alive);
         perf.Mark(CoopPerf::Part::present_features);
         Place(view);
+        perf.Mark(CoopPerf::Part::present_place);
 
         std::lock_guard lock(view_mutex_);
         frame_ = std::move(view);
@@ -2990,8 +2997,31 @@ void Start() {
 }
 
 void OnFrame(Core::System& system) {
-    CoopObjects::OnFrame(system);
-    CoopTestInput::OnFrame(system);
+    CoopFrameLog::Tick();  // ORM: first, so the interval is the present's (LICHII_ORM_FRAME_LOG)
+    // ORM (coop_perf.h): LICHII_ORM_PERF=1 logs every 5 s where the hook's own time goes.
+    static const bool perf_on = [] {
+        const bool on = EnvFlag("LICHII_ORM_PERF");
+        CoopPerf::The().Enable(on);
+        if (on) {
+            LOG_INFO(Core, "coop: perf: on (LICHII_ORM_PERF), a line every 5 s");
+        }
+        return on;
+    }();
+    if (perf_on) {
+        if (const auto line = CoopPerf::The().Present(
+                CoopEvery::NowUs(), static_cast<std::uint32_t>(std::popcount(CoopPuppet::LivePuppets())))) {
+            LOG_INFO(Core, "coop: perf: {}", *line);
+        }
+    }
+    const CoopPerf::Scope perf_scope(CoopPerf::Part::present);
+    {
+        const CoopPerf::Scope objects_scope(CoopPerf::Part::present_objects);
+        CoopObjects::OnFrame(system);
+    }
+    {
+        const CoopPerf::Scope input_scope(CoopPerf::Part::present_input);
+        CoopTestInput::OnFrame(system);
+    }
     Start();
     // g_coop only changes in Start (before this) and Shutdown (after
     // emulation has stopped), so it stays valid for this frame.

@@ -1,0 +1,54 @@
+# recorrido-kokiri-2 (ORM, docs/RECORRIDOS.md, bloque 1. Bosque Kokiri, Bosque Perdido y Pradera Sagrada), A: tramo 2, Bosque Perdido hasta la Pradera.
+# LostWood_Child: warp to LostWood_Entrance, then room by room with place/goto; see recorrido-kokiri.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-kokiri-2 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-entrada
+#! never A (?<!fairy )coop: puppet: P\d show -> hide within r01-entrada..salida
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: test place 0\.00 100\.34 4\.97: done within r01-entrada..r02-cruce
+#! expect A coop: test place 24\.00 100\.38 \-29\.15: done within r02-cruce..r03-pradera
+#! expect A coop: test flag GoronCity_LostWood_WallCrack_Broke \(0xa61c116d\) = 1 within r02-cruce..r03-pradera
+#! expect A coop: test place 24\.00 100\.34 \-71\.13: done within r03-pradera..salida
+#! expect A coop: drops: asked for the drops of SacredForestMeadow within salida..fin
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within salida..fin
+mark start
+warp LostWood_Child LostWood_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 3000               # B loads after A (r03_pareja) or with it (run.ps1): wait for it
+mark r01-entrada            # la entrada desde el pueblo
+place 0.00 100.34 4.97
+wait 120
+goto 0.00 -2.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-cruce            # el cruce del lado Goron
+place 24.00 100.38 -29.15
+wait 120
+goto 14.50 -29.00 1.5 900
+flag GoronCity_LostWood_WallCrack_Broke 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r03-pradera            # ante la salida a la Pradera
+place 24.00 100.34 -71.13
+wait 120
+goto 24.00 -77.13 1.5 900
+wait 300                # the other one sees us in this room
+mark salida             # a la Pradera
+goto 24.00 -83.70 0.8 900
+wait 1800               # the scene change, then the other one lands too
+mark fin

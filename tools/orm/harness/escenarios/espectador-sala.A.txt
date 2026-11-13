@@ -1,0 +1,61 @@
+# espectador-sala, A (ORM spectator camera C2, docs/ESPECTADOR_Y_JEFES.md "Resultado de C2"): the camera inside a
+# dungeon and behind a door. Both games load into Gohma's room (InsideTheDekuTree, room 10); two bots (P3, P4) stand
+# right under it (6.7 37 67.6: the same x, z as the arrival, 10 m down, outside the room's height band, so another
+# room). After the intro B walks 12 m east inside the room; A falls. The bots are the nearest on the ground, but A
+# follows B (his room); the d-pad has only B. Then B goes down too: nobody standing in A's room, so A follows the
+# nearest bot "en otra sala", and the d-pad goes round the two bots.
+# Run (from the repo root) with
+#   python tools/orm/harness/r03_pareja.py --scenario espectador-sala --scen-dir tools/orm/harness/escenarios
+#   --transport ws --bots 2 --bot-arg=-scene --bot-arg=InsideTheDekuTree --bot-arg=-center --bot-arg=6.7,37,67.6
+#   --bot-arg=-radius --bot-arg=0 --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_SPECTATOR=1
+#   --env LICHII_COOP_DEBUG_CAMERA2=1 --env LICHII_COOP_DEBUG_BOSS=1 --capture-marks --timeout 600
+# Also to check in A's log: the camera found again after the warp ("coop: camera2: camera ... by the known way" after
+# "test warp done"), and, if any, "coop: spectator: camera ... let go: the scene changed" at the warp with no write
+# after it until the new camera is found.
+#! expect A coop: downed: alive -> downed
+#! expect A coop: spectator: following P2 \(nearest\)
+#! expect A spectator: d-pad right: P2 \(1 of 1\)
+#! expect A spectator: screen: 'Mirando a [^(']*'
+#! expect A coop: downed: P2 is down
+#! expect A following P[34] \(nearest\), in another room \(nobody standing in ours\)
+#! expect A spectator: screen: 'Mirando a .*en otra sala\)'
+#! expect A spectator: d-pad right: P[34] \(\d of 2\)
+#! never A following P[34] \(nearest\)$
+#! never A -> game_over
+#! noload
+#! start coop: test warp done
+#! saves 02-deku
+#! switches LICHII_COOP_DOWNED=1,LICHII_COOP_SPECTATOR=1,LICHII_COOP_DEBUG_CAMERA2=1,LICHII_COOP_DEBUG_BOSS=1
+#! timeout 600
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect A coop: check: spectator camera (ok by the known way|fallback the known way did not reach it)
+#! never A coop: check: spectator camera fallback no camera
+mark start
+warp InsideTheDekuTree StartPos_Get_StoneOfForest
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro and into the fight
+wait 900                # B walks 12 m east
+mark dying
+life 0
+wait 300
+mark down-in-room
+press DRIGHT
+wait 300
+mark picked
+wait 900                # B goes down
+mark b-down
+press DRIGHT
+wait 300
+mark elsewhere
+wait 600
+mark end

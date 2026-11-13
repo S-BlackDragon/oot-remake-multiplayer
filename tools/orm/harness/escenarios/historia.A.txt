@@ -1,0 +1,16 @@
+# historia (ORM story cutscenes for everyone, P2, docs/CINEMATICAS.md): two games at the Kokiri
+# start, both standing. A asks its game for the Deku Tree meeting by name (a stand-in for walking
+# into the tree's trigger): A's game starts it by itself, so A owns it and sends STORY_EVENT start;
+# B, in the same scene with no event of its own, asks its game for the same event.
+# Expect in A: "coop: story: owner: our game started 'KokiriForest_Meet_DekuTree_MeetDekuTree_01'",
+# "STORY_EVENT start sent"; in B: "STORY_EVENT start received from P1 (...): starting",
+# "coop: event running 'KokiriForest_Meet_DekuTree...'" within about 1 s of A's, both Links moved
+# to the cutscene's spot (75.00 114.12 -25.68 at cut 2). Nobody presses A: both wait in cut 3.
+# Run with --transport ws --scen-dir tools/orm/harness/escenarios --env LICHII_COOP_STORY=1
+# --env LICHII_COOP_DEBUG_ANIM=1 --env LICHII_COOP_DEBUG_LIFE=1 --timeout 480
+mark start
+wait 120
+event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+mark asked
+wait 1800
+mark end

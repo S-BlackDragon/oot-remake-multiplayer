@@ -1,0 +1,60 @@
+# mascaras-ponerse (ORM, docs/DETALLES_MARIONETA.md "Mascaras, sedal y cadena"), A: child in Kakariko by day. A is
+# given three masks and puts each on as a player does (assign, then ZR), faces B, then takes the last one off. B
+# watches (mascaras-ponerse.B.txt): the mask must sit on A's puppet's face, not at the puppet's feet nor at the
+# place where the game made it. Built from wear-masks-real (daurosk, issue 91) with the orm/mascaras hook: the head
+# piece takes the puppet's place each frame and the puppet's bones of the same name (Skl_Root to Head_2).
+# Emulator: orm/t9-integrado + orm/mascaras (+ orm/detalles for the worn piece, not only the flag). Written
+# 2026-11-11, not run yet (no games that day).
+# Mutant: the same run with LICHII_ORM_MASK_FOLLOW=0 on B turns B's 'placed on it every frame' line red.
+#! noload
+#! start coop: test warp done
+#! saves 06-kakariko
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_MASK_FOLLOW=1
+#! expect A coop: test assign SkullMask: set
+#! expect A coop: test assign BunnyMask: set
+#! expect A coop: test assign KeatonMask: set
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+give PouchData.Armor_Child_Mask_Skull.StockNum
+give PouchData.Armor_Child_Mask_Bunny.StockNum
+give PouchData.Armor_Child_Mask_Keaton.StockNum
+wait 120
+stick 0 0.6 100         # a step ahead, then turn to face B
+stick 0.7 0 30
+stick 0 -0.4 12
+wait 60
+mark before
+assign SkullMask
+wait 30
+press ZR 10             # puts the Skull Mask on
+wait 240
+mark skull
+stick 0.5 0 40          # turns and walks a little: the mask must stay on the face
+wait 120
+mark skull_walk
+assign BunnyMask
+wait 30
+press ZR 10             # the Bunny Hood in its place
+wait 240
+mark bunny
+assign KeatonMask
+wait 30
+press ZR 10
+wait 240
+mark keaton
+press ZR 10             # the same mask again: taken off
+wait 300
+mark off
+wait 300
+mark end

@@ -182,12 +182,22 @@ Director::Slot& Director::SlotFor(std::uint8_t number) {
 
 std::optional<Call> Director::Step(Guest& guest, bool after_call, std::uint64_t result,
                                    std::uint64_t now_ms) {
+    // ORM (coop_perf.h, LICHII_ORM_PERF): the Link puppets' director only
+    // (the fairies' and the horse's are svc callers of their own order).
+    CoopPerf::Lap lap;
     if (!after_call) {
         NewFrame(guest, now_ms);
+        if (pose_copy_) lap.Mark(CoopPerf::Part::puppet_frame);
         PoseFrame(guest, now_ms);
+        if (pose_copy_) lap.Mark(CoopPerf::Part::puppet_pose);
+        FollowHeads(guest);
+        if (pose_copy_) lap.Mark(CoopPerf::Part::puppet_heads);
+        OcarinaBelt(guest);
+        if (pose_copy_) lap.Mark(CoopPerf::Part::puppet_belt);
     } else if (pending_ != Pending::none) {
         Finish(guest, result, now_ms);
     }
+    const CoopPerf::Scope calls_scope(pose_copy_ ? CoopPerf::Part::puppet_calls : CoopPerf::Part::kCount);
     if (input_.main_base == 0 || calls_ >= kMaxCallsPerFrame) {
         return std::nullopt;
     }

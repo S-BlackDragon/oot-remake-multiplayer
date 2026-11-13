@@ -1,0 +1,30 @@
+# enemigo-dodongo, B: lands at the start and faces room 01's Beamos and Fire Keese; B's game is told who owns each enemy and makes the
+# copies A's game moves (captures at B's 'watching' and 'watched').
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 600
+#! expect B coop: objects: share owner 0x[0-9a-f]+ is player \d epoch \d+ group \d+
+#! never B coop: objects: share worst copy 0x[0-9a-f]+ 'Enemy_Beamos\w*' off ([1-9]|\d{2,})\.\d+ m
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp DodongoCavern EntrancePos child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+toward 17.25 -9.25 10
+mark watching
+wait 3600               # A goes and fights about 20 s after this mark
+mark watched
+wait 600
+mark end

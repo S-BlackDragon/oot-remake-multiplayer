@@ -1,0 +1,50 @@
+# seis-jefe (PLAN_100 F14 and E2 J4, docs/BOTS.md): Gohma's room with six. A warps into the boss room of the Deku
+# Tree; the five bots (seis-jefe.bots.txt) follow it in (into its scene when its samples say it). Past the intro A
+# falls: the bots on their feet revive it (bots 2 and 3). Later A falls again and the five go down with it: the
+# group defeat in the boss room, Continue, the room starts over, nobody's boss beaten.
+# Not covered with bots: the boss handed to another player when its owner falls (a bot never owns the boss: it lists
+# no objects); that needs two games (jefe-gohma-caer).
+#! players 1
+#! bots 5
+#! transport ws
+#! bot-arg -real -look auto
+#! noload
+#! start coop: test warp done
+#! timeout 400
+#! switches LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_LIFE=1
+#! puppets
+#! min-fps 25
+#! expect A coop: downed: alive -> downed within dying..revived
+#! expect A reviving -> alive: revived \(by P\d within dying..revived
+#! expect A group defeat: GROUP_DEFEAT from the server \(6 down within again..end
+#! expect A coop: boss: loaded again after the game over: the boss room starts over within pressed..end
+#! never A coop: boss: boss beaten
+#! expect bots bot[23]: A held .* REVIVE sent to P1
+#! count bots downed -> game_over: group defeat \(6 down\) == 5
+mark start
+warp InsideTheDekuTree StartPos_Get_StoneOfForest
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro and into the fight; the bots come in after A
+mark dying
+life 0
+wait 1500               # bots 2 and 3 hold A beside A (3.5 s), the game's revive takes 6 s
+mark revived
+wait 600
+mark again
+life 0
+wait 1200               # the bots down at once, the defeat 2 s later, the screen takes A 10 s
+mark over
+press A 12              # the top choice (Continue)
+mark pressed
+wait 2400               # the reload
+mark end

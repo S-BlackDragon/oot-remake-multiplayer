@@ -1,0 +1,40 @@
+# meca-cancion-ranas (ORM, docs/CANCIONES.md, PLAN_100 F10), A: the frogs of Zora's River give each song's reward once in
+# the world. Both child at Zora's River; A sets the Song of Storms' frog (MiniGame_FrogTenors_StormSong, 0xd578df95:
+# the heart piece's) through the game's queue with `flag`; B gets it (once: in shared_dungeon_songs.txt). Then A sets
+# it back to 0 (a load, a glitch): B keeps its 1 (a once: flag is never undone by another game's 0).
+# Run (from , PowerShell):
+#   python tools/harness/r03_pareja.py --scenario meca-cancion-ranas --transport ws
+#     --env LICHII_COOP_DEBUG_FLAGS=1
+#     --env LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,shared_dungeon_adult.txt,shared_dungeon_songs.txt
+# Mutant: without shared_dungeon_songs.txt, B's expect line turns red; with the line made plain (no once:), the never
+# line does.
+# Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+# run.ps1 splits #! switches at every comma, so a list of files cannot be a value there: '.' is the
+# emulator's folder (where the list files are), and the hook loads every shared_dungeon_*.txt in it.
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.
+#! expect A coop: test flag MiniGame_FrogTenors_StormSong \(0xd578df95\) = 1 within here..end
+#! expect B coop: flags debug: bool 0xd578df95 \(entry \d+\) 0 -> 1 within here..end
+#! never B coop: flags debug: bool 0xd578df95 \(entry \d+\) 1 -> 0
+mark start
+warp ZoraRiver_Child ZoraRiver_FromZoraDomain
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 600
+mark here
+flag MiniGame_FrogTenors_StormSong 1
+wait 600
+mark undone
+flag MiniGame_FrogTenors_StormSong 0
+wait 600
+mark end

@@ -1,0 +1,68 @@
+# charla-dampe (A), ORM F12 charlas (PLAN_100.md; docs/CHARLAS.md): A talks to Dampe in the Graveyard (Npc_Hylia_Dampe_001, at -12.01 100.8 20); B watches.
+# A's talk claims the NPC (patch 0011, LICHII_COOP_NPC=1) and sends its bones as OBJECT_POSE while it lasts
+# (LICHII_COOP_NPC_POSE=1); the talk flags of shared_talk.txt it changes reach B without the NPC jumping there.
+# Precondition: a child save; the host's clock goes to 20:00 30 s after joining (the digging tour is at night): if the Graveyard loaded before that, Dampe is not there and the claim lines fail (reload the scene).
+# Run (emulator from orm/test8 + a patch file + a patch file), with an --env for
+# each item of the #! switches line (run.ps1 reads it; r03_pareja needs the --env):
+#   python -I tools/orm/harness/r03_pareja.py --scenario charla-dampe --scen-dir tools/orm/harness/escenarios
+#     --transport ws --timeout 600 --capture-marks
+# Not run yet (written 2026-11-11, no game that day). Doc: docs/CHARLAS.md. Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt,LICHII_COOP_TIME_TEST_SET=72000@30
+#! timeout 600
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: npc: talking to Npc_Hylia_Dampe_001\w* 0x[0-9a-f]+ \((ours|owner P\d, claimed)\) within talk..talked
+#! expect A coop: npc pose: sending Npc_Hylia_Dampe_001\w* 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\) within talk..talked
+#! expect A coop: npc: talk over, claim let go within talk..end
+#! never A coop: npc: Npc_Hylia_Dampe_001\w* 0x[0-9a-f]+ talks with its owner P\d
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp Graveyard_Child Front
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 50 s after that: wait for it
+place -13.05 101.1 17.73     # 2.5 m from Npc_Hylia_Dampe_001
+wait 90
+toward -12.01 20 8          # face it
+wait 30
+mark at-npc
+wait 20
+mark talk
+press A 12              # talk
+wait 180
+mark talking
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press B 12              # close what is left (a shop's menu, a question)
+wait 60
+press B 12
+wait 120
+stick 0 -1 30           # a step back: no second talk
+wait 60
+mark talked
+wait 600
+mark end

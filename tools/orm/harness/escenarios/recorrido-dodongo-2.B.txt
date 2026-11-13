@@ -1,0 +1,167 @@
+# recorrido-dodongo-2 (ORM, docs/RECORRIDOS.md, bloque 8. Cueva de los Dodongos y Rey Dodongo), B: tramo 2, dentro del cráneo, el Rey Dodongo y el portal.
+# DodongoCavern: warp to DodongoCavern_MountainTrailSide, then room by room with place/goto (B 1.2 m beside A); see recorrido-dodongo.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-dodongo-2 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 1500
+#! expect B coop: test warp done
+#! never B coop: test goto timed out
+#! never B coop: test place .*: failed
+#! expect B coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-craneo
+#! never B (?<!fairy )coop: puppet: P\d show -> hide within r01-craneo..jefe
+#! expect B coop: test place 8\.66 92\.40 \-77\.94: done within r01-craneo..r02-antesala
+#! expect B coop: flags debug: \w+ 0x940530ab \(entry \d+\) 0 -> 1 within r01-craneo..fin
+#! never B coop: flags debug: \w+ 0x940530ab \(entry \d+\) 1 -> 0
+#! expect B coop: test place 14\.36 92\.40 \-77\.94: done within r02-antesala..jefe
+#! expect B coop: boss: in the boss room of DodongoCavern: Enemy_DungeonBoss_Dodongo within jefe..pelea
+#! expect B coop: boss: (intro ended|another player's intro is over: skipping ours|no intro: the fight has begun here) within jefe..pelea
+#! expect B coop: boss: boss beaten( \(|in another game) within pelea..portal
+#! expect B coop: event running 'Get_StoneOfFire_Complete' within portal..fin
+#! expect B coop: story: Step_Get_StoneOfFire \w+ -> Complete within portal..fin
+#! expect B coop: drops: asked for the drops of DeathMountainTrail_Child within portal..fin
+mark start
+warp DodongoCavern DodongoCavern_MountainTrailSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 600                # the other game is in already, or lands now
+mark r01-craneo            # sala 19, dentro del cráneo
+place 8.66 92.40 -77.94
+wait 120
+goto -3.80 -78.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-antesala            # sala 21, la antesala del jefe
+place 14.36 92.40 -77.94
+wait 120
+goto 29.20 -78.00 1.5 900
+wait 300                # the other one sees us in this room
+mark jefe               # into the boss room together
+place 25.20 73.71 -77.60
+wait 120
+goto 25.20 -77.60 1.5 900
+wait 2400               # the intro
+mark pelea              # the fight: with the entrance save's weapons (PLAN_100 section 9)
+hold ZL 30
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+press Y
+wait 60
+hold ZR 60
+wait 120
+wait 3600               # the boss's death and the heart container
+mark portal             # both into the blue warp
+goto 24.60 -63.05 0.8 900
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 1800               # the blue warp's scene and the next scene loading
+mark fin

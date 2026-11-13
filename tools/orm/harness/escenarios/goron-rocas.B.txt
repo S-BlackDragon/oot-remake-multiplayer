@@ -1,0 +1,23 @@
+# goron-rocas (B): Goron City: a saved rock A lifts and throws is gone for B too, B being on the Trail (F8, one-time key).
+# docs/CONTENIDO_NINO.md; families of PLAN_100 section 4.
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect B coop: flags debug: get_key64\(0x9f7d0ebfa5357dbb\) = 1 \(was 0\) within b-in..end
+#! never B coop: flags debug: get_key64\(0x9f7d0ebfa5357dbb\) = 0 \(was 1\)
+mark start
+warp DeathMountainTrail_Child MountainTrail_GoronCitySide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 300
+wait 1500
+mark visto
+wait 900
+mark end

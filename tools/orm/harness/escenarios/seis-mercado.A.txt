@@ -1,0 +1,95 @@
+# seis-mercado (PLAN_100 F14, box 6 of block 4, Ciudadela (Mercado); docs/BOTS.md, docs/SEIS_BLOQUES_1_10.md): one
+# game and five bots. A walks the rooms of recorrido-mercado (leg 1) in one run from the entrance save; the bots
+# (seis-mercado.bots.txt) follow it room to room and through each scene change it walks. In r02-plaza A falls (life 0)
+# and bots 2 and 3 revive it; then bot1 goes down 1 m from A and A holds A beside it. bot1 sends one of the block's
+# shared flags (Talon_AfterWakeUp) and A's game shows it 0 -> 1; bot5 goes to another scene and follows A back.
+#   python -I tools/orm/harness/r03_pareja.py --scenario seis-mercado --scen-dir tools/orm/harness/escenarios
+# 1 game, 5 bots, puppets and min-fps 25 come from the name (seis-*); transport and bot-arg are in the .bots.txt.
+#! noload
+#! start coop: test warp done
+#! saves entrada-mercado
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 1800
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! never A coop: server refused
+#! count A coop: player \d+ 'bot\d' joined >= 5 within boot..
+#! count A coop: puppet: P\d+ CoopPuppet_\w+ spawned >= 5
+#! expect A coop: flags debug: \w+ 0x31060ce0 \(entry \d+\) 0 -> 1
+#! never A coop: flags debug: \w+ 0x31060ce0 \(entry \d+\) 1 -> 0
+#! expect A coop: downed: alive -> downed within caida..levanta
+#! expect A downed -> reviving: revive requested by P\d within caida..levanta
+#! expect A reviving -> alive: revived \(by P\d within caida..levanta
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within caida..levanta
+#! expect A REVIVE sent to P\d within levanta..levantado
+#! expect A coop: downed: P\d is up again within levanta..fin
+#! never A -> game_over
+#! expect A coop: test place \-1\.71 102\.54 65\.77: done within r01-puente..r02-plaza
+#! expect A coop: event running 'Dm_SY_BancChangeArrive_Market' within r01-puente..r02-plaza
+#! expect A coop: story: owner: our game started 'Dm_SY_BancChangeArrive_Market' in Market_Child within r01-puente..r02-plaza
+#! expect A coop: test place \-13\.66 100\.39 6\.75: done within r02-plaza..r03-castillo
+#! expect A coop: test place \-2\.04 100\.39 \-12\.10: done within r03-castillo..salida
+#! expect A coop: drops: asked for the drops of HyruleCastle within salida..fin
+mark start
+warp Market_Child Market_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 1200               # the bots follow A into its scene (they joined at the title)
+mark r01-puente            # el puente levadizo: primera vez en la Ciudadela
+place -1.71 102.54 65.77
+wait 120
+goto -1.80 50.00 1.5 900
+event Dm_SY_BancChangeArrive_Market
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 300                # the bots catch up (4 m/s)
+mark r02-plaza            # la plaza
+place -13.66 100.39 6.75
+wait 120
+goto -14.25 -12.43 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark caida              # A falls here (life 0): bots 2 and 3 come and hold A beside it
+life 0
+wait 2400               # their 3.5 s and the game's 6 s revive; then bot1 goes down 1 m from A
+mark levanta
+hold A 300              # A revives bot1 (reach 1.5)
+mark levantado
+wait 900                # bot1 gets up 6 s after the request
+mark r03-castillo            # el camino del castillo (Kaepora)
+place -2.04 100.39 -12.10
+wait 120
+goto -2.04 -16.10 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark salida             # al castillo
+goto -1.14 -30.54 0.8 900
+wait 1800               # the scene change; the bots follow A in
+mark fin
+wait 600

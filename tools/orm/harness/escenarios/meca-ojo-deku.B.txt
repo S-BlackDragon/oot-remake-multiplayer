@@ -1,0 +1,29 @@
+# meca-ojo-deku (B): Deku Tree: room F's eye switch opens the room for everyone and stays open (F2)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect B coop: flags debug: \w+ 0xc90d4ed1 \(entry \d+\) 0 -> 1 within b-in..end
+#! expect B coop: dungeon: room gimmick flags from another player held until we leave this dungeon or load within b-in..end
+#! never B coop: flags debug: \w+ 0xa71c3b24 \(entry \d+\) 0 -> 1
+#! never B coop: flags debug: \w+ 0xc90d4ed1 \(entry \d+\) 1 -> 0
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 1200                # A sets the flags meanwhile (B is in another room)
+mark visto
+place -17.85 79.3 30.09       # B walks in: the room's door (Banc position)
+wait 240
+toward -17.08 29.56 20
+press ZL 10
+mark abierta
+wait 900
+mark end

@@ -1,0 +1,26 @@
+# mapa-piso (ORM, docs/MAPA_COMPANEROS.md), B: lands at the Deku Tree's entrance with A, goes down to the basement
+# (B2) for a minute, then comes back up to 1F 6 m from A for a minute. B checks nothing itself; the captures are A's.
+#! noload
+#! start coop: test warp done
+#! saves 02-deku
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_HUD=1,LICHII_COOP_MAP=1,LICHII_COOP_MAP_FILE=coop_map.txt
+#! timeout 600
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+warp InsideTheDekuTree StartPos_Get_StoneOfForest   # the basement, y 47: B2
+wait 4200
+mark up
+place 0.20 101.20 8.70     # back on 1F, 6 m in front of the entrance start
+wait 3600
+mark end

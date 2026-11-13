@@ -1,0 +1,28 @@
+# final-ganondorf-entrada, B: loads at the Entrance; moved into A's boss room.
+#! expect B coop: boss: another player is in the boss room of InsideGanonCastle: moving in \(try \d\)
+#! expect B coop: boss: (moved Link to|asked the scene change)
+#! expect B coop: boss: in the boss room of InsideGanonCastle: Enemy_DungeonBoss_Ganondorf
+#! expect B coop: boss: (intro ended|another player's intro is over: skipping ours|no intro: the fight has begun here)
+#! never B coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark b-in
+wait 2400
+mark fight
+wait 1800
+mark end

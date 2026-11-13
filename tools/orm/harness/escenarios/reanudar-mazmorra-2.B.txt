@@ -1,0 +1,41 @@
+# reanudar-mazmorra (ORM, docs/PARTIDA_SALA.md "Dentro de una mazmorra"; upstream issue 197), session 2 of 2, B: comes
+# back with his own coop-resume.txt of session 1 (no LICHII_ORM_RESUME_PLACE: this PC's file). His last place is the
+# slingshot ledge, another room than the Deku Tree's entrance: he is not put there (a dungeon loads one room at a
+# time; upstream's bigrun4 left Link held with a black picture), but loads at Entrance and is moved to the spot of
+# the entrance room he left it by (-8.6 4.6), with the notice "De vuelta a la sala de entrada, por donde saliste".
+# Shots (B): back (B in the entrance room by its way on, picture not black), end (B walked: not held).
+# Fallbacks, each a pass of the rule but a red here: "no spot of its entrance room kept, going to its entrance" (the
+# d1 line was not written in session 1), "coop: resume: not moved to ... staying here" (the load put B elsewhere).
+# Mutant: delete the d1 line from B's coop-resume.txt before this session: "no spot of its entrance room kept".
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 600
+#! expect B coop: resume: on: the last place of 'B' in room \S+: InsideTheDekuTree at -51\.\d 11\d\.\d 15\.\d \(ok, this PC's coop-resume\.txt\) within boot..
+#! expect B coop: resume: the spot of InsideTheDekuTree's entrance room last stood on: -?\d+\.\d -?\d+\.\d -?\d+\.\d \(start point Entrance within boot..
+#! expect B coop: resume: the last place \(InsideTheDekuTree at -51\.\d+ 11\d\.\d+ 15\.\d+\) is in (another room of this dungeon|too far in this dungeon, with no room table for it) \(issue 197.*\): going to the spot of its entrance room we last left it by within title..end
+#! expect B coop: resume: scene change to InsideTheDekuTree at Entrance within title..end
+#! expect B coop: resume: at the spot of the entrance room of InsideTheDekuTree we last stood on before leaving it within title..end
+#! expect B coop: teleport: move to -?\d+\.\d -?\d+\.\d -?\d+\.\d: asked within after..end
+#! never B coop: teleport: move to -51\.5
+#! never B coop: resume: not moved to
+#! never B coop: teleport: stopped
+#! never B coop: resume: .*(never stood still|not now|could not be written)
+mark start
+warp KokiriForest_Child FrontDekuTree
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+wait 1800               # 3 s standing, the scene change, its load, 1.5 s to settle (about 25 s)
+mark back
+stick 0 0.6 60          # walks: Link is not held
+wait 240
+mark end

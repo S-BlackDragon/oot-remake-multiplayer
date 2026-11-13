@@ -1,0 +1,20 @@
+# tunica-color (ORM, docs/COLOR_JUGADOR.md "Túnica teñida", D-R24), A: stands a step in front of B and turns on
+# the spot, so B's screenshots show A's puppet from the front, the side and the back in A's colour. A's colour is
+# the one its coop.ini (or LICHII_COOP_COLOR) gives, else its number's default (the name tag's). Then A puts its
+# own tint switch off: that must change nothing B sees (the tint is B's drawing of A).
+# Emulator: orm/t9-integrado + orm/tunica. Written 2026-11-12, not run yet (no games that day).
+# Mutant: the same run with LICHII_ORM_TUNIC_TINT=0 on B turns B's 'tunic tint ok' line red.
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_TUNIC_TINT=1
+mark start
+wait 300
+stick 0 0.6 60          # a step ahead of B
+wait 120
+mark front
+stick 0.7 0 20          # turns on the spot
+wait 120
+mark side
+stick 0.7 0 20
+wait 120
+mark back
+wait 300
+mark end

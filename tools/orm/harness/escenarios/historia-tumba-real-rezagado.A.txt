@@ -1,0 +1,186 @@
+# historia-tumba-real-rezagado (ORM, docs/HISTORIAS_ESCENARIOS.md; block Kakariko, Cementerio, Montaña, Ciudad Goron (niño)), A: Zelda's Lullaby on the Royal Tomb: the tomb opens (GimmickFlow_RoyalFamilyTomb; plays Dm_Graveyard_0010; moves SubEvent_GetMelodySun to GetMelodySun).
+# The latecomer (historia-rezagado's pattern): B marks RoyalFamilyTomb_BlowOcarina played on its own
+# save 10 s before A asks for it, so it ignores A's start; A plays it to its end pressing A every 2 s and
+# B must still end with A's world: the same Bools and the same story steps (BANDERAS_ENUM.md).
+# Run: python tools/orm/harness/r03_pareja.py --scenario historia-tumba-real-rezagado --transport ws --scen-dir tools/orm/harness/escenarios --timeout 500 --env LICHII_COOP_STORY=1
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand. Not run yet.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 500
+#! expect A coop: story: owner: our game started 'RoyalFamilyTomb_BlowOcarina' in Graveyard_Child; STORY_EVENT start to the others within asked..end
+#! expect A coop: story: HavePlayedEvent\.RoyalFamilyTomb_BlowOcarina 0 -> 1 within after..end
+#! expect A coop: story: GraveYard_RoyalFamilyTomb_Open 0 -> 1 within asked..end
+#! expect A coop: story: GraveYard_RoyalFamilyTomb_Breaked 0 -> 1 within asked..end
+#! expect A coop: story: Step_SubEvent_GetMelodySun \S+ -> GetMelodySun within asked..end
+mark start
+warp Graveyard_Child GraveYard_KakarikoSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # B marks it played meanwhile
+enum Step_SubEvent_GetMelodySun
+mark asked
+event RoyalFamilyTomb_BlowOcarina
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+enum Step_SubEvent_GetMelodySun
+wait 600
+mark end

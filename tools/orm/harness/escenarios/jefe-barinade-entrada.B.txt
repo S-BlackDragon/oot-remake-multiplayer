@@ -1,0 +1,22 @@
+# jefe-barinade-entrada, B: loads into the same boss room as A.
+#! saves 10-jabu
+#! expect B coop: boss: in the boss room of InsideJabuJabuBelly: Enemy_DungeonBoss_Barinade
+#! expect B coop: boss: (intro ended|another player's intro is over: skipping ours|no intro: the fight has begun here)
+#! never B coop: boss: boss beaten
+mark start
+warp InsideJabuJabuBelly StartPos_StoneOfWater
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 2400
+mark fight
+wait 1800
+mark end

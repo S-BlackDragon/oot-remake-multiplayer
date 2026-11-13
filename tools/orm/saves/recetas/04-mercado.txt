@@ -1,0 +1,5 @@
+# Block 4, Castle Town (Market): Kaepora met in the field. Starts in Hyrule Field at the drawbridge.
+include 03-campo.txt
+scene HyruleField_Child HyruleField_FrontOfMarket
+seen Dm_HrlField_0000 Dm_HrlField_0005 Dm_HrlField_0010
+step Goto_HyruleCastle Step02

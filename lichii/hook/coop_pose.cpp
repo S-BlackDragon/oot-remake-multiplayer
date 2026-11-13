@@ -537,11 +537,19 @@ std::vector<std::uint64_t> HeldPieces(CoopPuppet::Guest& guest, std::uint64_t ac
     return out;
 }
 
-// Calc thread, under the lock: the pose onto a puppet's skeleton.
-bool WritePose(State& s, CoopPuppet::Guest& guest, std::uint64_t actor, const Pose& pose) {
-    const auto skel = FindSkeleton(guest, actor);
-    if (!skel || SkeletonId(skel->count, skel->model) != pose.skeleton) return false;
-    std::vector<LocalMtx> bones(skel->count);
+// Calc thread, under the lock: the pose onto a puppet's skeleton `skel` (the
+// one WriteFor found for `actor` this frame: it is not looked up twice, ORM
+// oot-remake docs/RENDIMIENTO.md). `weight` below 1 blends it with what the
+// skeleton holds now (Track::Weight).
+bool WritePose(State& s, CoopPuppet::Guest& guest, std::uint64_t actor, const Skeleton& skel_found,
+               const Pose& pose, float weight = 1.0f) {
+    weight = std::clamp(weight, 0.0f, 1.0f);
+    const Skeleton* skel = &skel_found;
+    if (SkeletonId(skel->count, skel->model) != pose.skeleton) return false;
+    // One buffer for every write of the process (the calc thread only, under
+    // the lock): no allocation per puppet and frame.
+    std::vector<LocalMtx>& bones = s.write_bones;
+    bones.resize(skel->count);
     if (!guest.Read(skel->local, bones.data(), bones.size() * sizeof(LocalMtx))) return false;
 
     // Did the game keep what we wrote last frame?

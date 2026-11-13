@@ -1,0 +1,61 @@
+# comunicacion-aqui, B: the one who sends. B walks forward a few metres from the Kokiri start (a fixed push, so
+# the timing does not depend on the terrain), waits, then holds L and presses up on the d-pad once at tick 320
+# ("¡Aquí!" as CHAT, its own marker over B for 5 s). At tick 950 it presses L + up ten times in 3 s: one a second
+# goes (3 in all), the rest are refused by the sender's limit and logged. Then it waits for A's "¡Ayuda!".
+# Expect in B's log: "coop: quick: sent '¡Aquí!' (L+DUP)", "coop: quick: marker for P2 (us) at ... for 5 s", in the
+# burst 3 "sent" and at least 6 "not sent: at most one a second ..."; at the end "coop: quick: P1 <A> '¡Ayuda!'"
+# and its marker over A. The server drops nothing (B keeps itself under the relay's limit).
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect B coop: quick: sent '\S+Aqu\S+!' \(L\+DUP\) within aqui..t1
+#! expect B coop: quick: marker for P\d \(us\) at .* for 5 s within aqui..t1
+#! count B coop: quick: sent '\S+Aqu\S+!' \(L\+DUP\) == 3 within ritmo..ritmo-fin
+#! count B coop: quick: '\S+Aqu\S+!' \(L\+DUP\) not sent: at most one a second >= 6 within ritmo..ritmo-fin
+#! expect B coop: quick: P\d .* '\S+Ayuda!'$ within ritmo-fin..end
+#! expect B coop: quick: marker for P\d at .* for 5 s within ritmo-fin..end
+#! env LICHII_COOP_WARP_INVITE=1
+#! expect B coop: songs: invitation button L: (free|the game uses it)
+mark start
+wait 60
+stick 0 1 40
+wait 200
+mark aqui
+hold L 20
+hold L+DUP 20
+hold L 10
+mark t1
+wait 580
+mark ritmo
+hold L 20
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+hold L+DUP 9
+hold L 9
+mark ritmo-fin
+hold L 10
+wait 900
+mark l-probe              # L alone, four times from a still pose: is L the game's? (InviteButton, docs/SONDAS.md)
+hold L 30
+wait 60
+hold L 30
+wait 60
+hold L 30
+wait 60
+hold L 30
+wait 90
+mark end

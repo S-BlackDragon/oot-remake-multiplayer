@@ -1,0 +1,38 @@
+# peligro-agua (ORM, docs/PELIGROS.md), B: lands at the Water Temple's entrance, stands 20 s, presses A (a dive
+# when swimming), and 1 s into it its life goes to 0: down under water (or in the water, if the dive did not
+# start). B must lie down for A at its last firm ground, be revived there and get up. A's file says what a start in
+# the water means.
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect B coop: hazards: on \(LICHII_COOP_HAZARDS\): \d+ per-player flags kept out of sharing
+#! expect B coop: downed: alive -> downed within dive..end
+#! expect B coop: hazards: down (under water|in the water) \('[^']*' within dive..end
+#! expect B coop: hazards: down (under water|in the water) \('[^']*', -?[\d.]+ m below and [\d.]+ m from our last firm ground\): the others see us lying there within dive..end
+#! expect B coop: downed: reviving -> alive within dive..end
+# docs/RIESGOS_RESUELTOS.md ("Mundo e historia"): the down line says what told its kind, and after the revive B says whether the game brought it back to firm ground.
+#! expect B coop: hazards: down (under water|in the water) .*; kind by (its dead command|the command before it) within dive..end
+#! expect B coop: hazards: after the revive (under water|in the water): (on firm ground again|down again|not on firm ground) within dive..end
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 1200               # 20 s on the start: our last firm ground, if it is a floor
+mark dive
+press A 10              # a dive when swimming
+wait 60
+life 0
+mark down
+wait 4800               # A holds A at the start; the fairy event and getting up
+mark end

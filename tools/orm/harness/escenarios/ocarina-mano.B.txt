@@ -1,0 +1,76 @@
+# ocarina-mano (ORM, issue 152, docs/OCARINA.md), B: the one who plays. Walks 1 m to the +z side of A's start, faces
+# A, takes the Ocarina out (DLEFT, seen in daurosk's ocarina-find on 2026-11-11), plays the five notes slowly, then
+# Zelda's Lullaby, and puts it away. The note mapping is daurosk's guess (ocarina-probe): A = A, L = down, R = right,
+# Y = left, X = up. B's probe lines (LICHII_COOP_OCARINA_PROBE=1) say what our own AS slots play while the Ocarina is
+# out, and which small words step per note: where the note is kept.
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_COOP_OCARINA_PROBE=1
+#! expect B coop: puppets: the Ocarina in the hand while its player plays: sub weapon within boot..
+#! expect B coop: ocarina probe: our Link plays the ocarina, \d+ AS slots
+#! expect B coop: ocarina probe: slots 0=
+#! expect B coop: ocarina probe: ocarina put away
+#! saves 06-kakariko
+mark start
+wait 60
+goto -82.0 34.7 0.4 600
+toward -82.0 33.65 8         # face A
+wait 300
+# Round 5: in sondas8 and sondas12 B's control knew no song at all with the same 06-kakariko save ('known none',
+# IsGet.Item_Melody_ZeldaLullaby read 0 at the play); in sondas9 it knew the Lullaby. Set here ('it read N' says
+# which it was): this scenario is about the puppet's Ocarina and its sound, not the save.
+flag IsGet.Item_Melody_ZeldaLullaby 1
+mark ready
+press DLEFT 12               # takes the Ocarina out
+wait 240
+# sondas7: the take-out may open a message first (EvtWait for 10 s, until an A press); an A here closes it, or else
+# is a first note A. The ring the song check reads holds 8 notes (docs/SONDAS.md round 4).
+press A 12
+wait 120
+mark out
+wait 60                      # the Ocarina control is up 0.4 s after this (sondas4)
+mark note-D
+press L 12                   # D (the original's A button), read from the control in sondas4
+wait 120
+mark note-F
+press R 12                   # F (C-down)
+wait 120
+mark note-A
+press A 12                   # A (C-right): the button the four others leave
+wait 120
+mark note-B
+press Y 12                   # B (C-left)
+wait 120
+mark note-highD
+press X 12                   # high D (C-up)
+wait 120
+# sondas5: with the five notes and an A already in its 8-note ring, the game stopped taking notes at the lullaby's
+# fourth (the ring full, no song) and never recognised it; sondas7, with fewer notes before it, did. So the
+# Ocarina goes away and comes out again: the lullaby on an empty ring.
+press B 12                   # puts it away
+wait 120
+press B 12
+wait 180
+mark again
+press DLEFT 12               # out again
+wait 300
+mark lullaby                 # Zelda's Lullaby: B, high D, A, twice
+press Y 12
+wait 40
+press X 12
+wait 40
+press A 12
+wait 40
+press Y 12
+wait 40
+press X 12
+wait 40
+press A 12
+wait 40
+wait 300                     # the song played back
+mark after-song
+press B 12                   # puts it away
+wait 120
+press B 12
+wait 120
+mark away
+wait 300
+mark end

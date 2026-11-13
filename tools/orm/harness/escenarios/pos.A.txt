@@ -1,0 +1,14 @@
+# pos (ORM, R1.1): A walks a square for 20 s so the GameUI position read (kGameUiPosition, the hook's
+# "you at", logged every 120 frames with LICHII_COOP_DEBUG_CAMERA=1) is sampled while Link moves.
+# Expect: several samples between 'start' and 'square', all different, then one value standing still.
+mark start
+stick 0 1 300
+mark side1
+stick 1 0 300
+mark side2
+stick 0 -1 300
+mark side3
+stick -1 0 300
+mark square
+wait 400
+mark still

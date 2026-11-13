@@ -1,0 +1,20 @@
+# menu-salir (ORM, docs/MENUS_PAUSA.md M6 and M7), B: stands by the Kokiri start and watches A go back to the title
+# screen and come back (menu-salir.A.txt). B's log: A's state title then playing, the chat notices "salió al menú
+# principal" then "volvió a la partida", never "entró en la partida" (A was in the world before) and no group defeat.
+# Command and switches: menu-salir.A.txt.
+# Needs the hook of orm/menus2 (coop_menus.cpp, the paused hold in scene.hpp).
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 900
+#! expect B coop: menus: P\d '.*' title \(was (playing|paused)\)
+#! expect B coop: notice: .*sali\S* al men\S* principal
+#! expect B coop: menus: P\d '.*' playing \(was title\)
+#! expect B coop: notice: .*volvi\S* a la partida
+#! never B coop: notice: .*entr\S* en la partida
+#! never B coop: downed: group defeat
+mark start
+wait 60
+goto -82.0 34.7 0.4 600
+wait 2400               # A's way to the title and back (about 40 s)
+mark watched
+wait 600
+mark end

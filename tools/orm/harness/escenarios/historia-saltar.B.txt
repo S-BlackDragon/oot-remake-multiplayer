@@ -1,0 +1,35 @@
+# historia-saltar, B: follows A's start (the hook asks its game for the meeting), presses A every 2 s for 20 s like
+# A, then nothing: its copy waits at a text until A's STORY_EVENT skipped comes and the hook skips it (the checks are in A's file).
+mark start
+wait 120
+mark asked
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed10
+wait 600
+mark skipping
+wait 1200               # A skips; nothing pressed here
+mark skipped
+wait 1200
+mark walk
+stick 0 1 60
+wait 600
+mark end

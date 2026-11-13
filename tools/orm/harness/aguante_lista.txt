@@ -1,0 +1,13 @@
+# aguante.py's default list (docs/AGUANTE.md): daurosk scenarios that play in the world the save loads, with no warp
+# and no scene change, chained round after round in the same two games. One name a line; repeats allowed.
+# A scenario that loads the save itself (a warp before the title presses) is skipped by the script.
+walk
+turn
+pose
+back
+hold
+nametag
+fairy
+pause
+held
+buttons

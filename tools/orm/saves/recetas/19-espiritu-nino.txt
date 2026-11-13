@@ -1,0 +1,19 @@
+# Block 19, the Spirit Temple, child side: the four carpenters freed (the Gerudo card), the desert crossed, the
+# Requiem of Spirit (Sheik at the Colossus, as an adult), back to childhood. Starts at the Colossus by the temple.
+include 18-gerudo.txt
+age child
+scene DesertColossus_Child DesertColossus_FromSpiritTempleEntrance
+item Item_Token_Gerudo
+song SpiritRequiem
+int GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped 4
+bool GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_013_Adult 1
+bool GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_014_Adult 1
+bool GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_015_Adult 1
+bool GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_016_Adult 1
+seen Dm_Gerudo_0025 Dm_DesertColossus_0000 Dm_MelodyGet_Spilit Meet_FourCarpenter_ClearEvent
+step SageOfSpirit Step04
+equip weapon Weapon_Sword_Kokiri
+equip shield Weapon_Shield_Deku
+equip armor -
+other-era weapon Weapon_Sword_Master
+other-era shield Weapon_Shield_Hylian

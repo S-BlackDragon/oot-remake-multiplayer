@@ -1,0 +1,53 @@
+# ocarina-mano (ORM, issue 152 of daurosk "Ocarina: not shown in the other players' hand, and its music isn't heard",
+# docs/OCARINA.md), A: the one who watches (the runner captures A's window). A stays at the Kokiri start (about
+# -82 33.65) and faces the spot 1 m to +z where B walks; B takes the Ocarina out, plays the five notes and Zelda's
+# Lullaby, and puts it away. A's captures at playing-* must show B's puppet with the Ocarina in its hands (one in the
+# hand; perhaps a second on the belt, docs/OCARINA.md). Not run yet (written 2026-11-11 with the branch orm/ocarina).
+# Needs a save with the Fairy Ocarina on the D-pad (A's "gear:" line then names 'Item_Ocarina_Fairy').
+# Run (from , PowerShell; ORM_BUILD_BIN = a build with the branch):
+#   python tools/harness/r03_pareja.py --scenario ocarina-mano --capture-marks --capture-every 3 --env LICHII_COOP_PUPPET=1
+#     --env LICHII_COOP_DEBUG_ANIM=1 --env LICHII_COOP_OCARINA_PROBE=1
+# The two "ocarina note"/"ocarina song" lines are EXPLORATORY: they say whether the note and song nodes of B's AS
+# reach A in the command B sends (slot 0). If only they are missing, the notes stay in B's partial slots or AS
+# variables (B's probe lines say which) and a message is needed to send them. No sound is played for them yet.
+# Mutant: the same run with --env LICHII_COOP_OCARINA_HAND=0 turns the "sub weapon" and "slot 1" lines red.
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_COOP_OCARINA_PROBE=1
+#! expect A coop: puppets: the Ocarina in the hand while its player plays: sub weapon within boot..
+#! expect A coop: puppet: P\d gear: .*ocarina 'Item_Ocarina_(Fairy|Time)' \(worn\)
+#! expect A coop: puppet: P\d plays '(Demo)?Ocarina
+#! expect A coop: puppet: P\d wears sub weapon 'Item_Ocarina_(Fairy|Time)' \(returned 0x1\)
+# The puppet's own Ocarina in its hand: the posed 'DemoOcarina' moves it (the remake makes no equipment slot 1
+# piece for the Ocarina, 2026-11-12), and the check says which path ran.
+#! expect A coop: puppet: P\d effects: 'DemoOcarina' played under the copied pose
+#! expect A coop: check: ocarina hand ok P\d's own Ocarina is in its hand
+#! never A coop: check: ocarina hand fallback
+# The notes and the song come by OCARINA_NOTE (B's control read), not in B's command.
+#! expect A coop: ocarina sound: P\d note \w+
+#! expect A coop: ocarina sound: P\d Melody_\w+
+#! expect B coop: ocarina note: note \w+ sent
+#! expect B coop: ocarina note: song ZeldaLullaby sent
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! never A coop: check: ocarina belt fallback
+#! env LICHII_COOP_OCARINA_SOUND=1
+#! expect A coop: ocarina sound: on within boot..
+#! saves 06-kakariko
+#! env LICHII_ORM_OCARINA_NOTE=1
+mark start
+wait 120
+toward -82.0 34.7 8          # face where B stands
+wait 600                     # B walks there (its goto gives up after 600 ticks)
+mark ready
+wait 300                     # B takes the Ocarina out
+mark playing-out
+wait 240
+mark playing-notes
+wait 360
+mark playing-notes2
+wait 300
+mark playing-lullaby
+wait 300
+mark after-song
+wait 360
+mark away
+wait 300
+mark end

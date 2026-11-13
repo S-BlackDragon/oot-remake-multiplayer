@@ -1,0 +1,26 @@
+# menu-pausa (ORM, docs/MENUS_PAUSA.md M2 to M4), B: walks 1 m to the +z side of A's start (as caer-pareja), faces A
+# and watches while A's game is paused 8 s. B's log: "P1 'name' paused (was playing)" then "playing (was paused)";
+# A's puppet "show -> hold (paused)" then "hold -> show", never "-> hide" (D-R37); the Deku Shield worn by the held
+# puppet ("wears shield 'Weapon_Shield_Deku'"); no chat notice for a pause (the tag says it). Captures: 'paused' (A's
+# puppet frozen, its tag "(pausa)"), 'after' (moving again, Deku Shield on).
+# Command and switches: menu-pausa.A.txt.
+# Needs the hook of orm/menus2 (coop_menus.cpp, the paused hold in scene.hpp).
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect B coop: menus: P\d '.*' paused \(was playing\)
+#! expect B coop: menus: P\d '.*' playing \(was paused\)
+#! expect B coop: puppet: P\d show -> hold \(paused\)
+#! expect B coop: puppet: P\d hold -> show
+#! expect B P\d wears shield 'Weapon_Shield_Deku'
+#! never B (?<!fairy )coop: puppet: P\d (show|hold) -> hide within paused..after
+#! never B coop: menus: P\d '.*' title
+mark start
+wait 60
+goto -82.0 34.7 0.4 600
+toward -82.0 33.65 8
+wait 420                # A's menu opens about now
+mark paused
+wait 600                # A's 8 s in the menu, and its walk after
+mark after
+wait 300
+mark end

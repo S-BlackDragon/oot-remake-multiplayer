@@ -1,0 +1,29 @@
+# enemigo-reaparece (B), ORM enemigos: in the room 60 s after A; sees A's enemy die, then runs out of the tree
+# (route not checked, as enemigo-sale) and back in. On its return its game lists the enemy again and is told it
+# is dead ('killed before we came': its game forgot the room's owners), so it dies again where it stands. By
+# hand: B's capture at 'back' has no standing Deku Baba at the kill place.
+#! expect B coop: objects: share dead in its owner's game: Enemy_\w+
+#! expect B coop: objects: share killed before we came: Enemy_\w+
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 1200               # A's held enemy dies meanwhile
+mark leaving
+stick 0 -1 240          # out of the tree
+wait 600
+mark outside
+stick 0 -1 240          # turn round and back in
+wait 300
+mark back
+wait 900
+mark end

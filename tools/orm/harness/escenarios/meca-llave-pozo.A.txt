@@ -1,0 +1,47 @@
+# meca-llave-pozo (A): Bottom of the Well: a lock opened in one game is open for everyone, one key spent (F5)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# The Well (a child dungeon: the warp's last word asks the age) has its 4 locks; room 5's door has
+# Obj_DoorChainLock_A_01 c16991f21db09819 and 59d6101944c01543 (one per side, -10.22 100.0 -22.52). A gets one
+# key (give, A:LICHII_COOP_CHEATS=1; the count is the group's, so B's count goes 0 -> 1 too), is put 1.5 m from
+# the lock and opens it (A). B is at the entrance (> 3 m), then walks to the other side of the door. Expect:
+# A's 'broken here', B's 'broken by another player' or, entering later, 'was broken before we saw it'; the
+# count 1 -> 0 once in B, never below 0, no key back in B. If 'abre' shows A with no prompt, try the other side
+# (z -24.0). Mutant: LICHII_COOP_OBJECTS=0 (the world lines red: B's lock stays and B pays again).
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_CHEATS=1 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test give DungeonInfo\.BottomOfTheWell\.SmallKeyNum: queued
+#! expect A world: (c16991f21db09819|59d6101944c01543) Obj_DoorChainLock_A_01 broken here \(.*\): sent within abre..end
+#! never A world: [0-9a-f]{16} lock .*: one key back
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_OBJECTS=1,A:LICHII_COOP_CHEATS=1
+#! timeout 420
+mark start
+warp BottomOfTheWell Well_KakarikoSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+give DungeonInfo.BottomOfTheWell.SmallKeyNum
+wait 300
+place -10.22 100.4 -21.0   # 1.5 m from the lock
+wait 240
+toward -10.22 -22.52 20
+wait 20
+mark abre
+press A 12
+wait 600
+press A
+wait 300
+mark abierta
+wait 2400
+mark end

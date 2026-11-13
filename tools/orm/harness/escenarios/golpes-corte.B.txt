@@ -1,0 +1,34 @@
+# golpes-corte (B), ORM golpes: into the same room about 60 s after A; stands at the same start beside A (A's held enemy is 2 m in front)
+# and slashes 4 times, one second apart, so each hit's answer from A is seen on its own.
+#! expect B coop: objects: share hits feedback on within boot..
+#! expect B coop: objects: share hits: [\d.]+ s: [1-9]\d* of ours on copies
+#! never B coop: objects: share hits: .* [1-9]\d* written back
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 1600
+mark slash-1
+press B 6
+wait 60
+mark slash-2
+press B 6
+wait 60
+mark slash-3
+press B 6
+wait 60
+mark slash-4
+press B 6
+wait 60
+mark slashed
+wait 600
+mark end

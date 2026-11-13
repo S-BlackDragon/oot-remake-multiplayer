@@ -1,0 +1,11 @@
+# Block 10, Jabu-Jabu's Belly and Barinade: Ruto's letter read by King Zora (he moved), a fish in a bottle for
+# Jabu-Jabu. Starts in Zora's Fountain.
+include 09-zora.txt
+scene ZoraFountain_Child ZoraFountain_FromZoraDomain
+seen Dm_ZoraRiver_0000 Dm_Zora_0000 Dm_Zora_0010
+bool Get_StoneOfWater_GetRutoLetter 1
+bool Get_StoneOfWater_ReadRutoLetter 1
+bool Get_StoneOfWater_TalkedKingZora 1
+item Item_Scale_Silver
+bottle A Fish
+step Get_StoneOfWater Step08

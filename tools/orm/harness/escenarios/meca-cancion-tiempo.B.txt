@@ -1,0 +1,34 @@
+# meca-cancion-tiempo (ORM, docs/CANCIONES.md), B: lands where A does, is placed 2 m beside A facing the Forest
+# Temple's room 2 block and watches it go (captures "antes" and "despues"). The checks are in A's file.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+# run.ps1 splits #! switches at every comma, so a list of files cannot be a value there: '.' is the
+# emulator's folder (where the list files are), and the hook loads every shared_dungeon_*.txt in it.
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.,LICHII_COOP_OBJECTS=1
+mark start
+warp ForestTemple ForestTemple adult
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 600
+place -16.5 100.5 -16.5
+wait 120
+mark placed
+toward -19.0 -19.1 8
+wait 360
+mark antes
+wait 600
+mark played
+wait 900
+mark despues
+wait 840
+mark end

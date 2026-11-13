@@ -1,0 +1,70 @@
+# levantar-vasija (A), ORM "Levantar" (docs/DETALLES_MARIONETA.md, branch orm/levantar): A lifts a pot in
+# Kakariko (child), carries it a few steps towards B and throws it, so it breaks. B stands 4 m off and watches (B's
+# file). The pots are the pots-place ones up the hill (Banc KakarikoVillage_Child_Static: Obj_Pot_A_08
+# [0-9a-f]+ at -47.65 108.67 90.11). A's lift claims the pot (OBJECT_PRESENT targeting), the server hands it
+# to A, and from then on A's samples carry it (component carry): B draws it in the hands of A's puppet.
+# Not run yet (written 2026-11-11 with the branch orm/levantar). What counts: B's view at A's marks lifted and
+# carried (the pot over A's puppet, moving with it, not falling and snapping back), then thrown (it flies and breaks
+# in the same place on both screens). Mutant: the same run with LICHII_COOP_CARRY=0 turns the carry lines red.
+# The throw is ZR, as pots-place and rock (the prompt shows ZR while Link holds it); if the remake throws with A,
+# change the press below.
+# Log checks (r03_pareja; player numbers and addresses vary: P\d, 0x[0-9a-f]+):
+#! expect A coop: carry: on \(lifted objects claimed and carried
+#! expect A coop: carry: lifting Obj_Pot_A_08 0x[0-9a-f]+ \((ours|no owner yet|owner P\d), claimed\) within placed..thrown
+#! expect A coop: carry: 0x[0-9a-f]+ is ours now: its samples carry it in our hands within placed..thrown
+#! expect A coop: carry: let go of Obj_Pot_A_08 0x[0-9a-f]+ \(thrown\) within carried..end
+#! never A coop: carry: let go of Obj_Pot_A_08 0x[0-9a-f]+ \((out of Link's hands|our Link not seen|gone from the walk)\) within placed..carried
+#! expect A coop: world: [0-9a-f]+ Obj_Pot_A_08 moved here: sending within placed..thrown
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_CARRY=1
+#! timeout 360
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+# 2026-11-12: the pots up the hill are not there in the built saves; the two by the village square are
+# (Obj_Pot_A_08 at -17.52 103.21 30.68 and -16.59 103.24 30.70, seen in the probes)
+await mate              # B lands up to two minutes after us
+wait 600                # both puppets made
+# 2026-11-12 (sondas4): a place right after the warp is undone by the landing's event (Link back at the
+# warp spot -5.8 85.2 44.2): placed now, long after it.
+# sondas5: the two pots stand 3.7 m above the square (y 103.2; Link placed at z 33 fell to 99.5 and the goto
+# never reached them): placed on their ledge, in their row, 0.85 m beside the left one, facing it.
+# 2026-11-12 (sondas6): placed 0.85 m from the pot (Obj_Pot_A_08 at -17.52 103.21 30.68) and pressed at once,
+# A did nothing: no anim at all. sondas7: walked up to 0.56 m (goto), Link clambered at the pot (ClamberJump: the
+# walk pushed into it) and the press did nothing either. sondas8: walked to 1.1 m off without touching it, faced,
+# pressed: LiftReady, LiftUp, 'lifting Obj_Pot_A_08 (ours, claimed)'; a second press then put it down (removed).
+place -19.70 103.35 30.68
+wait 60
+mark placed
+goto -18.62 30.68 0.25 300   # walk east, 1.1 m from the pot
+wait 30
+toward -17.52 30.68 20
+wait 30
+press A 12              # lift (the prompt says Pick Up when in reach)
+wait 60
+mark lifted
+toward -17.5 36.5 10    # turn towards B, carrying it
+stick 0 1 40            # a few steps with it over the head
+wait 30
+mark carried
+# Round 6 (sondas18r6): B placed the copy in the puppet's hands in only 41 frames of the 2.7 s hold, under
+# the 60 its hold check judges ('carry hold ok'): held longer before the throw. sondas19r6 (3 s more): judged
+# 'fallback' (the copy fell between writes in 57 of 60 frames) and the throw came before the second judgement
+# with the pending place ('carry hold fix'), 60 frames later: 7 s more now.
+wait 210
+press ZR 12             # throw
+wait 90
+mark thrown
+wait 300
+mark end

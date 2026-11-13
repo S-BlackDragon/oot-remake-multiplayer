@@ -1,0 +1,12 @@
+# Block 18, Gerudo Valley, the fortress and the desert: Bongo Bongo beaten (the Shadow Medallion, the Hover Boots).
+# Starts at the valley's entrance.
+include 17-sombra.txt
+scene GerudoValley_Adult GerudoValley_Entrance
+hearts 10
+item Item_Medal_Shadow
+item Armor_Adult_HoverBoot
+dungeon ShadowTemple map compass bosskey
+seen Dm_ShadowTemple_0000 Dm_ShadowTemple_BossIn Dm_ShadowTemple_BossOut Dm_Graveyard_0030
+seen Dm_Awake_Shadow Dm_Awake_Shadow_Get
+step SageOfShadow Complete
+step AllSage Step01_00_03

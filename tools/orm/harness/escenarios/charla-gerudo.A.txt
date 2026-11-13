@@ -1,0 +1,77 @@
+# charla-gerudo (A), ORM F12 charlas (PLAN_100.md box P of block 18, Fortaleza Gerudo; docs/CHARLAS.md): A talks
+# to Npc_Gerudo_001 (at 5.40 110.02 -62.74); B watches.
+# A's talk claims the NPC (patch 0011, LICHII_COOP_NPC=1) and sends its bones as OBJECT_POSE while it lasts
+# (LICHII_COOP_NPC_POSE=1); the talk flags of shared_talk.txt it changes reach B without the NPC jumping there.
+# Precondition: an adult save with the Gerudo card (19-espiritu-adulto: the carpenters free), so the guards talk instead of taking Link to a cell; Npc_Gerudo_001 'FortressCleared' (0x777405fd37b65f0a) is the one that stands still once the fortress is cleared.
+# Run (emulator from orm/test8 + a patch file + a patch file):
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario charla-gerudo --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 19-espiritu-adulto
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: npc: talking to Npc_Gerudo_001\w* 0x[0-9a-f]+ \((ours|owner P\d, claimed)\) within talk..talked
+#! expect A coop: npc pose: sending Npc_Gerudo_001\w* 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\) within talk..talked
+#! expect A coop: npc: talk over, claim let go within talk..end
+#! never A coop: npc: Npc_Gerudo_001\w* 0x[0-9a-f]+ talks with its owner P\d
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp GerudoFortress_Adult GerudoFortress_FromGerudoValley
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 70 s after that: wait for it
+place 5.40 110.32 -60.24     # 2.5 m from Npc_Gerudo_001
+wait 90
+toward 5.40 -62.74 8          # face it
+wait 30
+mark at-npc
+wait 20
+mark talk
+press A 12              # talk
+wait 180
+mark talking
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press B 12              # close what is left (a question)
+wait 60
+press B 12
+wait 120
+stick 0 -1 30           # a step back: no second talk
+wait 60
+mark talked
+wait 600
+mark end

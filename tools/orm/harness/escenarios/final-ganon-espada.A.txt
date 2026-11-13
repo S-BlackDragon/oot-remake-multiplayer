@@ -1,0 +1,58 @@
+# final-ganon-espada (docs/FINAL.md, block E; ZMP D-167), A: both on the field of the last fight
+# (FinalBattleField, Ganon's boss room 9). A picks the Master Sword (asks for its event): the first who picks it
+# owns it (the server relays the first start only) and every game in the field gets its sword back with it.
+# Run with --transport ws --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+#! expect A coop: story: owner: our game started 'InsideGanonCastle_Dungeon_Boss_GetMasterSword' in FinalBattleField within asked..end
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_STORY=1,LICHII_COOP_DEBUG_BOSS=1
+#! timeout 400
+mark start
+warp FinalBattleField StartPos_Defeat_Ganon_InBattle adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600
+mark asked
+event InsideGanonCastle_Dungeon_Boss_GetMasterSword
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 900
+mark end

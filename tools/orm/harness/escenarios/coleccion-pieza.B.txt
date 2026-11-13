@@ -1,0 +1,34 @@
+# coleccion-pieza (B: in the Market, another scene, and watches): a loose heart piece one player takes is gone for all (a one-time key), the piece count goes to everyone, and a heart piece a person gives is given once for the group.
+# docs/COLECCIONABLES.md (the collectible list, tools/release/kit/shared_dungeon_collectibles.txt, written by tools/romfs/collectible_list.py).
+# B's key table takes Kakariko's piece f8c7601da7dd887e (the list's key64 line, one-time: never back to 0); B's piece
+# count moves with A's (the items list's count); the three prize Bools reach B (once:, one way).
+# Run with --transport ws (r03_pareja; run.ps1 reads #! switches); the list files next to the emulator, as the kit puts them.
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS turns B's key and prize lines red (no list shares them).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_collectibles.txt,LICHII_COOP_DEBUG_KEY64=0xf8c7601da7dd887e
+#! timeout 600
+#! expect B coop: lists: .*shared_dungeon_collectibles\.txt: 30 flags and keys added, 0 taken off, 16 once, 0 held in their area, 14 one-time keys within boot..
+#! expect B coop: flags debug: get_key64\(0xf8c7601da7dd887e\) = 1 \(was 0\) within b-in..end
+#! never B coop: flags debug: get_key64\(0xf8c7601da7dd887e\) = 0 \(was 1\) within b-in..end
+#! expect B coop: flags debug: int 0x51ec97b3 \(entry \d+\) -?\d+ -> -?\d+ item PouchData\.Obj_Heart_Piece\.StockNum within b-in..end
+#! expect B coop: flags debug: bool 0xad7a21ce \(entry \d+\) 0 -> 1 within b-in..end
+#! expect B coop: flags debug: bool 0x85d8113a \(entry \d+\) 0 -> 1 within b-in..end
+#! expect B coop: flags debug: bool 0x8ffec767 \(entry \d+\) 0 -> 1 within b-in..end
+mark start
+warp Market_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark b-in
+wait 3600               # A takes the piece and sets the prizes in this time
+wait 3600
+wait 1800
+mark end

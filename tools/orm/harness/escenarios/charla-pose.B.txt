@@ -1,0 +1,30 @@
+# charla-pose (B), ORM pasos 5 a 7 de docs/NPC_COMPARTIDOS.md: watches A talk to a Kokiri by the camp
+# fire (the charla B route). B lists the camp first, so it owns the Kokiri until A's talk claims it; then B's copy
+# follows A's OBJECT_POSE (head, face) and B's AI hold keeps the copy's own look off it. Captures at `watching` and
+# later: the Kokiri faces A's puppet, its mouth and face move with the talk.
+# Not run yet (written 2026-11-11 with the branch orm/npcpose).
+# Log checks (r03_pareja; player numbers vary: P\d):
+#! expect B coop: npc pose: on \(townspeople copies held in ai hold mode 1
+#! expect B coop: npc pose: copies following their owner's pose: P\d 0x[0-9a-f]+
+#! expect B coop: npc pose: 5 s: .*, [1-9]\d* received \(\d+ stale, \d+ incomplete, \d+ bad\), [1-9]\d* written, 0 other skeleton
+#! expect B coop: npc pose: 5 s: .*; [1-9]\d* partial slot plays
+#! expect B coop: objects: ai hold mode 1: [1-9]\d* copy-frames held
+#! expect B coop: npc pose: no copy follows a pose now
+#! never B coop: npc pose: 5 s: .*, [1-9]\d* other skeleton
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1
+mark start
+wait 30
+goto -76.3 13.4 1.2 1500     # the crawl-space lintel
+toward -73.0 13.4 10
+wait 10
+press A 12                   # "Enter"
+wait 120
+stick 0 1 600                # through the tunnel
+mark out-tunnel
+wait 60
+goto -73 -12 1.5 1500
+goto -73.5 -16 1.5 900       # east of the fire
+toward -78.9 -17 10          # face the camp
+mark watching
+wait 1500
+mark end

@@ -1,0 +1,65 @@
+# gancho-cadena (ORM, docs/DETALLES_MARIONETA.md "Mascaras, sedal y cadena"), A: adult in Kakariko by day. A gets
+# the hookshot and the longshot, faces past B and shoots each into the air (the tip flies out and comes back), then
+# once at the wall of the house behind B (it holds, A is pulled). B (gancho-cadena.B.txt) must see the chain from
+# the hookshot in the puppet's hand to the flying tip, stretching and shrinking, and none at rest length (23 m)
+# behind a tip. The chain is the tip's own model (Item_Hookshot_Chain, MainLine_00 to _59); the copy's bones are
+# laid each frame from the tip to the puppet's FirePos bone.
+# Emulator: orm/t9-integrado + orm/mascaras; puppet pack with the stand-ins. Written 2026-11-11, not run yet.
+# Mutant: LICHII_ORM_TETHERS=0 on B turns B's 'hookshot chain laid to' line red (and the chain stands at rest).
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_CHEATS=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_TETHERS=1
+#! expect A coop: test assign Hookshot: set
+#! expect A coop: test assign Longshot: set
+#! expect A coop: spawn: sent Shootable_Hook #
+#! expect A coop: spawn: sent Shootable_HookLong #
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+give hookshot
+give PouchData.Item_Longshot.StockNum
+wait 300
+stick 0 0.6 100         # a step ahead, then turn to face B
+stick 0.7 0 30
+stick 0 -0.4 12
+wait 60
+mark before
+assign Hookshot
+wait 30
+hold ZR 90 aim          # aim, the mark halfway
+wait 6
+mark hook_out           # let go: the tip flies out with its chain
+wait 20
+mark hook_far
+wait 60
+mark hook_back
+wait 120
+assign Longshot
+wait 30
+hold ZR 90 aim_long
+wait 6
+mark long_out
+wait 30
+mark long_far
+wait 90
+mark long_back
+wait 120
+stick 0 0.3 8           # face the house behind B
+hold ZR 60 aim_wall
+wait 10
+mark wall_pull          # the tip holds in the wall: A flies to it, the chain shrinks
+wait 90
+mark wall_end
+wait 300
+mark end

@@ -1,0 +1,33 @@
+# ajustes-amiibo (ORM, docs/AJUSTES_GRUPO.md), B: the guest. Lands where A does; A turns amiibo off and on about
+# 25 s after B is in, and B's game must follow it each time. About 55 s after B is in, B turns its own amiibo off:
+# the group settings put the host's (on) back at once.
+#! noload
+#! start coop: test warp done
+#! saves 01-kokiri
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 600
+#! expect B coop: settings: group settings on: amiibo and ZELDA NOTES follow the host
+#! expect B coop: settings: OptionData\.IsUseAmiibo: off -> on \(the host's, .*\) within b-in..guest
+#! expect B coop: test flag OptionData\.IsUseAmiibo \(0xb84dd626\) = 0: queued within guest..end
+#! expect B coop: settings: OptionData\.IsUseAmiibo: off -> on \(the host's, .*\) within guest..end
+#! never B coop: settings: OptionData\.IsUseAmiibo back to this player's own
+#! never B coop: settings: no settings from the host
+#! never B coop: settings: could not write OptionData\.IsUseAmiibo
+mark start
+warp KokiriForest_Child KokiriForest_FrontOfLostWood
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 3300               # A: off about 25 s after we are in, on 10 s later
+mark guest
+flag OptionData.IsUseAmiibo 0
+wait 1200
+mark end

@@ -1,0 +1,32 @@
+# final-ganondorf-entrada (docs/FINAL.md, block B; PLAN_100 E3), A: loads straight into Ganondorf's
+# room at the top of the tower (warp InsideGanonCastle StartPos_Defeat_Ganon); B loads at the castle's
+# Entrance and must be moved in by the boss sync once A's intro has started (boss room 8, coop_boss.cpp).
+# Ganondorf's intro is the boss sync's now, not the story list's (no 'STORY_EVENT' for it).
+# Run with --transport ws --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+#! expect A coop: boss: in the boss room of InsideGanonCastle: Enemy_DungeonBoss_Ganondorf
+#! expect A coop: boss: intro started \(
+#! expect A coop: boss: intro ended
+#! never A coop: boss: boss beaten
+#! never A coop: story: .*InsideGanonCastle_Dungeon_BossAppear_1
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp InsideGanonCastle StartPos_Defeat_Ganon adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark a-in
+wait 2400               # the intro and into the fight
+mark fight
+wait 1800
+mark end

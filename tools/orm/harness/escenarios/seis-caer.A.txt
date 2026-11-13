@@ -1,0 +1,30 @@
+# seis-caer (PLAN_100 F14, docs/CAIDO_REVIVIR.md P8, docs/BOTS.md): downed and revived with six. The bots
+# (seis-caer.bots.txt) follow A 1.2 m off. bot1 goes down beside A and A holds A beside it: A's game revives a
+# bot. Then A's life goes to 0 and bots 2 and 3 walk to A and hold A: bots revive a game. A stands still the
+# whole time (its revive reach is 1.5).
+#! players 1
+#! bots 5
+#! transport ws
+#! bot-arg -real -look auto
+#! switches LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! puppets
+#! min-fps 25
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within start..held
+#! expect A REVIVE sent to P\d within hold..held
+#! expect A coop: downed: P\d is up again
+#! expect A coop: downed: alive -> downed within dying..end
+#! expect A downed -> reviving: revive requested by P\d within dying..end
+#! expect A reviving -> alive: revived \(by P\d within dying..end
+#! never A -> game_over
+#! expect bots bot1: reviving -> alive: revived \(by P1\)
+#! expect bots bot[23]: A held .* REVIVE sent to P1
+mark start
+wait 1800               # bot1 goes down about 25 s after the bots joined (15 s into this script)
+mark hold
+hold A 300
+mark held
+wait 900                # bot1 gets up 6 s after the request
+mark dying
+life 0
+wait 1500               # bots 2 and 3 come, hold 3.5 s; the game's revive takes 6 s
+mark end

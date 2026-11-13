@@ -1,0 +1,44 @@
+# meca-cancion-espantapajaros (ORM, docs/CANCIONES.md, PLAN_100 F10), A: Pierre, one scarecrow for the world. Both adult
+# by Lake Hylia (HyruleField_Adult); A sets what the Scarecrow's Song does at the lake's second spot
+# (Appear_SCARECROW_LAKE_HYLIA_02, 0xbb44bb12, through the game's queue with `flag`), then moves him to the third
+# (_02 to 0, _03 0x1b7a6a8c to 1), as AppearPierre_<spot> does (it sets its own spot and clears the other fifteen).
+# B must follow both ways (plain lines of shared_dungeon_songs.txt). This checks the list, not the song: playing the
+# Scarecrow's Song needs the quest done (Step_SubEvent_GetScarecrow).
+# Run (from , PowerShell):
+#   python tools/harness/r03_pareja.py --scenario meca-cancion-espantapajaros --transport ws --capture-marks
+#     --env LICHII_COOP_DEBUG_FLAGS=1
+#     --env LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,shared_dungeon_adult.txt,shared_dungeon_songs.txt
+# Mutant: without shared_dungeon_songs.txt in LICHII_COOP_DUNGEON_LISTS, every B line turns red.
+# Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+# run.ps1 splits #! switches at every comma, so a list of files cannot be a value there: '.' is the
+# emulator's folder (where the list files are), and the hook loads every shared_dungeon_*.txt in it.
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.
+#! expect A coop: test flag Appear_SCARECROW_LAKE_HYLIA_02 \(0xbb44bb12\) = 1 within here..end
+#! expect B coop: flags debug: bool 0xbb44bb12 \(entry \d+\) 0 -> 1 within here..end
+#! expect B coop: flags debug: bool 0xbb44bb12 \(entry \d+\) 1 -> 0 within moved..end
+#! expect B coop: flags debug: bool 0x1b7a6a8c \(entry \d+\) 0 -> 1 within moved..end
+mark start
+warp HyruleField_Adult OutsideOfWaterTemple
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 600
+mark here
+flag Appear_SCARECROW_LAKE_HYLIA_02 1
+wait 600
+mark moved
+flag Appear_SCARECROW_LAKE_HYLIA_02 0
+flag Appear_SCARECROW_LAKE_HYLIA_03 1
+wait 600
+mark end

@@ -1,0 +1,37 @@
+# menu-pausa (ORM, docs/MENUS_PAUSA.md M1 to M4), A: by the Kokiri start (as caer-pareja), A opens the pause menu
+# (PLUS) for 8 s; 3 s in, the shield changes (the test command 'wear', the same String64 the menu's Equipment page
+# writes), so B's frozen puppet must put it on at once; then the menu closes and A walks a step. A's log: the menus
+# switch on, "playing -> paused" while the menu is open, "paused -> playing" after it closes, never the title.
+# B's log (menu-pausa.B.txt): A's puppet held where it is ("show -> hold (paused)"), never hidden, wearing the Deku
+# Shield while held, shown again after; the tag reads "(pausa)" (capture at B's mark 'paused').
+# Open question it answers (M4): whether the game applies an equipment change while paused (B's 'wears' line between
+# the hold and the show) or only when the menu closes (after the show).
+# Run with --transport ws.
+# Needs the hook of orm/menus2 (coop_menus.cpp, the paused hold in scene.hpp).
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect A coop: menus: on \(LICHII_ORM_MENUS\) within boot..
+#! expect A coop: menus: playing -> paused within open..closing
+# Which detector told the pause (coop/host/pause_detect.hpp, RIESGOS_RESUELTOS.md): the flag or, when the game never
+# sets Sequence_IsPause, the frozen frame; either is a pass, the line says which. Neither: the pause came from nowhere.
+#! expect A coop: menus: pause detector: Sequence_IsPause, a frozen frame only while it cannot be read within boot..
+#! expect A coop: menus: playing -> paused( in \S+)? \(by (Sequence_IsPause|a frozen frame)\) within open..closing
+#! expect A coop: menus: paused -> playing within closing..end
+#! never A coop: menus: \w+ -> title
+#! never A coop: menus: Sequence_IsPause .* not readable
+#! never A coop: menus: playing -> paused.*\(by a frozen frame\)
+mark start
+wait 300                # B walks beside A's start
+mark open
+press PLUS
+wait 180
+mark wear
+wear shield Weapon_Shield_Deku
+wait 300                # 8 s in the menu in all
+mark closing
+press PLUS
+wait 120
+stick 0 0.6 40
+mark closed
+wait 300
+mark end

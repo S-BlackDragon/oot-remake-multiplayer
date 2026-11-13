@@ -1,0 +1,22 @@
+# caer-fairy (ORM "downed, not dead", P2, docs/CAIDO_REVIVIR.md): the gate closed, Link's life
+# to 0 (downed), then a fairy put in bottle A (the content flag, a test-only fake) and the gate
+# opened: does the game over event run its fairy branch and get Link up with its own animation
+# and healing, without a scene reload? Then the bottle put back and the gate closed again.
+# Run with --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1 --env LICHII_COOP_DEBUG_ANIM=1
+# (one game, no bots).
+mark start
+wait 60
+gate 1
+life 0
+wait 300
+mark dead
+bottle A fairy
+wait 30
+gate 0
+mark opened
+wait 900
+mark after
+bottle A restore
+gate 1
+wait 120
+mark end

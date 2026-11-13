@@ -1,0 +1,71 @@
+# peligro-lava (ORM, docs/PELIGROS.md sections 0, 3 and 6), A: both CHILD at the Dodongo's Cavern entrance
+# (08-dodongo; DodongoCavern EntrancePos at 0.0 102.44 41.0, Banc). Lava with no heat timer: the first room's pool
+# (Land_DodongoCave_00_Lava_A_01 at 1.43 101.5 25.63, between hardened-lava rocks at 100.3..101.7; the Crater's
+# lava would bring the heat timer into it). B (the later game) stands 20 s on the start, then drops into the pool
+# with a quarter heart (peligro-lava.B.txt). Rule Peligros-2: the others see him lying at his last firm ground (the
+# start, 15 m away) and revive him there. A stands 0.8 m from the start and holds A over and over through the window
+# where B goes down. The pool's surface height is read from the Banc, not walked.
+# Mutant: the same run with LICHII_COOP_HAZARDS=0: B's real place (in the lava) is sent, A never reaches it.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario peligro-lava --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (needs the hook from orm/peligros). Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 600
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within holding..end
+#! expect A coop: downed: REVIVE sent to P\d within holding..end
+#! never A coop: downed: REVIVE sent to P\d \(NOT sent\)
+#! never A coop: downed: alive -> downed
+mark start
+warp DodongoCavern EntrancePos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+place 0.80 102.50 40.80    # 0.8 m from the start, where B lands and stands
+wait 120
+toward 0.00 41.00 8     # face the start
+wait 6000               # B lands about 120 s after us and drops into the lava 20 s later
+mark holding
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+mark held
+wait 900
+mark end

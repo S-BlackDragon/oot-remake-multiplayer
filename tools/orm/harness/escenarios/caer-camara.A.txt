@@ -1,0 +1,24 @@
+# caer-camara, A (ORM spectator camera, C1 step 6, docs/ESPECTADOR_Y_JEFES.md "Resultado de C1"): A stands 7 s at the
+# Kokiri start (about -82 122 33.65; the spectator's wake nudge comes 3 s after the camera is found), then life 0:
+# the downed state machine shuts the gate (no gate command here) and A lies down while B walks round him at 3-5 m
+# and then revives him (caer-camara.B.txt).
+# Run with --transport ws --scen-dir tools/orm/harness/escenarios --env LICHII_COOP_DOWNED=1
+# --env LICHII_COOP_SPECTATOR=1 --env LICHII_COOP_DEBUG_CAMERA2=1 --timeout 480.
+# Expect in A's log: "coop: spectator: the camera woke (the right-stick nudge)" before 'downed'; "alive -> downed",
+# "spectator: on, the camera is awake", "following P2 (nearest)"; while B walks, every half second "coop: camera2:
+# P2 at ... ndc (x, y)" with |x| < 0.33 most of the time; "REVIVE from P2", "reviving -> alive", then "spectator:
+# released (no longer downed); the camera keeps yaw ..." and no spectator writes after it.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: downed: alive -> downed within downed..end
+#! expect A coop: spectator: on, the camera is awake
+#! expect A coop: spectator: following P\d \(nearest\)
+#! count A coop: spectator: following P\d: yaw >= 5
+#! expect A coop: downed: reviving -> alive
+#! expect A coop: spectator: released \(no longer downed\)
+mark start
+wait 420
+mark alive
+life 0
+mark downed
+wait 4200
+mark end

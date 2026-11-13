@@ -1,0 +1,48 @@
+# meca-ojo-dodongo (A): Dodongo's Cavern: both skull eyes blown open the skull for everyone (F2)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# The big skull's eyes (bombs in the eyes): DodongoCavern_BlastedLeftEye / _BlastedRightEye (shared by daurosk)
+# and the event HavePlayedEvent.DodongoCavern_Gimmick_EyeSwitch (held in B while in the cavern). A sets the
+# three as the bombs would. B is at the entrance and then walks to the skull's room door (Obj_DodongoCave_
+# SwitchShutter_A_01 ea23d3d1a1a302f5, room 19, 10.31 92.4 -77.94) and looks toward the skull (the boss floor,
+# Obj_DodongoCave_CrackFloor_A_01 at 24.0 -77.8). ZMP 10: the eyes' own scene is each game's; only the result
+# crosses. Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag DodongoCavern_BlastedLeftEye \(0x92b110e6\) = 1: queued
+#! expect A coop: test flag DodongoCavern_BlastedRightEye \(0x4088069a\) = 1: queued
+#! expect A coop: test flag HavePlayedEvent.DodongoCavern_Gimmick_EyeSwitch \(0xa40f0d64\) = 1: queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp DodongoCavern EntrancePos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag DodongoCavern_BlastedLeftEye 1
+wait 120
+flag DodongoCavern_BlastedRightEye 1
+wait 120
+flag HavePlayedEvent.DodongoCavern_Gimmick_EyeSwitch 1
+wait 120
+mark flag
+wait 1500
+place 10.31 92.9 -77.94       # A at the same door, for its own capture
+wait 240
+toward 24.0 -77.8 20
+press ZL 10
+mark abierta
+wait 900
+mark end

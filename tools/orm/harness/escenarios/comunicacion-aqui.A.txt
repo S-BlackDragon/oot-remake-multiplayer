@@ -1,0 +1,52 @@
+# comunicacion-aqui (ORM quick messages, docs/COMUNICACION.md), A: the one who watches (its window is the one
+# --capture-marks screenshots). A stands at the Kokiri start (about -82 122 33.65) while B walks a few metres ahead
+# and sends "¡Aquí!" (L + d-pad up) at B's tick 320; A's marks t1 and t6 are 1 s and 6 s after it (the two games
+# start their scenario within half a second of each other). Then B presses L + up ten times in 3 s (the rate limit:
+# at most one a second goes, so A receives 3), and at the end A sends "¡Ayuda!" (L + d-pad left) for B.
+# Run with --transport ws --scen-dir tools/orm/harness/escenarios --capture-marks.
+# Expect in A's log: "coop: quick: P2 <B> '¡Aquí!'", "coop: quick: marker for P2 at (...) in KokiriForest... for 5 s",
+# three more lines in the burst and no "dropped"; at the end "coop: quick: sent '¡Ayuda!' (L+DLEFT)" and its own
+# marker. In the captures (the HUD is on): at t1 B's line bottom left with B's name and the whole line in B's
+# colour, and the marker "¡Aquí! <B>" over B (or an arrow at the edge pointing at B, in B's colour); at t6 the
+# line still there (8 s) and the marker gone. Nothing of the d-pad item while A holds L (patch 0101): no ocarina.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! env LICHII_ORM_QUICK_CHAT=1
+#! env LICHII_COOP_HUD=1
+#! expect A coop: quick: P\d .* '\S+Aqu\S+!'$ within start..t1
+#! expect A coop: quick: marker for P\d at .* for 5 s within start..t1
+#! never A coop: quick: marker for P\d at .* within t6..ritmo
+#! count A coop: quick: P\d .* '\S+Aqu\S+!'$ <= 3 within t6..ayuda
+#! count A coop: quick: P\d .* '\S+Aqu\S+!'$ >= 2 within t6..ayuda
+#! never A coop: quick: .* dropped: more than
+#! expect A coop: quick: sent '\S+Ayuda!' \(L\+DLEFT\) within ayuda..end
+#! expect A coop: quick: marker for P\d \(us\) at .* for 5 s within ayuda..end
+#! never A coop: chat: not sent
+#! never server sent chat over its rate
+#! env LICHII_COOP_WARP_INVITE=1
+#! expect A coop: songs: invitation button L: (free|the game uses it)
+mark start
+wait 380
+mark t1
+wait 300
+mark t6
+wait 200
+mark ritmo
+wait 420
+mark ayuda
+hold L 20
+hold L+DLEFT 20
+hold L 10
+mark ayuda-hecho
+wait 60
+mark ayuda-t1
+wait 600
+mark l-probe              # L alone, four times from a still pose: is L the game's? (InviteButton, docs/SONDAS.md)
+hold L 30
+wait 60
+hold L 30
+wait 60
+hold L 30
+wait 60
+hold L 30
+wait 90
+mark end

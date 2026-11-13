@@ -1,0 +1,60 @@
+# trueque-biggoron (B: reads the step, changes scene, never gets a timed item): the timed trade items are only the receiver's: A gets the Odd Mushroom (Step04, shared) and B never does; B changes scene and A's mushroom survives; the Odd Powder (no timer) reaches B; then the frog and the eye drops as the mushroom.
+# docs/BOTELLAS_TRUEQUES.md (the bottle and trade list, tools/release/kit/shared_dungeon_trades.txt).
+# Run with --transport ws and an --env for each #! switches item (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them (an emulator from orm/t9-integrado + orm/botellas2:
+# the `int` and `enum` test commands). Written 2026-11-11, not run yet (no games that day).
+# Mutant: the same run with LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt (the step shared, the items
+# mirrored as before) turns B's never lines red; whether a partner's scene change then spoils the mushroom for
+# both (A's 'check' lines) is what BOTELLAS_TRUEQUES.md 3 asks a game to show.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_trades.txt
+#! expect B coop: lists: .*shared_dungeon_trades\.txt: 28 flags and keys added, 3 taken off, 5 once, 0 held in their area, 0 one-time keys within boot..
+#! expect B coop: test enum Step_SubEvent_GetSwordBigGoron \(0x26a2e01c\): find_type 6, value 0x27f660fe \(no listed name\) within read1..away
+#! count B coop: test warp done >= 2
+#! expect B coop: test enum Step_SubEvent_GetSwordBigGoron \(0x26a2e01c\): find_type 6, value 0x5cde171f \(no listed name\) within read2..read3
+#! expect B coop: flags debug: int 0x58c9bc78 \(entry \d+\) 0 -> 1 within back..read3
+#! expect B coop: test enum Step_SubEvent_GetSwordBigGoron \(0x26a2e01c\): find_type 6, value 0x5daeca58 \(no listed name\) within read3..read4
+#! expect B coop: test enum Step_SubEvent_GetSwordBigGoron \(0x26a2e01c\): find_type 6, value 0x0be69809 \(no listed name\) within read4..end
+#! never B coop: flags debug: int 0x07de3e6f \(entry \d+\) 0 -> 1
+# RIESGOS_RESUELTOS.md: B's step back (stepback) is B's own change; A refuses it (trueque-biggoron.A.txt).
+#! expect B coop: test enum Step_SubEvent_GetSwordBigGoron = 0x[0-9a-f]+ \(no listed name\): queued within stepback..read2
+#! never B coop: flags debug: int 0x919ea324 \(entry \d+\) 0 -> 1
+#! never B coop: flags debug: int 0x5c41a6b1 \(entry \d+\) 0 -> 1
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+wait 450                # A gets the mushroom and Step04 at its 'control' mark
+mark read1
+enum Step_SubEvent_GetSwordBigGoron
+wait 150
+mark away
+warp DeathMountainTrail_Adult MountainTrail_KakarikoSide    # a scene change with Step04 and no mushroom here
+wait 1800
+mark back
+wait 60
+mark stepback
+enum Step_SubEvent_GetSwordBigGoron Step03_03            # B's game puts the step back (no mushroom here): never into A's hands
+wait 1290               # A hands the mushroom over at its 'handover' mark (control + 3300)
+mark read2
+enum Step_SubEvent_GetSwordBigGoron
+wait 900                # the frog at A's 'frog' mark (control + 4200)
+mark read3
+enum Step_SubEvent_GetSwordBigGoron
+wait 900                # the eye drops at A's 'drops' mark (control + 5100)
+mark read4
+enum Step_SubEvent_GetSwordBigGoron
+wait 450
+mark end

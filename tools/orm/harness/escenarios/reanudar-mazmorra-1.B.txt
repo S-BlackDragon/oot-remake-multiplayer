@@ -1,0 +1,42 @@
+# reanudar-mazmorra (ORM, docs/PARTIDA_SALA.md "Dentro de una mazmorra"; upstream issue 197), session 1 of 2, B: keeps
+# a last place in another room of the Deku Tree than its entrance, and the spot of the entrance room he left it by.
+# B starts with no place (LICHII_ORM_RESUME_PLACE=none: none given by the app), lands at the Deku Tree's Entrance,
+# walks to -8.6 4.6 in the entrance room (hs-teleport-room's walk: reachable) and stands there (the door: a d1 line
+# in his coop-resume.txt), then is placed on the slingshot ledge (-51.5 112.6 15.0, another room) and stands there
+# (the v1 line). Session 2 (reanudar-mazmorra-2) starts the same instances again without the switch: B reads his own
+# file and goes to the door, not into the slingshot room.
+# Run (from , a build with orm/t10-escudo-sitio), one after the other on the same instances:
+#   python tools/harness/r03_pareja.py --scenario reanudar-mazmorra-1 --capture-marks --timeout 600
+#   ORM_KEEP_RESUME=1 python tools/harness/r03_pareja.py --scenario reanudar-mazmorra-2 --capture-marks --timeout 600
+# After session 1, B's emulator\user\config\coop-resume.txt must hold "v1;...;B;InsideTheDekuTree;-51.50;112.60;15.00"
+# and "d1;...;B;InsideTheDekuTree;Entrance;-8.6x;...;4.6x" (look at it by hand: the game logs the writes at debug only).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_RESUME_PLACE=none
+#! timeout 600
+#! expect B coop: resume: on: no last place of 'B' in room \S+ \(none given by the app\) within boot..
+#! expect B coop: resume: dungeon rooms: within boot..
+#! expect B coop: resume: keeping our last place in within boot..
+#! expect B coop: test place .*done within door..end
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp into the Deku Tree
+wait 2400
+mark after
+wait 600                # the way back decided (none) and the recorder started (3 s)
+goto -8.6 4.6 1.0 900   # the entrance room, toward its way on
+wait 420                # stands: grounded, the door kept and written (at most 5 s)
+mark door
+place -51.5 112.6 15.0  # the slingshot ledge: another room
+wait 600                # stands: the place written (at most 5 s)
+mark placed
+wait 300
+mark end

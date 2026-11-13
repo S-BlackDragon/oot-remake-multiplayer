@@ -1,0 +1,37 @@
+# meca-agua-pozo (A): the Bottom of the Well's room 1 drains for everyone (both child at the Kakariko side).
+# A queues what Zelda's Lullaby on the well's triforce sets (the drain's two flags). The Kakariko well
+# (Song of Storms) is story: shared_story.txt, not this scenario.
+# Run with --transport ws; run.ps1 reads #! switches. Doc: docs/AGUA.md (PLAN_100 F6/E13).
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_WATER=1,LICHII_COOP_GIMMICK_PROBE=1
+#! timeout 400
+#! expect B coop: flags debug: bool 0x7a8ac442 \(entry \d+\) 0 -> 1 within set..end
+#! expect B coop: water: BottomOfTheWell_Room_01_Blow_Ocarina (0 -> 1 \(P\d\): written in BottomOfTheWell, live|.*waited [0-9.]+ s: written) within set..end
+#! expect B coop: flags debug: bool 0x5d3edb04 \(entry \d+\) 0 -> 1 within set..end
+#! expect B coop: water: BottomOfTheWell_Room_01_WaterLevel_Down (0 -> 1 \(P\d\): written in BottomOfTheWell, live|.*waited [0-9.]+ s: written) within set..end
+mark start
+warp BottomOfTheWell Well_KakarikoSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark set
+flag BottomOfTheWell_Room_01_Blow_Ocarina 1
+wait 30
+flag BottomOfTheWell_Room_01_Blow_Ocarina 1               # twice: a queued write may miss the frame
+wait 1200
+flag BottomOfTheWell_Room_01_WaterLevel_Down 1
+wait 30
+flag BottomOfTheWell_Room_01_WaterLevel_Down 1               # twice: a queued write may miss the frame
+wait 1200
+mark end

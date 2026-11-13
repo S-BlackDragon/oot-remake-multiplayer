@@ -1,0 +1,20 @@
+# caer-fairy-move (ORM "downed, not dead", P2): caer-fairy, then Link walks forward for a second
+# after the fairy got him up, to show the player has control again. Same switches as caer-fairy.
+mark start
+wait 60
+gate 1
+life 0
+wait 300
+mark dead
+bottle A fairy
+wait 30
+gate 0
+mark opened
+wait 900
+mark after
+bottle A restore
+gate 1
+stick 0 1 60
+mark walked
+wait 120
+mark end

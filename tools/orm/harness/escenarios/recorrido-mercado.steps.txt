@@ -1,0 +1,13 @@
+# recorrido-mercado (ORM, docs/RECORRIDOS.md, PLAN_100 F13): bloque 4. Ciudadela (Mercado).
+# Both games play the critical path together, leg by leg; each leg starts both games again and warps
+# them in (a warp is taken only in the event after a save loads), then chains the rooms with place
+# and goto. Each leg's #! lines (in its .A/.B files) are what must be in the logs. Runs with
+# daurosk's tools/autotest/run.ps1 -Scenario recorrido-mercado (copy the recorrido-mercado*
+# files into its scenarios folder); each leg also runs alone with r03_pareja.py --scenario
+# recorrido-mercado-N. Written 2026-11-11, not run yet (no game that day).
+#! noload
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+start A B                      # leg 1: del puente levadizo al camino del castillo (Market_Child)
+play A recorrido-mercado-1.A.txt B recorrido-mercado-1.B.txt
+expect mercado-1 A=1 B=1

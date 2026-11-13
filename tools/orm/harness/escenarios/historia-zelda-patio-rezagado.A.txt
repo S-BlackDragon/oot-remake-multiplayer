@@ -1,0 +1,287 @@
+# historia-zelda-patio-rezagado (ORM, docs/HISTORIAS_ESCENARIOS.md; block Campo, Ciudadela y Castillo de Hyrule (niño)), A: Zelda in the courtyard: the letter, Impa (Goto_HyruleCastle; plays Dm_HrlCastle_0030, Dm_HrlCastle_0035, Dm_HrlCastle_0045, Dm_HrlCastle_0050, Dm_HrlCastle_0060; moves Goto_HyruleCastle to Complete, DoorOfTime to Step01).
+# The latecomer (historia-rezagado's pattern): B marks HyruleCastle_Goto_HyruleCastle_MeetZelda played on its own
+# save 10 s before A asks for it, so it ignores A's start; A plays it to its end pressing A every 2 s and
+# B must still end with A's world: the same Bools and the same story steps (BANDERAS_ENUM.md).
+# Run: python tools/orm/harness/r03_pareja.py --scenario historia-zelda-patio-rezagado --transport ws --scen-dir tools/orm/harness/escenarios --timeout 650 --env LICHII_COOP_STORY=1
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand. Not run yet.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 650
+#! expect A coop: story: owner: our game started 'HyruleCastle_Goto_HyruleCastle_MeetZelda' in HyruleCastle; STORY_EVENT start to the others within asked..end
+#! expect A coop: story: HavePlayedEvent\.HyruleCastle_Goto_HyruleCastle_MeetZelda 0 -> 1 within after..end
+#! expect A coop: story: Step_Goto_HyruleCastle \S+ -> Complete within asked..end
+#! expect A coop: story: Step_DoorOfTime \S+ -> Step01 within asked..end
+mark start
+warp HyruleCastle HyruleCastle_Entrance child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # B marks it played meanwhile
+enum Step_Goto_HyruleCastle
+enum Step_DoorOfTime
+mark asked
+event HyruleCastle_Goto_HyruleCastle_MeetZelda
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+enum Step_Goto_HyruleCastle
+enum Step_DoorOfTime
+wait 600
+mark end

@@ -1,0 +1,184 @@
+# historia-zafiro (ORM, docs/HISTORIAS_ESCENARIOS.md; block Río y Dominio Zora, Jabu-Jabu (niño)), A: After Barinade's blue warp: Ruto gives the Zora Sapphire [solo: only who starts it sees it] (Dm_SY_BancChange_EscapeDungeon; plays Dm_ZoraFountain_0020, Dm_ZoraFountain_0030; moves Get_StoneOfWater to Complete, DoorOfTime to Step2_2).
+# A solo line (D-R20, ZMP D-067): only who starts it sees it, its flags reach the other game. Both games warp to ZoraFountain_Child ClearJabuJabu;
+# A asks for it with the test command `event` and both press A every 2 s.
+# Run: python tools/orm/harness/r03_pareja.py --scenario historia-zafiro --transport ws --scen-dir tools/orm/harness/escenarios --timeout 500 --env LICHII_COOP_STORY=1
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand. Not run yet.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 500
+#! expect A coop: story: 'Get_StoneOfWater_Complete' is solo: only we see it, its flags are shared within asked..end
+#! expect A coop: event running 'Get_StoneOfWater_Complete' within asked..end
+#! never A coop: story: STORY_EVENT start sent \('Get_StoneOfWater_Complete'
+#! expect A coop: story: HavePlayedEvent\.Get_StoneOfWater_Complete 0 -> 1 within asked..end
+#! expect A coop: story: Step_Get_StoneOfWater \S+ -> Complete within asked..end
+#! expect A coop: story: Step_DoorOfTime \S+ -> (Step2_2|Step2_1|Step03) within asked..end
+mark start
+warp ZoraFountain_Child ClearJabuJabu
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark asked
+event Get_StoneOfWater_Complete
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+wait 600
+mark end

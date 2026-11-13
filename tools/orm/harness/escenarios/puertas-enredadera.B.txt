@@ -1,0 +1,36 @@
+# puertas-enredadera (B), ORM doors and passages (docs/PUERTAS.md): B stands in the Deku Tree's first
+# room, 6 m south-east of the vine, facing it, and watches A climb it about 25 s after B is in. By hand on B's
+# screen at 'up1'..'up3': A's puppet on the vine with its climbing pose, then standing on the ledge above.
+#! noload
+#! start coop: test warp done
+#! saves 02-deku
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_COOP_DEBUG_DOORS=1
+#! timeout 600
+#! expect B coop: puppet: P\d plays '[^']*(Climb|Ivy|Ladder)[^']*' within watching..end
+#! never B coop: doors: P\d '[^']*(Climb|Ivy|Ladder)
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+place 1.80 101.20 -2.80    # 6 m from the vine, out of A's way
+wait 120
+toward -2.43 -7.48 8
+press ZL 10
+mark watching
+wait 1800               # A starts up about 25 s after we are in
+mark up1
+wait 240
+mark up2
+wait 240
+mark up3
+wait 2400
+mark end

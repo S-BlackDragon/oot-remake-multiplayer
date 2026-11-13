@@ -1,0 +1,32 @@
+# peligro-desierto (ORM, docs/PELIGROS.md), B: lands where A does and stands. A's five desert and Lens flags must
+# never change here; the boss key (the control) must. The guide Poe is never an object copy here either.
+#! noload
+#! start coop: test warp done
+#! saves 18-gerudo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_NPC=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect B coop: hazards: on \(LICHII_COOP_HAZARDS\): 20 per-player flags kept out of sharing
+#! expect B coop: flags debug: bool 0x1984c03f \(entry \d+\) 0 -> 1 within watching..end
+#! never B coop: flags debug: bool 0xc5c8d274 \(entry \d+\)
+#! never B coop: flags debug: bool 0x72bcbfe0 \(entry \d+\)
+#! never B coop: flags debug: bool 0xc04e0d93 \(entry \d+\)
+#! never B coop: flags debug: bool 0xfc049376 \(entry \d+\)
+#! never B coop: flags debug: bool 0x0187aaa2 \(entry \d+\)
+#! never B coop: objects: .*Npc_GuidePoe
+mark start
+warp HountedWasteland_Adult HountedWasteland_FromGerudoFortress
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+mark watching
+wait 4800               # A sets the desert flags about 25 s after we are in, the key 5 s later
+wait 600
+mark end

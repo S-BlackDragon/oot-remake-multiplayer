@@ -1,0 +1,70 @@
+# meca-sostenido-agua (ORM, docs/SOSTENIDOS.md, PLAN_100 F3/E13), A: Templo del Agua, sala 14: el interruptor del fondo (con botas de hierro o un bloque).
+# A stands on the switch (place) and stays 15 s, then steps 2.5 m off; B stands 2.5 m on the other side
+# and watches: while A is on it, B's switch must be pressed (B's log, B's capture at 'held': the door open
+# in B too); when A steps off, let go in B (capture at 'released'). A's probe lines give the word lines
+# to put in LICHII_COOP_HELD_SWITCH_LIST (docs/SOSTENIDOS.md, 'Hallar las palabras').
+# Mutant: the same run with LICHII_COOP_HELD_SWITCHES=log: B says 'would be pressed' and the expect line on
+# 'pressed here' turns red.
+#! noload
+#! start coop: test warp done
+#! saves 15-agua-templo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_HELD_SWITCHES=1,LICHII_COOP_HELD_SWITCH_PROBE=1,LICHII_COOP_GIMMICK_PROBE=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt,LICHII_ORM_FLAG_PROBE=1
+# Discovery (flag_probe.hpp): every change of the room 14 switch flags and Jabu's stone, with who made it;
+# a 'bounces between games' line names a held: candidate (SOSTENIDOS.md 3 and 4).
+#! expect A coop: flag probe: on: every change of WaterTemple_Room14_SwitchPushed within boot..
+#! expect B coop: flag probe: on: every change of WaterTemple_Room14_SwitchPushed within boot..
+#! expect A coop: flag probe: WaterTemple_Room14_SwitchPushed\S* 0 -> 1 in our game within on..end
+# Discovery (RIESGOS_RESUELTOS.md): the probe gives the actor words a step changed, ready as word lines.
+#! expect A coop: held switch: probe:   word \S+ \S+ on=0x[0-9a-f]+ off=0x[0-9a-f]+ within on..end
+#! timeout 420
+#! expect A coop: held switch: on: switches others stand on are pressed here within boot..
+#! expect A coop: held switch: WaterTemple room14 our Link stepped on within on..off
+#! expect A coop: held switch: probe: WaterTemple room14 \([0-9a-f]+\) our Link stepped on within on..off
+#! expect A coop: held switch: WaterTemple room14 our Link stepped off within off..end
+#! never A coop: held switch: WaterTemple room14 held by another player
+#! expect B coop: held switch: WaterTemple room14 P\d stepped on within in..end
+#! expect B coop: held switch: WaterTemple room14 held by another player \(P\d\): pressed here within in..end
+#! expect B coop: held switch: WaterTemple room14 no other player on it: let go here within in..end
+#! never B coop: held switch: WaterTemple room14 our Link stepped on
+# No flag and no word line yet: B says it has nothing to press it with (docs/RIESGOS_RESUELTOS.md).
+#! expect B coop: held switch: WaterTemple room14: nothing to press it with here within in..end
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark in
+await mate               # B lands up to two minutes later (cold harness) or 20 s (hot instances)
+wait 900                 # B reaches its own marks about 10 s after it lands
+# The iron boots: 'wear' only sets what the puppets show; 'assign HeavyBoot' + ZR did nothing with the boots not
+# equipped (sondas4, sondas5); equipped in the save (15-agua-botas) Link wears them but still swims (sondas7: the
+# boots' piece is on him, SwimWait on the switch). The remake's heavy mode may be the item's toggle on top of the
+# equipped boots: both now.
+# Round 5 (sondas8 read again): the ZR press came 0.5 s after the place, while Link was still falling to the floor
+# ('Land' 0.1 s after the press): no 'BootsChange' / 'SwimBootsChange' (Player AS: the boots' change, on land and
+# swimming) ever played. Now the toggle while Link swims steadily at the entrance, then the place onto the switch.
+mark boots
+assign HeavyBoot
+wait 60
+press ZR 12              # the boots' change while swimming ('SwimBootsChange', then 'HeavySwimWait'?)
+wait 180
+mark on
+place -8.300 93.895 -114.170
+wait 120
+mark held                # A on the switch; B's switch pressed (capture)
+wait 900
+mark off
+press ZR 12              # the heavy mode off
+wait 60
+place -5.800 93.895 -114.170
+wait 180
+mark released            # A off it; let go in B (capture)
+wait 600
+mark end

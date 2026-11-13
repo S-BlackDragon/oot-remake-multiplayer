@@ -1,0 +1,10 @@
+# Epona standing in Lon Lon Ranch's corral: the race against Ingo won (Dm_LonLon_0040 sets Step_Get_Epona
+# AfterWonGambleRace), the fence not jumped yet. The ranch's placed Epona (Animal_Epona_Adult, -100.47 150.60 264.55,
+# HyruleField_Adult) is there until Complete; Link starts 40 m from her at the race's start. For a scenario that
+# must find her beside Link without Epona's Song (epona-montar: 'place' next to her). The escape over the fence makes
+# it Complete (12-epona's state).
+include 12-bosque.txt
+scene HyruleField_Adult StartPos_Get_Epona_Race
+step Get_Epona AfterWonGambleRace
+seen Dm_LonLon_0020 Dm_LonLon_0030 Dm_LonLon_0040
+bool MiniGame_Unlock_GambleRace 1

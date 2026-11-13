@@ -1,0 +1,24 @@
+# jefe-morpha-entrada, B: loads into WaterTemple_FromLakeHylia; moved into A's boss room.
+#! saves 15-agua
+#! expect B coop: boss: another player is in the boss room of WaterTemple: moving in \(try \d\)
+#! expect B coop: boss: (moved Link to|asked the scene change)
+#! expect B coop: boss: in the boss room of WaterTemple: Enemy_DungeonBoss_Morpha
+#! expect B coop: boss: (intro ended|another player's intro is over: skipping ours|no intro: the fight has begun here)
+#! never B coop: boss: boss beaten
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 2400
+mark fight
+wait 1800
+mark end

@@ -1,0 +1,46 @@
+# goron-rocas (A): Goron City: a saved rock A lifts and throws is gone for B too, B being on the Trail (F8, one-time key).
+# docs/CONTENIDO_NINO.md; families of PLAN_100 section 4.
+# A is put by the rock field (Obj_LiftRock_B_01 9f7d0ebfa5357dbb at -43.57 113.68 -4.50, Banc GoronCity_Child_Dynamic,
+# a ResetTypeValue 24 key of the list), faces it, lifts (A) and throws (A). B is on Death Mountain Trail, another
+# scene: its key table must take the 1 (the list's key64 line, one-time) so the rock is gone when B gets there. Both
+# watch the key with LICHII_COOP_DEBUG_KEY64. Por comprobar: that LiftRock_B lifts as a child without the bracelet
+# (else hueco of the scenario, not of the code).
+# Run with --transport ws --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=<kit>/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x9f7d0ebfa5357dbb (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja; player numbers vary: P\d):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: flags debug: get_key64\(0x9f7d0ebfa5357dbb\) = 1 \(was 0\)
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x9f7d0ebfa5357dbb
+#! timeout 400
+mark start
+warp GoronCity_Child GoronCity_MountainTrailSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark puesto
+place -42.6 113.7 -4.5
+wait 240
+toward -43.57 -4.50 10
+wait 120
+mark alzada
+press A 10
+wait 120
+wait 120
+mark lanzada
+press A 10
+wait 300
+wait 120
+wait 600
+mark visto
+wait 600
+mark end

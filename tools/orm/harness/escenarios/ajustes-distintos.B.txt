@@ -1,0 +1,30 @@
+# ajustes-distintos (ORM, docs/AJUSTES_GRUPO.md), B: the guest, with LICHII_COOP_DOWNED=1 (a world switch, the
+# host has it off) and LICHII_COOP_HUD=1 (local). Lands where A does and stands. B warns once that it is not as the
+# host on the downed switch, never on the HUD, and keeps its own values (nothing is written).
+# The two extra switches are for B alone: see the harness gap in A's file.
+#! noload
+#! start coop: test warp done
+#! saves 01-kokiri
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_HUD=1
+#! timeout 600
+#! expect B coop: settings: ours:.* LICHII_COOP_DOWNED=on
+#! expect B coop: settings: not as the host \(.*\): LICHII_COOP_DOWNED host off, here on within b-in..end
+#! count B coop: settings: not as the host \(.*\): LICHII_COOP_DOWNED host off, here on == 1
+#! never B coop: settings: .* is not as the host:
+#! never B coop: settings: .*LICHII_COOP_HUD
+#! never B coop: settings: no settings from the host
+mark start
+warp KokiriForest_Child KokiriForest_FrontOfLostWood
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 3600
+mark end

@@ -1,0 +1,55 @@
+# gancho-cadena (ORM, docs/DETALLES_MARIONETA.md "Mascaras, sedal y cadena"), B: adult in Kakariko too, backs off
+# and watches A shoot the hookshot and the longshot into the air, then into a wall. Screenshots at each mark: the
+# chain runs from the hookshot in A's puppet's hand to the tip (stretched while it flies, shrinking while it comes
+# back or pulls A), whole links from the tip and none sticking out behind it. The 'laid to the puppet's' line says
+# where the chain starts: FirePos_* (the piece's bone, as wanted) or Weapon_R/Weapon_L (no hookshot piece found on
+# the puppet: the hand); "hand frame" when the piece's own place was not at the hand.
+# Emulator: orm/t9-integrado + orm/mascaras (its log lines and switches).
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_TETHERS=1
+#! expect B coop: puppet: P\d: create CoopPuppet_Adult
+#! expect B coop: spawn: hookshot chains and fishing lines on the copies on
+#! expect B coop: spawn: got Shootable_Hook #
+#! expect B spawn: CoopShot_Hook: create copy
+#! expect B spawn: CoopShot_HookLong: create copy
+#! expect B \w+: copy \d+: hookshot chain of \d+ bones from 'MainLine_00', link [0-9.]+
+#! expect B \w+: copy \d+: hookshot chain laid to the puppet's (FirePos_HookShot|FirePos_LongHook|Tip_HookShot|Tip_LongHook|Weapon_R|Weapon_L) \((piece|hand frame|hand),
+#! never B \w+: copy \d+: hookshot chain not laid: no chain of bones
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: bone rows ok (axes|matrix)
+#! never B coop: check: bone rows fallback
+#! expect B coop: check: hookshot chain ok \w+ laid to the puppet's \w+ \((piece|hand frame|hand)\)
+#! never B coop: check: hookshot chain fallback
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 200
+stick 0 -0.6 30         # walk back toward the camera
+stick 0 0.3 8           # turn to face up the path
+press ZL                # camera behind B
+wait 60
+mark ready
+wait 500
+mark hook_seen
+wait 40
+mark hook_far_seen
+wait 260
+mark long_seen
+wait 60
+mark long_far_seen
+wait 260
+mark wall_seen
+wait 60
+mark wall_end_seen
+wait 300
+mark end

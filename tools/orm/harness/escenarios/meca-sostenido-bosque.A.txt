@@ -1,0 +1,46 @@
+# meca-sostenido-bosque (ORM, docs/SOSTENIDOS.md, PLAN_100 F3/E13, block 12 Templo del Bosque), A: the negative
+# case of the held switches. The Forest Temple has none (SOSTENIDOS.md: its Obj_StepSwitch_A_01 stay down for
+# good and daurosk's list shares their flag), so with the held switches on, A stands on room 17's floor switch
+# (Banc 17.13 100.00 -17.16, meca-suelo-bosque's) for 15 s and steps 2.5 m off: the held-switch code never takes
+# it (no 'held switch: ForestTemple' line in either game), B gets the switch's flag once and keeps it after A
+# steps off (never 1 -> 0 for room 17's switch). Captures: B's switch down at 'held' and still down at
+# 'released'. Needs the held-switch branch (a patch file).
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario meca-sostenido-bosque --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Discovery (RIESGOS_RESUELTOS.md): the probe gives the actor words a step changed, ready as word lines.
+#! expect A coop: held switch: probe:   word \S+ \S+ on=0x[0-9a-f]+ off=0x[0-9a-f]+ within on..end
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_HELD_SWITCHES=1,LICHII_COOP_HELD_SWITCH_PROBE=1,LICHII_COOP_GIMMICK_PROBE=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect A coop: held switch: on: switches others stand on are pressed here within boot..
+#! expect A coop: test place 17\.13 100\.50 -17\.16: done within on..off
+#! expect A coop: flags debug: (bool 0x[0-9a-f]{8} \(entry|key64 0x[0-9a-f]+ \(record) \d+\) 0 -> 1 within on..end
+#! never A coop: held switch: ForestTemple
+mark start
+warp ForestTemple ForestTemple adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 70 s after that: wait for it
+mark on
+place 17.13 100.50 -17.16     # on room 17's floor switch
+wait 120
+mark held
+wait 900
+mark off
+place 17.13 100.60 -14.66     # 2.5 m off it
+wait 120
+mark released
+wait 600
+mark end

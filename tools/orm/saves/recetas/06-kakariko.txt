@@ -1,0 +1,13 @@
+# Block 6, Kakariko and the Graveyard: Zelda met (her letter, Zelda's Lullaby from Impa), Talon woken (the egg gave
+# its cucco). Starts in Hyrule Field at Kakariko's stairs.
+include 05-castillo.txt
+scene HyruleField_Child HyruleField_FrontOfKakarikoVillage
+seen Dm_HrlCastle_0020 Dm_HrlCastle_0030 Dm_HrlCastle_0035 Dm_HrlCastle_0045 Dm_HrlCastle_0050 Dm_HrlCastle_0060
+seen Dm_MelodyGet_Zelda
+song ZeldaLullaby
+item Item_WeirdEgg 0
+item Item_ZeldaLetter
+bool Talon_AfterWakeUp 1
+step Goto_HyruleCastle Complete
+step DoorOfTime Step01
+step Get_StoneOfFire Ready

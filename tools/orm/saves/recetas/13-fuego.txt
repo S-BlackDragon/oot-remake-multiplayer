@@ -1,0 +1,16 @@
+# Block 13, the Fire Temple and Volvagia: Phantom Ganon beaten (the Forest Medallion, the bow), the Goron Tunic,
+# the Bolero of Fire. Starts in the crater at the temple's door.
+include 12-bosque.txt
+scene DeathMountainCrater_Adult OutsideOfFireTemple
+hearts 7
+item Item_Medal_Forest
+item Weapon_Range_Bow
+item Item_Quiver_Small
+item Armor_Adult_Goron
+song FireBolero
+dungeon ForestTemple map compass bosskey
+seen Dm_ForestTemple_0000 Dm_ForestTemple_BossIn Dm_ForestTemple_BossOut Dm_Awake_Forest Dm_Awake_Forest_Get
+seen Dm_Kokiri_0158 Dm_Kokiri_0160 Dm_Kokiri_0162 Dm_DeathMtCrater_0000 Dm_MelodyGet_Fire
+step SageOfForest Complete
+step AllSage Step01_00
+step SageOfFire EnterTemple

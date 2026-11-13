@@ -1,0 +1,12 @@
+# Block 15, the Water Temple and Morpha: the Iron Boots (Ice Cavern), the Serenade of Water, the Zora Tunic (King
+# Zora thawed). Starts at Lake Hylia by the temple.
+include 14-hielo.txt
+scene HyruleField_Adult OutsideOfWaterTemple
+item Armor_Adult_HeavyBoot
+item Armor_Adult_Zora
+song WaterSerenade
+dungeon IceCavern map compass
+seen Dm_MelodyGet_Water
+step SageOfWater Step04
+# The Zora tunic on (2026-11-12: with no tunic worn the Water Temple scenarios drowned at their start)
+equip armor Armor_Adult_Zora

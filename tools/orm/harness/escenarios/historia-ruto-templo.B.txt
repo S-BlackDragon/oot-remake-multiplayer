@@ -1,0 +1,182 @@
+# historia-ruto-templo, B: lands where A does, follows A's STORY_EVENT start at once (the simultaneous start) and ends
+# with the line's flags; it never starts the cutscene a second time.
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 500
+#! expect B coop: story: STORY_EVENT start received from P\d \('Demo_WaterTemple_MeetAgainRutoEvent' in WaterTemple\): starting within after..end
+#! expect B coop: story: event running 'Demo_WaterTemple_MeetAgainRutoEvent' as P\d asked within after..end
+#! expect B coop: event running 'Demo_WaterTemple_MeetAgainRutoEvent' within after..end
+#! expect B coop: story: HavePlayedEvent\.Demo_WaterTemple_MeetAgainRutoEvent 0 -> 1 within after..end
+#! expect B coop: story: Step_SageOfWater \S+ -> Step07 within after..end
+#! never B coop: story: STORY_EVENT start received from P\d \('Demo_WaterTemple_MeetAgainRutoEvent' in WaterTemple\): ignored
+#! never B coop: story: STORY_EVENT start received from P\d \('Demo_WaterTemple_MeetAgainRutoEvent' in WaterTemple\): starting within played..end
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # A asks for the cutscene now
+mark asked
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+wait 600
+mark end

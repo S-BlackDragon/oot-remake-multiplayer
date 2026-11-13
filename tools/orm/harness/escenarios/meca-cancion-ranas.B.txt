@@ -1,0 +1,25 @@
+# meca-cancion-ranas (ORM, docs/CANCIONES.md), B: lands where A does and waits; the checks are in A's file.
+#! noload
+#! start coop: test warp done
+# run.ps1 splits #! switches at every comma, so a list of files cannot be a value there: '.' is the
+# emulator's folder (where the list files are), and the hook loads every shared_dungeon_*.txt in it.
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.
+mark start
+warp ZoraRiver_Child ZoraRiver_FromZoraDomain
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 600
+mark here
+wait 600
+mark undone
+wait 600
+mark end

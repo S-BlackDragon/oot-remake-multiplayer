@@ -1,0 +1,15 @@
+# espectador-rstick (ORM spectator camera, C1 step 1b diagnosis): as espectador-stick (the hook's own nudge on going
+# down, LICHII_COOP_SPECTATOR_WAKE=stick), then 3 s later the test script's own right-stick touch (rstick 1 0 6, the
+# one that woke the camera in C0's camara-mira-toque, there before going down). Tells whether a sleeping camera can be
+# woken by the stick at all once Link is down. Run as espectador-stick.
+mark start
+wait 120
+mark alive
+gate 1
+life 0
+mark downed
+wait 180
+mark touch
+rstick 1 0 6
+wait 420
+mark end

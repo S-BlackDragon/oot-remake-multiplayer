@@ -1,0 +1,66 @@
+# trueque-biggoron (A: gets and hands over the timed items): the timed trade items are only the receiver's: A gets the Odd Mushroom (Step04, shared) and B never does; B changes scene and A's mushroom survives; the Odd Powder (no timer) reaches B; then the frog and the eye drops as the mushroom.
+# docs/BOTELLAS_TRUEQUES.md (the bottle and trade list, tools/release/kit/shared_dungeon_trades.txt).
+# Run with --transport ws and an --env for each #! switches item (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them (an emulator from orm/t9-integrado + orm/botellas2:
+# the `int` and `enum` test commands). Written 2026-11-11, not run yet (no games that day).
+# Mutant: the same run with LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt (the step shared, the items
+# mirrored as before) turns B's never lines red; whether a partner's scene change then spoils the mushroom for
+# both (A's 'check' lines) is what BOTELLAS_TRUEQUES.md 3 asks a game to show.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_trades.txt
+#! expect A coop: lists: .*shared_dungeon_trades\.txt: 28 flags and keys added, 3 taken off, 5 once, 0 held in their area, 0 one-time keys within boot..
+#! expect A coop: test int PouchData\.Item_OddMushroom\.StockNum \(0x07de3e6f\) = 1: queued within control..held
+#! expect A coop: test enum Step_SubEvent_GetSwordBigGoron = 0x27f660fe \(no listed name\): queued within control..held
+#! expect A coop: test enum Step_SubEvent_GetSwordBigGoron \(0x26a2e01c\): find_type 6, value 0x27f660fe \(no listed name\) within check..handover
+#! never A coop: flags debug: int 0x07de3e6f \(entry \d+\) 1 -> 0 within control..handover
+# RIESGOS_RESUELTOS.md "Mundo e historia" (orm/riesgos-mundo): B puts the step back at its 'stepback' mark (its game talked to the old
+# woman without the mushroom); A holds the mushroom, so A's guard refuses it and A keeps Step04 (the 'check' read
+# above). After the hand-over the wait ends one of two ways (A a player: dropped by our Step05; A the host: it
+# answered with its own step, so the wait idles out). Mutant: LICHII_ORM_TRADE_GUARD=0 turns the 'check' read red.
+#! expect A coop: riesgos: trade step guard on
+#! expect A coop: trades: Step_SubEvent_GetSwordBigGoron Step04 -> Step03_03 from another game refused: our game holds the Odd Mushroom within held..handover
+#! never A coop: trades: .* written after \d+ refusals within control..handover
+#! expect A coop: trades: (our game moved Biggoron's step itself \(Step04 -> Step05\)|Biggoron's step from another game no longer waits) within handover..end
+#! expect A coop: test int PouchData\.Item_OddPowder\.StockNum \(0x58c9bc78\) = 1: queued within handover..frog
+#! expect A coop: test int PouchData\.Item_EyeballFrog\.StockNum \(0x919ea324\) = 1: queued within frog..drops
+#! expect A coop: test int PouchData\.Item_EyeDrop\.StockNum \(0x5c41a6b1\) = 1: queued within drops..end
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+int PouchData.Item_OddMushroom.StockNum 1                # Cojiro handed over: the mushroom, A's only
+enum Step_SubEvent_GetSwordBigGoron Step04               # the step: the group's
+wait 600
+mark held               # B changes scene now (its 'away' mark): the mushroom must stay in A's game
+wait 2100
+mark check
+enum Step_SubEvent_GetSwordBigGoron                      # still Step04 after B's scene change
+wait 600
+mark handover
+int PouchData.Item_OddMushroom.StockNum 0                # handed to the old woman
+int PouchData.Item_OddPowder.StockNum 1                  # the Odd Powder: no timer, shared (mirror)
+enum Step_SubEvent_GetSwordBigGoron Step05
+wait 900
+mark frog
+int PouchData.Item_EyeballFrog.StockNum 1                # King Zora's frog: A's only
+enum Step_SubEvent_GetSwordBigGoron Step09
+wait 900
+mark drops
+int PouchData.Item_EyeballFrog.StockNum 0
+int PouchData.Item_EyeDrop.StockNum 1                    # the scientist's eye drops: A's only
+enum Step_SubEvent_GetSwordBigGoron Step10
+wait 900
+mark end

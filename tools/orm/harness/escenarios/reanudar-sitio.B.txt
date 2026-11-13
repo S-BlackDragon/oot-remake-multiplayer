@@ -1,0 +1,35 @@
+# reanudar-sitio (ORM, docs/PARTIDA_SALA.md "Volver a tu sitio"), B: the player whose last place was a safe one, the
+# slingshot ledge of the Deku Tree (-51.5 112.6 15.0, where efectos-cofre.B puts B). B goes back to the Deku Tree but,
+# since test10 (upstream issue 197, orm/t10-escudo-sitio), never into the slingshot room: another room than the
+# entrance's. He stays at the entrance, or goes to the spot of the entrance room he last left it by when his own
+# coop-resume.txt keeps one (a d1 line, reanudar-mazmorra). The run line and the mutant are in reanudar-sitio.A.txt.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_RESUME_PLACE=v1;pareja;A;InsideTheDekuTree;6.70;47.00;67.60;child;ok;1800000000|v1;pareja;B;InsideTheDekuTree;-51.50;112.60;15.00;child;ok;1800000000
+#! timeout 600
+#! expect B coop: resume: on: the last place of 'B' in room \S+: InsideTheDekuTree at -51\.5 112\.6 15\.0 \(ok, given by the app\)
+#! expect B coop: resume: the last place \(InsideTheDekuTree at -51\.50 112\.60 15\.00\) is in (another room of this dungeon|too far in this dungeon, with no room table for it) \(issue 197.*\): (going to the spot of its entrance room we last left it by|no spot of its entrance room kept, going to its entrance \(Entrance\)) within title..end
+#! expect B coop: teleport: asked the scene change to InsideTheDekuTree at Entrance: scene set within title..end
+#! expect B coop: resume: at the (entrance of InsideTheDekuTree \(the last place is in another room|spot of the entrance room of InsideTheDekuTree) within title..end
+#! never B coop: teleport: move to -51\.5
+#! expect B coop: resume: keeping our last place in within title..end
+#! never B coop: teleport: stopped
+#! never B coop: teleport: could not move Link
+#! never B coop: resume: .*(never stood still|not now|could not be written|not a place to go back to)
+mark start
+warp KokiriForest_Child FrontDekuTree
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+wait 1800               # the way back (about 25 s)
+mark back
+wait 600
+mark end

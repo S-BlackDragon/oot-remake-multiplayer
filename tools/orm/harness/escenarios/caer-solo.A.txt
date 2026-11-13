@@ -1,0 +1,23 @@
+# caer-solo (ORM "downed, not dead", P4, docs/CAIDO_REVIVIR.md): one player alone in the room,
+# Link's life to 0 at the Kokiri start. Alone, the gate stays open and the original game over runs:
+# the event, its screen (10 s before it takes A), A for its top choice (Continue), the reload.
+# Run with --players 1 --transport ws --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_ANIM=1. Expect in A's log: "coop: downed: alone in the room", the gate
+# open, "coop: downed: solo, gate open", "alive -> game_over: dead alone", "coop: event running",
+# after the press the scene unloaded and loaded again, then "game_over -> alive: back after the
+# game over" with full life; no "-> downed".
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: downed: solo, gate open
+#! expect A alive -> game_over: dead alone
+#! expect A game_over -> alive: back after the game over within pressed..end
+#! never A -> downed
+mark start
+wait 120
+life 0
+mark dead
+wait 720                      # the game over screen takes A about 10 s after the event starts
+mark over
+press A 12                    # the top choice (Continue)
+mark pressed
+wait 1200                     # the reload takes about 13 s
+mark end

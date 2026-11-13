@@ -1,0 +1,25 @@
+# camara (ORM spectator camera, C0, docs/ESPECTADOR_Y_JEFES.md "Resultado de C0"): one game, Kokiri start.
+# The probe (LICHII_COOP_DEBUG_CAMERA2=1) finds the PlayerCamera actor and the player camera object and logs,
+# twice a second, "coop: camera2:" with its yaw, pitch and state words beside the heading of the renderer's matrix.
+# Right stick right 1 s, then left 1 s; then the gate shut and life 0 (downed, no game over) for 10 s, a right
+# stick turn while down, and 5 s more.
+# Run with --players 1 --scen-dir tools/orm/harness/escenarios --env LICHII_COOP_DEBUG_CAMERA2=1
+# --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1. Expect: the yaw word moves with the stick in step
+# with the matrix heading (a constant yaw +/- heading); state 3 -> 4 with the stick; after life 0 no game over
+# camera (no "coop: event running").
+mark start
+wait 120
+rstick 1 0 60
+mark turned-right
+wait 60
+rstick -1 0 60
+mark turned-left
+wait 60
+gate 1
+life 0
+mark downed
+wait 600
+rstick 1 0 30
+mark turned-downed
+wait 300
+mark end

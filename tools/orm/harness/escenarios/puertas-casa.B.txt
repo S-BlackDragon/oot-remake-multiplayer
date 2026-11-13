@@ -1,0 +1,49 @@
+# puertas-casa (B), ORM doors (docs/PUERTAS.md): B watches A open the Kakariko house door
+# Obj_Kakariko_Door_A_01 from 5 m (puertas-casa.A.txt). B's door must open for A's puppet and close once A is
+# through; B never pushes it. The shots w1 to w6 (every 3 s) show the door's leaf opening and closing.
+#! noload
+#! start coop: test warp done
+#! saves 06-kakariko
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_DOORS=1
+#! timeout 420
+#! expect B coop: doors and chests move for the other players too
+#! expect B coop: doors: P\d 'DoorPushOpen[LR]\w*': Obj_Kakariko_Door_A_01 opens here \(Push_[LR]_ByPlayer\) within watching..end
+#! expect B coop: doors: P\d is through Obj_Kakariko_Door_A_01: (closing it \(Close_[LR]_ByPlayer\)|left as the game has it) within watching..end
+#! never B coop: doors: .* not played
+#! never B coop: doors: P\d 'DoorPushOpen\w*': no door
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: door mirror ok Obj_Kakariko_Door_A_01 kept our '(Push|Close)_[LR]_ByPlayer' 300 ms within watching..end
+#! never B coop: check: door mirror fallback
+mark start
+warp KakarikoVillage_Child Kakariko_GraveYardSide
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+place -49.0 98.0 38.5   # 5 m from the door, to its side
+wait 120
+toward -52.6 34.5 8
+press ZL 10             # the camera behind Link, on the door
+mark watching
+wait 1500               # A pushes about 25 s from here (A waits for us, then 2.6 s more)
+mark w1
+wait 180
+mark w2
+wait 180
+mark w3
+wait 180
+mark w4
+wait 180
+mark w5
+wait 180
+mark w6
+wait 600
+mark end

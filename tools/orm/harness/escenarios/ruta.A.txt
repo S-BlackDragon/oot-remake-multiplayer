@@ -1,0 +1,37 @@
+# ruta: exploration for the charla route (single player: r03_pareja --players 1 --bots 0 --capture-marks).
+# Start about -82 33. After every goto a mark names the point tried, so the screenshot per mark
+# (reports/R0.3/ruta_A_<mark>.png) shows where Link stands (or got stuck). Each goto gets 5 s (300 ticks).
+mark start
+wait 60
+goto -84.8 26.0 1.0 300
+mark sign
+goto -84.0 18.0 1.5 300
+mark s_x84_z18
+goto -84.0 10.0 1.5 300
+mark s_x84_z10
+goto -84.0 2.0 1.5 300
+mark s_x84_z2
+goto -84.0 -6.0 1.5 300
+mark s_x84_z-6
+goto -84.0 -13.0 1.5 300
+mark s_x84_z-13
+goto -84.8 26.0 1.0 300
+mark back1
+goto -74.0 18.0 1.5 300
+mark e_x74_z18
+goto -74.0 8.0 1.5 300
+mark e_x74_z8
+goto -74.0 -2.0 1.5 300
+mark e_x74_z-2
+goto -74.0 -12.0 1.5 300
+mark e_x74_z-12
+goto -92.0 18.0 1.5 300
+mark w_x92_z18
+goto -92.0 8.0 1.5 300
+mark w_x92_z8
+goto -92.0 -2.0 1.5 300
+mark w_x92_z-2
+goto -92.0 -12.0 1.5 300
+mark w_x92_z-12
+wait 30
+mark end

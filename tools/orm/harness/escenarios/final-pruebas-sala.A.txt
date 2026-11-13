@@ -1,0 +1,70 @@
+# final-pruebas-sala (docs/FINAL.md, block A; ZMP D-188), A: both adult in the same trial's barrier
+# room (room 15 of InsideGanonCastle, 4 m apart). A asks for the barrier cutscene; B, in the room, is asked
+# for it and plays it (the mates of that room see it with the one who broke it).
+# Run with --transport ws (r03_pareja; run.ps1 reads #! switches).
+#! expect A coop: story: owner: our game started 'InsideGanonCastle_Dungeon_BarrierRemove_Forest' in InsideGanonCastle within asked..end
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_STORY=1,LICHII_COOP_DEBUG_FLAGS=1
+#! timeout 300
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600
+place -94.3 100.5 -21.0
+wait 240
+mark asked
+event InsideGanonCastle_Dungeon_BarrierRemove_Forest
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 600
+mark end

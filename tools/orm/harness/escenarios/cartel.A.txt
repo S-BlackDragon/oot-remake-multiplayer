@@ -1,0 +1,50 @@
+# cartel (ORM D-R12 step 1): A reads the Kokiri Forest guide signboard right by the start
+# (Obj_Kokiri_Signboard_GuideAction_A_03 at -84.83 118.86 24.14; the start is at about -82 122 33),
+# which runs an event (text box); B stays at the start and watches A's puppet.
+# The board's facing is not known, so A tries its four sides (1.4 units away, facing it, A for
+# 12 ticks each; the first try (03:00) stood 1.9 units to the +z side and nothing happened).
+# Expect in A's log: "coop: event running" after one of the try-* marks, "coop: event over" after
+# closed, and NO "show -> hide (our cutscene)"; in B's log NO "show -> hold (their cutscene)" and
+# the pose counters (LICHII_COOP_DEBUG_POSE=1) still receiving A's poses during the reading.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: event running .*Signboard within try-zplus..reading
+#! expect A coop: event over within reading..end
+#! never A (?<!fairy coop: puppet: P\d )show -> hide
+mark start
+wait 60
+goto -84.8 25.5 0.5 600       # +z side
+toward -84.83 24.14 8
+wait 15
+mark try-zplus
+press A 12
+wait 90
+goto -83.4 24.1 0.5 600       # +x side
+toward -84.83 24.14 8
+wait 15
+mark try-xplus
+press A 12
+wait 90
+goto -84.8 22.7 0.5 600       # -z side
+toward -84.83 24.14 8
+wait 15
+mark try-zminus
+press A 12
+wait 90
+goto -86.2 24.1 0.5 600       # -x side
+toward -84.83 24.14 8
+wait 15
+mark try-xminus
+press A 12
+wait 120
+mark reading
+press A 12                    # through the text, whichever try opened it
+wait 60
+press A 12
+wait 60
+press A 12
+wait 60
+press B 12
+wait 120
+mark closed
+wait 60
+mark end

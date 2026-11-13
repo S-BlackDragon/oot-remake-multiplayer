@@ -1,0 +1,68 @@
+# final-huida-reloj (docs/FINAL.md, block D; ZMP D-164, EscapeClock), A: both adult at the top of the
+# collapsing castle; A asks for the collapse (CrumblingGanonCastle_Arrive, the story list's) at once, B 30 s
+# later on its own (it was 'late'). B's countdown is set to the group's (A's start). EXPLORATORY: whether the
+# remake's escape runs the minigame timer (Defeat_Ganon's flow); where it lives is to be read (docs/FINAL.md
+# section 7). The clock glue is in orm/final2 (coop_final.cpp): add LICHII_ORM_ESCAPE_CLOCK_WORD=<its place> to both
+# '#! switches' lines; without it B logs 'our countdown is not read' and this stays red.
+# Run with --transport ws --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+#! expect A coop: story: owner: our game started 'CrumblingGanonCastle_Arrive' in CrumblingGanonCastle within asked..end
+#! never A escape clock: .* set to
+#! noload
+#! start coop: test warp done
+#! saves 21-huida-arriba
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_STORY=1,LICHII_ORM_ESCAPE_CLOCK=1,LICHII_ORM_ESCAPE_CLOCK_TRIES=20
+# With LICHII_ORM_ESCAPE_CLOCK and no _WORD, our countdown is looked for (coop_escape_timer, orm/riesgos-mundo):
+# the line says which path ran: found (its word, then the clock of orm/final2 takes it) or not found (the
+# group's clock goes on without the game's timer). Either is a pass of the search; 'set to' needs orm/final2.
+#! expect A coop: escape clock: search on: our countdown is looked for in CrumblingGanonCastle within boot..
+#! expect A coop: escape clock: looking for our countdown \(try 1 of \d+\) within asked..end
+#! expect A coop: escape clock: (our countdown found at main\+0x[0-9a-f]+(,0x[0-9a-f]+)+:(f32|u32|ms|mmss) \(reads|our countdown was not found \() within asked..end
+#! timeout 600
+mark start
+warp CrumblingGanonCastle CrumblingGanonCastle_StartPos adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+mark asked
+event CrumblingGanonCastle_Arrive
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 9000               # the collapse's cutscene (88 s in round 2), then the countdown's first two minutes
+mark end

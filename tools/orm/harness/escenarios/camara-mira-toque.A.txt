@@ -1,0 +1,20 @@
+# camara-mira-toque (ORM spectator camera, C0 step 3, docs/ESPECTADOR_Y_JEFES.md "Resultado de C0"): one game and one
+# Variant: a short right-stick touch (6 ticks) before the death, to wake the camera (in camara-mira the
+# written yaw was not taken: the view stayed where the load left it).
+# bot standing still 7 m away, Kokiri start. With LICHII_COOP_SPECTATOR=1 a downed Link's camera yaw is written
+# each frame so the view looks from the body at the nearest mate; the probe logs where the bot's puppet lands
+# on screen with the renderer's matrix ("coop: camera2: P2 ... ndc (x, y) ... centre third").
+# Run with --players 1 --bots 1 --bot-arg=-radius --bot-arg=0 --bot-arg=-center --bot-arg=-76,122,38
+# --scen-dir tools/orm/harness/escenarios --env LICHII_COOP_DEBUG_CAMERA2=1 --env LICHII_COOP_SPECTATOR=1
+# --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1. Expect: before life 0 the bot off centre (the
+# camera is the game's); after it "spectator on: looking at P2" and the bot within the centre third, every second.
+mark start
+wait 120
+rstick 1 0 6
+wait 60
+mark alive
+gate 1
+life 0
+mark downed
+wait 600
+mark end

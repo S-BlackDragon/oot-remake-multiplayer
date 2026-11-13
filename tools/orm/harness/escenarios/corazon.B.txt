@@ -1,0 +1,18 @@
+# corazon (ORM, docs/JEFES.md "Corazones"), B: stands still; logs the group's new max from A and its own Link raised
+# with the life it had (corazon.A.txt has the run line). The heart stays after the game writes its own copy of the
+# flag back (the race of issue 88): no "max life ... -> ..." line lowers it, and the menu shows it.
+#! switches LICHII_COOP_CHEATS=1
+#! expect B coop: hearts: max life \d+ -> \d+ \(from P\d\)
+#! expect B coop: hearts: our Link's max \d+ -> \d+ \(life \d+ kept\)
+#! never B coop: hearts: our Link's life \d+ brought down
+mark start
+wait 300
+mark container
+wait 600
+mark given
+press PLUS               # the menu: the heart A took is here too
+wait 240
+mark menu
+press PLUS
+wait 300
+mark end

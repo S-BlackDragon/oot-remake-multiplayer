@@ -1,0 +1,38 @@
+# botella-mercado (A: sets the flags as the game's setter): the Market potion shop's bottle (the insect tutorial) is given once for the group: its two flags reach B one way, the tutorial's run (Started) stays A's.
+# docs/BOTELLAS_TRUEQUES.md (the bottle and trade list, tools/release/kit/shared_dungeon_trades.txt).
+# Run with --transport ws and an --env for each #! switches item (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them (an emulator from orm/t9-integrado + orm/botellas2:
+# the `int` and `enum` test commands). Written 2026-11-11, not run yet (no games that day).
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS turns B's expect lines red (no list shares them).
+# Precondition: a child save from before that bottle (both flags 0).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_trades.txt
+#! expect A coop: lists: .*shared_dungeon_trades\.txt: 28 flags and keys added, 3 taken off, 5 once, 0 held in their area, 0 one-time keys within boot..
+#! expect A coop: test flag Npc_Hylia_020_Shop_Item_Bottle_Present \(0x6067ac7d\) = 1: queued
+#! expect A coop: test flag Market_Item_Bottle_TutorialEvent_Cleared \(0x4d62de75\) = 1: queued
+#! expect A coop: test flag Market_Item_Bottle_TutorialEvent_Started \(0x39d7877d\) = 1: queued
+#! expect A coop: test flag Npc_Hylia_020_Shop_Item_Bottle_Present \(0x6067ac7d\) = 0: queued within undo..end
+mark start
+warp Market_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+flag Market_Item_Bottle_TutorialEvent_Started 1          # the tutorial's run: A's own, never crosses
+flag Npc_Hylia_020_Shop_Item_Bottle_Present 1           # the bottle was given: once for the group
+flag Market_Item_Bottle_TutorialEvent_Cleared 1         # the tutorial cleared: not offered again
+wait 600
+mark undo
+flag Npc_Hylia_020_Shop_Item_Bottle_Present 0           # as a load would: once: never undoes it elsewhere
+wait 600
+mark end

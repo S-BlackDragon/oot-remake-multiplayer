@@ -1,0 +1,106 @@
+# historia-saltar (ORM, ZMP D-048, docs/CINEMATICAS.md "Saltar con el dueño"): the owner skips a shared story
+# cutscene and the others' copies are skipped too. A asks for the Deku Tree meeting by name (as historia-largo) and
+# owns it; B follows it. Both press A every 2 s for 20 s, then stop: B's copy waits at a text from then on, so only
+# a skip can end it. 10 s later A skips with the test command `skip` (the game's own force skip, one shot a call;
+# the story layer counts it as the owner's skip press), once a second for 20 s, until its copy is over; A's end goes
+# out as STORY_EVENT skipped (a press within 5 s of its end); B skips its own copy at once, every 0.5 s until it is
+# over. Expect in A: the press, force skips, "skipped by us (test skip", one skipped sent and no end; never a skip of
+# "our" copy; in B: "ours is skipped too", "force skip of our", "skipped here after P1's", the meeting's end state in
+# both; both Links walk after "mark walk". historia-largo is the other case: a plain end, nobody cut.
+# Run with --transport ws --scen-dir tools/orm/harness/escenarios --timeout 420
+# --env LICHII_COOP_STORY=1 --env LICHII_COOP_DEBUG_LIFE=1
+# Not run yet (written 2026-11-12, a code-only task: no game). Open: whether a force skip cuts one shot or the whole
+# timeline, whether it ends a copy waiting at a text (CINEMATICAS.md R7), and the real skip button (PLUS or MINUS).
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: event running 'KokiriForest_Meet_DekuTree within asked..pressed10
+#! expect A coop: story: owner: our game started 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' within asked..pressed10
+#! expect A coop: story: skip pressed \(test skip\) during our 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' within skipping..skipped
+#! expect A coop: story: force skip of the event 0x[0-9a-f]+ \(test skip\) within skipping..skipped
+#! expect A coop: story: 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' is over here, skipped by us \(test skip, \d+ ms before its end\) within skipping..walk
+#! count A coop: story: STORY_EVENT skipped sent == 1
+#! count A coop: story: STORY_EVENT end sent == 0
+#! expect A coop: story: HavePlayedEvent\.KokiriForest_Meet_DekuTree_MeetDekuTree_01 0 -> 1 within skipping..walk
+#! never A coop: story: force skip of our
+#! expect B coop: story: STORY_EVENT start received from P\d .*: starting within asked..pressed10
+#! expect B coop: event running 'KokiriForest_Meet_DekuTree within asked..pressed10
+#! expect B coop: story: P\d skipped 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' in KokiriForest_Child; ours is skipped too within skipping..walk
+#! expect B coop: story: force skip of our '.*' \(P\d's 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' was skipped; skip 1\) within skipping..walk
+#! expect B coop: story: force skip of the event 0x[0-9a-f]+ \(its owner skipped 'KokiriForest_Meet_DekuTree_MeetDekuTree_01'\) within skipping..walk
+#! expect B coop: story: 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' skipped here after P\d's: over after \d+ force skips? within skipping..walk
+#! expect B coop: story: HavePlayedEvent\.KokiriForest_Meet_DekuTree_MeetDekuTree_01 0 -> 1 within skipping..walk
+#! expect B coop: story: Step_Meet_DekuTree \S+ -> Complete within skipping..walk
+#! never B coop: story: .*given up, it plays on
+#! never B coop: story: STORY_EVENT (end|skipped) sent
+mark start
+wait 120
+event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+mark asked
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed10
+wait 600                # no more A: B's copy waits at a text
+mark skipping
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+skip
+wait 60
+mark skipped
+wait 1200               # A's skipped leaves 1.5 s after its copy is over; B skips its own at once
+mark walk
+stick 0 1 60
+wait 600
+mark end

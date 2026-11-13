@@ -1,0 +1,28 @@
+# jefe-twinrova-entrada, B: stays at the entrance; moved into A's boss room by matrix.
+#! expect B coop: boss: another player is in the boss room of SpiritTemple: moving in \(try \d\)
+#! expect B coop: boss: moved Link to
+#! expect B coop: boss: in the boss room of SpiritTemple: Enemy_DungeonBoss_Twinrova
+#! expect B coop: boss: (intro ended|another player's intro is over: skipping ours|no intro: the fight has begun here)
+#! never B coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 19-espiritu-adulto
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp SpiritTemple SpiritTemple_Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark b-in
+wait 2700
+mark fight
+wait 1800
+mark end

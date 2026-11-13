@@ -1,0 +1,35 @@
+# montana-goron-rueda (A: stops the rolling Goron with a bomb and gets his bomb bag (their flags), then sets the bag back to 0; mutant: without LICHII_COOP_DUNGEON_LISTS B's expect lines go red)
+# docs/MONTANA_SOMBRA.md (the mountain list, tools/release/kit/shared_dungeon_montana.txt).
+# Run with --transport ws (r03_pareja reads #! switches and #! saves); the list files next to the
+# emulator, as the kit puts them. Not run yet (code wave, 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 07-montana
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_montana.txt
+#! timeout 240
+#! expect A coop: lists: .*shared_dungeon_montana\.txt: \d+ flags and keys added, 1 taken off, 12 once, 3 held in their area, 25 one-time keys within boot..
+#! expect A coop: test flag GoronCity_StopGoron006 \(0xa0c92810\) = 1: queued within parado..end
+mark start
+warp GoronCity_Child GoronCity_MountainTrailSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark parado
+flag GoronCity_BombHitsGoron006 1          # a bomb hit him
+flag GoronCity_StopGoron006 1          # he stopped
+flag GoronCity_GetBombBag_fromGoron006 1          # his bomb bag given: once for the group
+wait 600
+mark deshacer
+flag GoronCity_GetBombBag_fromGoron006 0          # a 0 never undoes a once: flag
+wait 600
+wait 300
+mark end

@@ -1,0 +1,35 @@
+# hora-sin-empujon (ORM, orm/riesgos-mundo, docs/HORA.md and RIESGOS_RESUELTOS.md "Mundo e historia"), A: the host. As hora-sigue, but
+# B's game puts every checked nudge back (test switch LICHII_ORM_CLOCK_TEST_PUT_BACK=1: a game that counts from a
+# value of its own). B must say "nudges do not hold" and then catch up with the fallback: one time change that says
+# "(nudges do not hold)" in its line, then in step; never the hour rule ("too far off to nudge") and no jump sent.
+# Mutant: B without LICHII_ORM_CLOCK_TEST_PUT_BACK turns 'nudges do not hold' red (nudges hold: hora-sigue's path).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_TIME=1
+#! expect A coop: clock on: the host owns the shared clock within start..end
+#! expect B coop: clock: test: each checked nudge is put back within start..end
+#! expect B coop: clock: test: our clock quietly to \d\d:\d\d:\d\d \(-900 s\) within day..end
+#! expect B coop: clock: nudges do not hold \(\d+ held, \d+ put back\): setting instead within offset..end
+#! expect B coop: clock: set to \d\d:\d\d:\d\d \(nudges do not hold\) within offset..end
+#! expect B coop: clock: in step with the shared clock within offset..end
+#! never B coop: clock: set to \d\d:\d\d:\d\d \(too far off to nudge\) within offset..end
+#! never A coop: clock: set to within day..end
+#! never A coop: clock: (sent a )?jump within day..end
+#! never B coop: clock: (sent a )?jump within day..end
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark day
+wait 3000               # B moves its clock back 120 s after joining
+mark offset
+wait 3000               # four nudges put back, then the fallback's time change (10 s after the test's own set)
+mark end

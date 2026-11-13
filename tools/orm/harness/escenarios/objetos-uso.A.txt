@@ -1,0 +1,143 @@
+# objetos-uso (ORM, docs/OBJETOS_EN_USO.md), A: both adult in Kakariko by day (as held-adult). A is given the
+# adult items, magic and bombchus, faces B and uses each on ZR: hookshot, fire/ice/light arrows, bombchu, Din's Fire,
+# Farore's Wind, Nayru's Love, the lens, the hammer, the iron boots, then guards with the mirror shield. B watches
+# (objetos-uso.B.txt). EXPLORATORY: most of what B should see is read from the romfs, not proven; the B lines say
+# which mechanism each item rides on. The magic and the bombchus go in with `int` (the cheats do not give per-player
+# counts). Run with a puppet pack built with --effects (tools/puppet_pack) to see the casts on A's puppet;
+# without it the 'wears' and spawn lines still hold.
+# Mutant: the same run with LICHII_COOP_SPAWN=0 turns B's spawn lines red (copies need the spawn sync).
+#! noload
+#! start coop: test warp done
+#! saves 20-magia
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_CHEATS=1,LICHII_COOP_OBJECTS_CHEAT=1,LICHII_COOP_DEBUG_ANIM=1
+#! expect A coop: test int PlayerStatus\.MP \(0x76b18200\) = 48: queued
+#! expect A coop: test int PouchData\.Item_Bombchu\.StockNum \(0x[0-9a-f]+\) = 20: queued
+#! expect A coop: spawn: sent Shootable_Hook(Long)? #
+#! expect A coop: spawn: sent NormalArrow #
+#! expect A coop: spawn: sent Item_Bombchu #
+#! expect A coop: spawn: sent ExpandFireField #
+# Farore's Wind: cast, then a caution outside a dungeon (no warp point in Kakariko, sondas7).
+#! expect A coop: you play 'DemoStartFaroreWind'
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+await mate              # B lands up to two minutes after us: every use below is for its eyes
+wait 600
+give bow
+give hookshot
+give PouchData.Item_Hammer.StockNum
+give PouchData.Item_Arrow_Fire.StockNum
+give PouchData.Item_Arrow_Ice.StockNum
+give PouchData.Item_Arrow_Light.StockNum
+give PouchData.Item_DinFire.StockNum
+give PouchData.Item_FaroreWind.StockNum
+give PouchData.Item_NayruLove.StockNum
+give PouchData.Armor_GlassTruth.StockNum
+give PouchData.Armor_Adult_HeavyBoot.StockNum
+give PouchData.Weapon_Shield_Mirror.StockNum
+int PlayerStatus.MPMax 48
+int PlayerStatus.MP 48
+flag IsGet.Item_Bombchu 1
+flag IsGet.Item_DinFire 1          # 'give' sets the stock only: without these the spells played ItemEmpty
+flag IsGet.Item_FaroreWind 1       # and the lens and the boots did nothing (sondas4)
+flag IsGet.Item_NayruLove 1
+flag IsGet.Armor_GlassTruth 1
+flag IsGet.Armor_Adult_HeavyBoot 1
+flag IsGet.Item_Arrow_Fire 1
+flag IsGet.Item_Arrow_Ice 1
+flag IsGet.Item_Arrow_Light 1
+int PouchData.Item_Bombchu.StockNum 20
+wait 600
+stick 0 0.6 100         # a step ahead, then turn to face B
+stick 0.7 0 30
+stick 0 -0.4 12
+wait 60
+# 2026-11-12 (sondas7): the spells go first, on the full meter. The magic probe read 18 of 48 left before Din's Fire:
+# the three element arrows and the lens had used 30 (the game keeps the live magic elsewhere: 'int PlayerStatus.MP'
+# reads back what it wrote, then the game's own 18 again, and a set does not refill it). With 18, Din's Fire and
+# Nayru's Love played ItemEmpty; Farore's Wind cast and ended in EvtCaution: it sets a warp point only in a dungeon
+# (Kakariko is none), so no FaroreWindWarpPoint can come here. Each 'int' line logs the magic left (it read N).
+mark din
+int PlayerStatus.MP 48  # the magic before Din (it read N)
+assign DinFire
+wait 30
+press ZR
+wait 150
+int PlayerStatus.MP 48  # what Din took (it read N)
+mark nayru
+assign NayruLove
+wait 30
+press ZR
+wait 200
+int PlayerStatus.MP 48  # what Nayru's took
+mark farore
+assign FaroreWind
+wait 30
+press ZR                # cast: outside a dungeon it ends in a caution, no warp point
+wait 200
+talkthrough 900         # its event and message to the end (it held Link to the end of the run, sondas4)
+int PlayerStatus.MP 48  # what Farore's took
+mark hookshot
+assign Hookshot
+wait 30
+hold ZR 90 hook         # aim, the mark halfway; let go: the tip and its chain fly
+wait 120
+mark arrows
+assign FireArrow
+wait 30
+hold ZR 60 fire
+wait 90
+assign IceArrow
+wait 30
+hold ZR 60 ice
+wait 90
+assign LightArrow
+wait 30
+hold ZR 60 light
+wait 120
+mark bombchu
+assign Bombchu
+wait 30
+press ZR                # out in hand
+wait 30
+press ZR                # let go: it runs off
+wait 200
+mark lens
+assign GlassTruth
+wait 30
+press ZR                # on
+wait 120
+mark lens_on
+wait 60
+press ZR                # off
+wait 120
+mark hammer
+assign Hammer
+wait 30
+press ZR                # the swing; the slam's shock wave
+wait 120
+mark boots
+assign HeavyBoot
+wait 30
+press ZR                # on
+wait 60
+stick 0 0.5 40          # heavy steps
+wait 60
+press ZR                # off
+wait 90
+mark shield
+wear shield Weapon_Shield_Mirror
+wait 120
+hold ZL 90 guard        # guard with the mirror shield
+wait 60
+mark end

@@ -1,0 +1,41 @@
+# puertas-jefe (B), ORM doors and chests (docs/PUERTAS.md): B stands in the Forest Temple's basement,
+# 4.6 m from the boss door and facing it, and watches A unlock it and go through (puertas-jefe.A.txt) about 25 s
+# after B is in. By hand on B's screen: at 'door1'..'door3' the lock gone, the door up for A's puppet, then down;
+# A's puppet gone into the boss room, not frozen at the door.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_DOORS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt,LICHII_COOP_BOSS=0
+#! timeout 600
+#! expect B coop: flags debug: bool 0x427333a0 \(entry \d+\) 0 -> 1
+#! expect B coop: world: 183035b6ed527836 Obj_DoorChainLock_A_02 (broken by another player|was broken before we saw it) within watching..end
+#! never B coop: world: 183035b6ed527836 Obj_DoorChainLock_A_02 broken here
+#! expect B coop: doors: P\d 'Evt_?Door_?(Boss|Key|Shutter)\w*': Obj_ForestTemple_SwitchShutter_A_04 opens here \(ToOpen\) within watching..end
+#! expect B coop: doors: P\d is through Obj_ForestTemple_SwitchShutter_A_04: (closing it \(ToClose\)|left as the game has it) within watching..end
+#! never B coop: doors: .* not played
+mark start
+warp ForestTemple ForestTemple adult
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+place -3.00 59.60 -37.20   # 4.6 m from the boss door: out of the 1.5 m 'our Link beside it' rule
+wait 120
+toward -0.04 -40.86 8
+press ZL 10
+mark watching
+wait 2400               # A pushes the door about 25 s after we are in
+mark door1
+wait 120
+mark door2
+wait 600
+mark door3
+wait 2400
+mark end

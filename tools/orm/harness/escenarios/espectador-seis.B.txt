@@ -1,0 +1,13 @@
+# espectador-seis, B (ORM spectator camera C2): stands 8 m east of A's start while A falls and goes round the ring,
+# then goes down itself at about 30 s (the bots stay up: no group defeat), so A's ring loses P2.
+#! expect B coop: downed: P1 is down
+#! expect B coop: downed: alive -> downed
+#! never B -> game_over
+mark start
+wait 300
+goto -74.0 33.6 0.5 600     # 8 m east, out of the bots' 4 m circle
+wait 1200
+mark b-down
+life 0
+wait 1500
+mark end

@@ -1,0 +1,20 @@
+# caer-hada-propia (ORM D-R17, docs/CAIDO_REVIVIR.md "Resultado D-R17"): a fairy
+# of our own in bottle A, then Link's life to 0 with a mate in the room (a bot), so the downed gate would
+# otherwise stay shut. Expect in A's log: "a mate in the room: a death leaves us down", "alive -> fairy: a
+# fairy in our own bottle A: the gate open", "gate open", "coop: event running", a life line with
+# DamageLStand and life back, "fairy -> alive: up by our own fairy", and NO "PLAYER_STATUS dead bit on",
+# no "-> downed", no REVIVE. The last `bottle A restore` logs what the bottle holds then (Empty: the
+# event used the fairy up) and puts back what the first write found.
+# Run with --players 1 --bots 1 --transport ws --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_ANIM=1.
+mark start
+wait 120
+bottle A fairy
+wait 30
+mark dead
+life 0
+wait 900                      # the fairy branch takes about 6.5 s (P2)
+mark after
+bottle A restore
+wait 120
+mark end

@@ -1,0 +1,33 @@
+# huida (ORM, docs/CONTENIDO_ADULTO.md 2.10 and 4), A: the mate who is already out.
+# A lands in FinalBattleField (where Ganon is fought, the end of the escape); B lands in CrumblingGanonCastle (the
+# collapsing castle) and, once it has seen A there for 1 s with its Link up and no event, goes to A on its own: the
+# /teleport trip (JOIN_PARTNER, the game's scene change through Sequence_ReservedNextBanc, then A's grounded place).
+# Both are warped with no start position (none known for these two scenes: the game's own is left; if a warp does
+# not land, the start names are to be read from the romfs). Reached with the test warp only by scene name: the
+# escape's countdown and story steps do not run (the rule only reads scene names, so that is enough for it).
+# Run with --transport ws --timeout 400 and an emulator built from orm/huida. Mutant: --env LICHII_COOP_GROUP_EXIT=0
+# turns B's escape lines and A's answer red.
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 400
+#! expect A coop: escape: on
+#! expect A coop: teleport: P\d asked to come here: FinalBattleField at within after..end
+#! never A coop: teleport: P\d asked to come here: refused
+mark start
+warp FinalBattleField adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 1800               # B sees us, follows, lands and asks where we stand
+wait 900
+mark end

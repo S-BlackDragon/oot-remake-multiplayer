@@ -1,0 +1,61 @@
+# epona-rancho (ORM D-R19, docs/EPONA.md; the playable form of epona-montar), A: both adult in Lon Lon Ranch with the
+# save 12-epona-rancho (Ingo beaten, Step_Get_Epona AfterWonGambleRace, the fence not jumped): the ranch's own Epona
+# (Animal_Epona_Adult, HyruleField_Adult) stands at -69.12 150.47 223.79, 15 m from the race's start where the
+# save puts Link (round 7; the recipe's corral spot is not where she is in this state). A walks up to her side, gets on (A), rides forward 3 s, stops and gets off; B, 6 m
+# off, watches (epona-rancho.B.txt): A's puppet on a horse of ours that looks like Epona (CoopPuppet_Horse), its
+# getting on, its gaits and the horse waiting where A left it. With LICHII_ORM_DEBUG_HORSE=1 A's log says where our
+# Link sits in Epona's frame (the 'saddle:' line: LICHII_ORM_HORSE_SADDLE for the kit). Mutant: LICHII_ORM_HORSE=0
+# turns B's 'gets on', 'rides' and 'spawned' lines red.
+#! noload
+#! start coop: test warp done
+#! saves 12-epona-rancho
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_HORSE=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect A coop: epona: saddle: our Link sits at within near..end
+#! expect A coop: check: saddle ok \([-0-9.]+, [-0-9.]+, [-0-9.]+\), the median of \d+ still readings on our own Animal_\w+
+#! never A coop: check: saddle fallback
+mark start
+warp HyruleField_Adult StartPos_Get_Epona_Race adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp (already there: taken at once)
+wait 2400
+mark after
+await mate              # B lands up to two minutes after us
+wait 600                # both puppets made
+# Round 7 (sondas23r7): the ranch's Epona stands at -69.12 150.47 223.79 in this save (seen in the objects walk),
+# 15 m from the race's start (-83.95 227.37), not in the corral (the walk there hit the fence at z 231).
+goto -70.9 223.79 0.4 1200   # to her side, 1.8 m off her middle
+toward -69.12 223.79 12
+wait 30
+mark near
+# sondas24r7: A at 1.6 m on her -x side pressed A and did not get on: her facing is not known, so three sides,
+# 1.3 m off, a press at each (once on, a press while standing still gets off: the 'mounted' mark judges).
+press A 12              # get on (the prompt says Ride when in reach)
+wait 180
+goto -69.12 222.5 0.3 400
+toward -69.12 223.79 12
+wait 30
+press A 12
+wait 180
+goto -69.12 225.1 0.3 400
+toward -69.12 223.79 12
+wait 30
+press A 12
+wait 240
+mark mounted
+stick 0 0.8 180         # ride forward 3 s
+mark riding
+wait 180                # still in the saddle: the saddle probe reads
+mark still
+press A 12              # get off
+wait 240
+mark off
+wait 600                # B judges the horse left standing
+mark end

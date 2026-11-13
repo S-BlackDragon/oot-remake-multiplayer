@@ -1,0 +1,41 @@
+# botella-ruto (A: takes the letter): one letter of Ruto for the group: A finds it (into its bottle B); B gets the flags (no letter left in its lake) and its bottle B stays empty.
+# docs/BOTELLAS_TRUEQUES.md (the bottle and trade list, tools/release/kit/shared_dungeon_trades.txt).
+# Run with --transport ws and an --env for each #! switches item (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them (an emulator from orm/t9-integrado + orm/botellas2:
+# the `int` and `enum` test commands). Written 2026-11-11, not run yet (no games that day).
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS turns B's flag expect lines red. Both games load the
+# same save: both empty their bottle B first (a test fake, restored at the end). Precondition: a save from
+# before the letter (09-zora).
+#! noload
+#! start coop: test warp done
+#! saves 09-zora
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_trades.txt
+#! expect A coop: lists: .*shared_dungeon_trades\.txt: 28 flags and keys added, 3 taken off, 5 once, 0 held in their area, 0 one-time keys within boot..
+#! expect A coop: test flag IsGet\.Item_Bottle_Letter \(0x170b5df2\) = 1: queued
+#! expect A coop: test flag Get_StoneOfWater_GetRutoLetter \(0x77dc0488\) = 1: queued
+#! expect A coop: test bottle B Letter: written \(now Letter within letter..end
+mark start
+warp ZoraDomain_Child ZoraDomain_FromZoraRiver
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+bottle B Empty
+wait 300
+mark letter
+bottle B Letter                                          # the letter in A's bottle: A's own
+flag IsGet.Item_Bottle_Letter 1                          # taken: gone from every lake
+flag Get_StoneOfWater_GetRutoLetter 1                    # found: its bottle gone from the lake
+wait 900
+bottle B restore
+wait 120
+mark end

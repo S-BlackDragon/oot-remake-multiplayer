@@ -1,0 +1,17 @@
+# espectador-bits (ORM spectator camera, C1 step 1a, docs/ESPECTADOR_Y_JEFES.md "Resultado de C1"): as camara-mira
+# (one game and one bot standing still 7 m away, Kokiri start, no right-stick touch since the load), with
+# LICHII_COOP_SPECTATOR_WAKE=bits: on going down the hook ORs the bits 0x21 into the camera's byte +0x18 (what the
+# first stick touch changes) and writes a 10-degree probe turn; a woken camera takes it.
+# Run with --players 1 --bots 1 --bot-arg=-radius --bot-arg=0 --bot-arg=-center --bot-arg=-76,122,38
+# --scen-dir tools/orm/harness/escenarios --env LICHII_COOP_DEBUG_CAMERA2=1 --env LICHII_COOP_SPECTATOR=1
+# --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1 --env LICHII_COOP_SPECTATOR_WAKE=bits.
+# Expect: "coop: spectator: the camera woke (the +0x18 bits)", then P2 in the centre third; or "the bits did not
+# wake the camera" (then try espectador-stick).
+mark start
+wait 120
+mark alive
+gate 1
+life 0
+mark downed
+wait 600
+mark end

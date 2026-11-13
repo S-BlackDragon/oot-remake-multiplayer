@@ -1,0 +1,14 @@
+# caer (ORM "downed, not dead", probe P0, docs/CAIDO_REVIVIR.md): from the Kokiri start, the
+# hook sets Link's life to 0 and the game is left alone for 10 s, to see from the log what it does
+# when Link dies: the death animations, the Death component's word, the game-over event, a prompt.
+# Run with --env LICHII_COOP_DEBUG_LIFE=1 --env LICHII_COOP_DEBUG_ANIM=1 (one game, no bots).
+# Expect in the log: "coop: test life 0: written", then "coop: life:" lines with life 0.
+mark start
+wait 60
+life 0
+mark dead
+wait 600
+mark after
+press A 12                    # if a Continue prompt appeared
+wait 300
+mark end

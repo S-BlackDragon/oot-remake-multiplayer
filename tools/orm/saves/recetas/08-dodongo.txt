@@ -1,0 +1,10 @@
+# Block 8, Dodongo's Cavern and King Dodongo: Darunia danced to Saria's Song (the cavern is open), the Goron's
+# Bracelet and a small bomb bag (with the lift grade, issue 125). Starts on the trail at the cavern's mouth.
+include 07-montana.txt
+scene DeathMountainTrail_Child MountainTrail_DodongoCavernSide
+seen Dm_DeathMtTrail_0000 Dm_Goron_0000 Dm_Goron_0020 Dm_LostWood_0000 Dm_MelodyGet_Saria
+seen Dm_Goron_0025 Dm_Goron_0028 Dm_Goron_0030
+song SariaSong
+item Armor_Child_Gauntlet_Goron
+item Item_BombBag_Small
+step Get_StoneOfFire DodongoCavernOpne

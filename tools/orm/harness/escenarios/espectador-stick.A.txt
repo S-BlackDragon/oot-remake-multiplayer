@@ -1,0 +1,19 @@
+# espectador-stick (ORM spectator camera, C1 step 1b, docs/ESPECTADOR_Y_JEFES.md "Resultado de C1"): one game and one
+# bot standing still 7 m away, Kokiri start, no right-stick touch from the script. With LICHII_COOP_SPECTATOR=1 (wake
+# "stick", the default) the hook sees the camera asleep after the load and, 3 s after, while Link stands, holds the
+# right stick fully right 0.1 s then fully left 0.1 s on the emulated pad (added to the test script's input): the
+# camera wakes and the view comes back about where it was. Then Link goes down and the view turns to the bot at
+# 180 deg/s. (A touch once Link is down does not wake it: espectador-rstick; nor do the +0x18 bits: espectador-bits.)
+# Run with --players 1 --bots 1 --bot-arg=-radius --bot-arg=0 --bot-arg=-center --bot-arg=-76,122,38
+# --scen-dir tools/orm/harness/escenarios --env LICHII_COOP_DEBUG_CAMERA2=1 --env LICHII_COOP_SPECTATOR=1
+# --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1.
+# Expect: "coop: spectator: the camera woke (the right-stick nudge)" before 'downed', "spectator: on, the camera is
+# awake", "following P2", and P2 in the centre third ("coop: camera2: P2 ... centre third") once the turn is done.
+mark start
+wait 420
+mark alive
+gate 1
+life 0
+mark downed
+wait 600
+mark end

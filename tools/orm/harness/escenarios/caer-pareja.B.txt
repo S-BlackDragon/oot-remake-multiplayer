@@ -1,0 +1,21 @@
+# caer-pareja, B: walks 1 m to the +z side of A's start, faces A, waits until A is down (A dies
+# 2 s in), then holds A for 4 s beside A's body (1.5 m reach, 3 s needed). Expect in B's log:
+# "coop: downed: P1 is down (PLAYER_STATUS dead)", "holding A beside P1", "A held 3.0 s beside
+# P1: revive request", "REVIVE sent to P1", later "P1 is up again", and A's puppet getting up
+# (DamageLStand, then standing anims).
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect B coop: downed: P\d is down \(PLAYER_STATUS dead\)
+#! expect B REVIVE sent to P\d within beside..end
+#! expect B coop: downed: P\d is up again
+mark start
+wait 60
+# Round 7 (sondas22r7, A joining second): A fell at -82.31 32.99 (0.7 m off its usual 33.65) and B, at 34.52,
+# was 1.58 m from it, past the 1.5 m reach: B walks to 0.5 m of the usual spot (1.2 m from where A fell).
+goto -82.0 34.15 0.3 600
+toward -82.0 33.65 8
+wait 240
+mark beside
+hold A 240
+mark held
+wait 900
+mark end

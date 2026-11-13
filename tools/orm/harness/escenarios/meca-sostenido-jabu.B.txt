@@ -1,0 +1,35 @@
+# meca-sostenido-jabu (ORM, docs/SOSTENIDOS.md, PLAN_100 F3/E13), B: Jabu-Jabu, sala 17: el interruptor de la piedra.
+# A stands on the switch (place) and stays 15 s, then steps 2.5 m off; B stands 2.5 m on the other side
+# and watches: while A is on it, B's switch must be pressed (B's log, B's capture at 'held': the door open
+# in B too); when A steps off, let go in B (capture at 'released'). A's probe lines give the word lines
+# to put in LICHII_COOP_HELD_SWITCH_LIST (docs/SOSTENIDOS.md, 'Hallar las palabras').
+# Mutant: the same run with LICHII_COOP_HELD_SWITCHES=log: B says 'would be pressed' and the expect line on
+# 'pressed here' turns red.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_HELD_SWITCHES=1,LICHII_COOP_HELD_SWITCH_PROBE=1,LICHII_COOP_GIMMICK_PROBE=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,LICHII_ORM_FLAG_PROBE=1
+#! timeout 420
+mark start
+warp InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark in
+wait 600                # the other game lands too: puppets made
+place 6.010 102.562 -51.438   # beside the switch, not on it
+mark on
+wait 120
+mark held
+wait 900
+mark off
+wait 120
+mark released
+wait 600
+mark end

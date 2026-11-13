@@ -1,0 +1,42 @@
+# cartera-cada-uno (B): each player's own wallet, everyone's rupees on screen (player request, 2026-11-11
+# docs/INVENTARIO.md, "Cartera de cada uno"). B lands where A does, sets its own wallet to 43 and watches: its log
+# shows A's 87 and then A's 25 (was 87) as A's wallet, never as its own; its own stays 43. The screenshot at
+# B's `list` mark shows the panel's wallet list with A's 25 and B's 43.
+# Mutant: as in cartera-cada-uno.A.txt (ZMP's common wallet back in shared_items.txt turns the never lines red).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_HUD=1,LICHII_COOP_PANEL=1,LICHII_ORM_ITEM_RULES=shared_items.txt
+#! timeout 600
+#! expect B coop: items: rules from .*shared_items\.txt: 0 changed, 0 as built, 0 caps, 1 fills within boot..
+#! expect B coop: test int PlayerStatus\.CurrentRupee \(0x[0-9a-f]+\) = 43: queued
+#! expect B coop: wallet: P\d '[^']*' \(you\) has 43 rupees within b-43..end
+#! expect B coop: wallet: P\d '[^']*' has 87 rupees within b-43..end
+#! expect B coop: wallet: P\d '[^']*' has 25 rupees \(was 87\) within b-43..end
+#! never B coop: wallet: P\d '[^']*' \(you\) has 87 rupees
+#! never B coop: wallet: P\d '[^']*' \(you\) has 25 rupees
+# RIESGOS_RESUELTOS.md "Mundo e historia" (orm/riesgos-mundo, coop/host/wallets.hpp wallet_shown): the HUD list
+# shows our own count from our game and the other's from their PLAYER_EQUIP; never "no rupees" from the room server
+# (the C++ orm_server keeps component 29). Mutant: a room server that drops component 29 turns the never line red.
+#! expect B coop: wallet: HUD: P\d '[^']*' \(you\) from our game's PlayerStatus\.CurrentRupee within after..end
+#! expect B coop: wallet: HUD: P\d '[^']*' from their PLAYER_EQUIP within boot..
+#! never B coop: wallet: HUD: P\d '[^']*' their PLAYER_EQUIP carries no rupees
+mark start
+warp Market_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+mark b-43
+int PlayerStatus.CurrentRupee 43   # B's own wallet, before A changes its own
+wait 1500               # A sets 87, then 25
+mark list               # the screenshot: both wallets in the panel
+wait 600
+mark end

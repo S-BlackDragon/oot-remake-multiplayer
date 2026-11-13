@@ -1,0 +1,36 @@
+# epona-montar (ORM D-R19, docs/EPONA.md), A: rides Epona; B sees A get on, ride and get off, on a horse of ours
+# that looks like Epona (CoopPuppet_Horse: run make-puppet-pack with this tool first, on both PCs).
+# Needs A's save adult, with Epona (Step_Get_Epona Complete), standing by her in Hyrule Field or at Lon Lon,
+# facing her, and B in the same place (daurosk's `epona` precondition; PLAN_100 section 9): run with -NoLoad
+# after loading those saves by hand. A gets on (A), rides forward 3 s, stops, gets off (A by her side). With
+# LICHII_COOP_DEBUG_HORSE=1 A's log says where A sits in Epona's frame (the 'saddle:' line): its x,y,z is the
+# LICHII_COOP_HORSE_SADDLE for the next run. Shots at mounting (B: A climbing onto a saddled Epona), riding (A in
+# the saddle, horse neither floating nor sunk) and off (A on foot beside a standing Epona). Run with --transport ws
+# --capture-marks --env LICHII_COOP_PUPPET=1 --env LICHII_COOP_DEBUG_HORSE=1 --env LICHII_COOP_DEBUG_ANIM=1 (the
+# horses are on by default). Mutant: --env LICHII_COOP_HORSE=0: B's 'gets on', 'rides' and 'spawned' lines go red
+# and 'hide (riding)' comes back.
+#! noload
+#! start coop: test script started
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_HORSE=1,LICHII_COOP_DEBUG_ANIM=1
+#! expect A coop: epona: saddle: our Link sits at
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect A coop: check: saddle ok \([-0-9.]+, [-0-9.]+, [-0-9.]+\), the median of \d+ still readings on our own Animal_\w+
+#! never A coop: check: saddle fallback
+mark start
+wait 60
+press A                 # get on
+wait 30
+mark mounting
+wait 150
+mark mounted
+stick 0 0.8 180         # ride forward
+mark riding
+wait 120                # still in the saddle: the saddle probe reads
+mark still
+wait 60
+press A                 # get off
+wait 180
+mark off
+wait 300
+mark end

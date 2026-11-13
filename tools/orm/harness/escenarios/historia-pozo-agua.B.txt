@@ -1,0 +1,28 @@
+# historia-pozo-agua, B: lands where A does and stands; it never plays A's event (no STORY_EVENT for it) but
+# ends with its world: the two Bools 0 -> 1 from A's game, room 01 drained in B's capture at 'end'.
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_STORY=1,LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1
+#! timeout 600
+#! expect B coop: flags debug: bool 0x7a8ac442 \(entry \d+\) 0 -> 1 within watching..end
+#! expect B coop: flags debug: bool 0x82ae3628 \(entry \d+\) 0 -> 1 within watching..end
+#! never B coop: event running 'BottomOfTheWell_Level_Room_01_Ocarina'
+#! never B coop: story: STORY_EVENT start received from P\d \('BottomOfTheWell_Level_Room_01_Ocarina'
+mark start
+warp BottomOfTheWell Well_KakarikoSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+mark watching
+wait 5400               # A plays it about 20 s after this mark
+mark end

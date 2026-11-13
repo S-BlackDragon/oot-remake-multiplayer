@@ -1,0 +1,74 @@
+# charla-mido (ORM D-R12, shared talk flags, docs/BANDERAS_CHARLA.md "Decisión de qué se comparte"): A gets the
+# Kokiri Sword and the Deku Shield (test give), is put 4 m west of Mido (village side; Mido stands at 25.50 111.66
+# 0.84, objects log of 2026-11-10) and talks to him; B watches from about 11 m (charla-mido.B.txt). Mido letting
+# A pass sets KokiriForest_Npc_Kokiri_Mido_Child_Blocker (0x502f6cea) to 0, a shared talk flag: in A it changes at
+# once; in B it waits while B's own Mido is in view and is written when Mido becomes a copy A moves (A's talk claims
+# him, patch 0011), when B walks 25 m away, or after 120 s.
+# Run both games with an emulator built from orm/charla, LICHII_COOP_TALK=<kit>/shared_talk.txt (the file in
+# tools/release/kit/), LICHII_COOP_NPC=1 and LICHII_COOP_CHEATS=1:
+#   python -I tools/orm/harness/r03_pareja.py --scenario charla-mido --scen-dir tools/orm/harness/escenarios
+#     --env LICHII_COOP_TALK=tools/release/kit/shared_talk.txt --env LICHII_COOP_NPC=1
+#     --env LICHII_COOP_CHEATS=1 --timeout 480
+# Not run yet (2026-11-11): the place height and whether the remake's Mido checks the equipped sword and shield are
+# unknown. If the talk does not lower the flag, the "fallback" step writes it through the game's queue (test only, as
+# the game's setter does): A's "1 -> 0" line then comes after "mark fallback" instead of before it, and the sharing
+# and the wait in B are checked all the same. Captures: --capture-marks (at-mido, talking, talked).
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: test give IsGet\.Weapon_Sword_Kokiri
+#! expect A coop: test give IsGet\.Weapon_Shield_Deku
+#! expect A coop: test place
+#! expect A coop: npc: talking to Npc_Kokiri_Mido_Child
+#! expect A coop: talk: 0x502f6cea KokiriForest_Npc_Kokiri_Mido_Child_Blocker 1 -> 0
+# F12 (2026-11-11, docs/CHARLAS.md): the talk claim and the OBJECT_POSE of Mido (orm/npc-dos, LICHII_COOP_NPC_POSE=1),
+# and no puppet hiding. The switches line is what run.ps1 adds (r03_pareja: the same as --env). Plain lines
+# (no A/B, no `within`): r03_pareja reads them today.
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! expect A coop: npc: talking to Npc_Kokiri_Mido_Child 0x[0-9a-f]+ \((ours|owner P\d, claimed)\)
+#! expect A coop: npc pose: sending Npc_Kokiri_Mido_Child 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\)
+#! expect A coop: npc: talk over, claim let go
+#! never A coop: npc: Npc_Kokiri_Mido_Child 0x[0-9a-f]+ talks with its owner P\d
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+# 2026-11-12 (sondas8): B starts up to two minutes after us: wait for it in our scene, then its place.
+await mate
+wait 300
+give IsGet.Weapon_Sword_Kokiri
+give PouchData.Weapon_Sword_Kokiri.StockNum
+give IsGet.Weapon_Shield_Deku
+give PouchData.Weapon_Shield_Deku.StockNum
+wait 60
+# sondas8: the cheats do not know the Deku Shield ('NOT given (unknown item flag)'): set as the save holds it.
+flag IsGet.Weapon_Shield_Deku 1
+int PouchData.Weapon_Shield_Deku.StockNum 1
+# Round 5: Mido's talk (Npc_Kokiri_Mido_Child/Talk, read from the romfs) asks whether the sword (slot 0) and the
+# shield (slot 4) are worn (EventQueryCheckIsEquippedDynamicEquipment), then runs up to six talks, his blocker AI's
+# end and the Meet_DekuTree step: the shield worn too.
+wear shield Weapon_Shield_Deku
+place 21.5 111.7 1.5          # 4 m west of Mido, on the village side of his air wall
+wait 90
+# sondas8: from 4 m the press started no talk (talkthrough: 'no event after 3.0 s'): charla-dos talks from 1.5 m,
+# walked up to (a teleport leaves the action prompt unset until Link moves).
+goto 24.0 0.84 0.4 300        # 1.5 m from him
+toward 25.5 0.84 8            # face him
+wait 20
+wait 20
+mark at-mido
+press A 12                    # talk
+wait 90
+# sondas13: Mido is a blocker (his AI steps into Link's way): the goto ended 1.1 m short and off to the side, and
+# the press started nothing. A second try a step closer: inside his talk the stick does nothing and the press
+# only turns a page.
+toward 25.5 0.84 8
+stick 0 0.5 20
+press A 12
+wait 90
+mark talking
+# A Kokiri's talk runs to many pages (charla-dos, round 3): A pressed while our event runs, to its end.
+# sondas9: 39 presses in 30 s did not reach its end (the event ran on after the script): 90 s now.
+talkthrough 5400
+mark talked
+wait 300                      # B's lines for the flag
+mark fallback
+flag KokiriForest_Npc_Kokiri_Mido_Child_Blocker 0
+wait 600                      # B walks away and its wait runs out
+mark end

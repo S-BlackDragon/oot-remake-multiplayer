@@ -1,0 +1,31 @@
+# jefe-volvagia-tarde (): A in the boss room of FireTemple, through the intro into the
+# fight; B loads the save 40 s after A straight into the room;
+# B's own intro, if its game plays one, is skipped to follow A's (or none: the fight has begun).
+# A keeps fighting: no 'boss beaten' anywhere.
+# Run with --transport ws --env LICHII_COOP_DEBUG_BOSS=1 --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja):
+#! expect A coop: boss: in the boss room of FireTemple: Enemy_DungeonBoss_Volvagia
+#! expect A coop: boss: intro ended
+#! never A coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 13-fuego
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp FireTemple StartPos_SageOfFire
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro and into the fight
+mark fight
+wait 4800               # B comes 40 s late
+mark end

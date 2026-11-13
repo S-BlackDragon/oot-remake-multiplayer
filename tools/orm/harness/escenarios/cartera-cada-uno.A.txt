@@ -1,0 +1,54 @@
+# cartera-cada-uno (A): each player's own wallet, everyone's rupees on screen (player request, 2026-11-11
+# docs/INVENTARIO.md, "Cartera de cada uno"; docs/TIPOS_MENSAJE.md, PLAYER_EQUIP component 29). Both land in the
+# Market as children with the kit's item list (shared_items.txt: rupees per player) and the in-game HUD with its
+# panel shown. A sets its wallet to 87, later spends down to 25; B sets its own to 43 (cartera-cada-uno.B.txt).
+# Each game logs every wallet it knows ("coop: wallet: P1 'Ana' (you) has 87 rupees"): A sees B's 43 and keeps its
+# own 87 / 25; B's 43 never lands in A's wallet. The screenshots at A's marks show the panel's wallet list (name in
+# the player's colour, a green rupee, the count) under the panel lines (docs/VISUAL_CHECKLIST.md).
+# Needs the hook from orm/cartera and shared_items.txt next to the emulator, as the kit puts it.
+# Mutant: the same run with a list holding ZMP's common wallet ("count PlayerStatus.CurrentRupee" and its cap line
+# back in shared_items.txt) turns the `never` lines red (B's 43 becomes a change of A's wallet).
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario cartera-cada-uno --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks. Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_HUD=1,LICHII_COOP_PANEL=1,LICHII_ORM_ITEM_RULES=shared_items.txt
+#! timeout 600
+#! expect A coop: items: rules from .*shared_items\.txt: 0 changed, 0 as built, 0 caps, 1 fills within boot..
+#! expect A coop: test int PlayerStatus\.CurrentRupee \(0x[0-9a-f]+\) = 87: queued
+#! expect A coop: wallet: P\d '[^']*' \(you\) has 87 rupees within a-87..a-25
+#! expect A coop: wallet: P\d '[^']*' has 43 rupees within after..end
+#! expect A coop: test int PlayerStatus\.CurrentRupee \(0x[0-9a-f]+\) = 25: queued
+#! expect A coop: wallet: P\d '[^']*' \(you\) has 25 rupees \(was 87\) within a-25..end
+#! never A coop: wallet: P\d '[^']*' \(you\) has 43 rupees
+#! never A coop: wallet: P\d '[^']*' \(you\) has \d+ rupees \(was 43\)
+# RIESGOS_RESUELTOS.md "Mundo e historia" (orm/riesgos-mundo, coop/host/wallets.hpp wallet_shown): the HUD list
+# shows our own count from our game and the other's from their PLAYER_EQUIP; never "no rupees" from the room server
+# (the C++ orm_server keeps component 29). Mutant: a room server that drops component 29 turns the never line red.
+#! expect A coop: wallet: HUD: P\d '[^']*' \(you\) from our game's PlayerStatus\.CurrentRupee within after..end
+#! expect A coop: wallet: HUD: P\d '[^']*' from their PLAYER_EQUIP within after..end
+#! never A coop: wallet: HUD: P\d '[^']*' their PLAYER_EQUIP carries no rupees
+mark start
+warp Market_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+await mate               # B lands up to two minutes later (cold harness) or 20 s (hot instances)
+wait 900                 # B reaches its own marks about 10 s after it lands
+mark a-87
+int PlayerStatus.CurrentRupee 87
+wait 600                # B's log sees A's 87
+mark a-25
+int PlayerStatus.CurrentRupee 25   # a purchase: only A's wallet goes down
+wait 600
+mark list               # the screenshot: both wallets in the panel
+wait 300
+mark end

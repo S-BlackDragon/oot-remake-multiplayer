@@ -1,0 +1,42 @@
+# puertas-enredadera (A), ORM doors and passages (docs/PUERTAS.md, 'Escaleras y enredaderas'): both
+# CHILD in the Deku Tree's first room. The vine on the wall north of the entrance (Land_IvyClimbable_A_01/_03 at
+# -2.43 101..107 -7.48, Banc InsideTheDekuTree_Dynamic). Once B is in, A climbs it to the top; B watches from 6 m
+# (puertas-enredadera.B.txt). PUERTAS.md says nothing new is needed (the pose copy carries the whole body): this
+# checks it. In B's game A's puppet must climb on the vine, hand over hand, not slide up standing or float off the
+# wall; the door mirror must not take a climb for a door.
+# Run (emulator built from orm/puertas), from the repo root:
+#   python -I tools/orm/harness/r03_pareja.py --scenario puertas-enredadera --scen-dir tools/orm/harness/escenarios
+#     --transport ws --capture-marks --timeout 600
+# The stick's 'up' is camera-relative: after 'toward' the camera is behind Link, so up pushes into the vine. The
+# climbing AS names are not known yet (the regexes take Climb, Ivy or Ladder). Not run yet (2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 02-deku
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_COOP_DEBUG_DOORS=1
+#! timeout 600
+#! expect A coop: you play '[^']*(Climb|Ivy|Ladder)[^']*' within climbing..end
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 9000               # B starts 60 s after our warp and lands about 60 s after that
+place -2.35 101.20 -6.40   # 1.1 m south of the vine's foot
+wait 120
+toward -2.43 -7.48 20   # walk into it: Link grabs the vine
+mark climbing
+stick 0 1 240           # up the vine
+mark half
+stick 0 1 240
+mark top
+stick 0 1 120           # over the top
+wait 600
+mark end

@@ -1,0 +1,27 @@
+# jefe-twinrova-tarde, B: waits 40 s at the title, then loads into the entrance.
+#! expect B coop: boss: another player is in the boss room of SpiritTemple: moving in \(try \d\) within late..end
+#! expect B coop: boss: in the boss room of SpiritTemple: Enemy_DungeonBoss_Twinrova within late..end
+#! expect B coop: boss: (another player's intro is over: skipping ours|no intro: the fight has begun here|intro ended) within late..end
+#! never B coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 19-espiritu-adulto
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp SpiritTemple SpiritTemple_Entrance adult
+wait 1200               # the title screen
+mark title
+wait 2400               # 40 s late
+mark late
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+wait 1800
+mark end

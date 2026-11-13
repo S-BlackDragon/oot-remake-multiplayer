@@ -1,0 +1,49 @@
+# meca-limpia-dodongo (A): Dodongo's Cavern: the two Lizalfos beaten open room 16 for everyone, the room's counter too (F9)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room 16: DodongoCavern_Lizalfos_C_Dead / _D_Dead and the shutter Gimmick_DefeatEnemy_Open_DodongoCave_02
+# (daurosk's softlock audit), plus the room's enemy counter Obj_EnemyCounter_A_09 0ee46075ae271ed6 (a one-time
+# key, set by A:LICHII_COOP_SET_KEY64 100 s after the game is up; both watch it with LICHII_COOP_DEBUG_KEY64).
+# A sets the flags as the kills would. B walks in later at room 16's door (Obj_DodongoCave_SwitchShutter_A_01
+# 24b4e7f12fdc85b9, 95.95 116.41 -23.49): open, no Lizalfos for B. ZMP 9: the Lizalfos' appear events stay
+# each game's. Mutant: LICHII_COOP_DUNGEON=0 (the bool lines and the key line red).
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x0ee46075ae271ed6,LICHII_COOP_SET_KEY64=0ee46075ae271ed6,LICHII_COOP_SET_AFTER=100 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag DodongoCavern_Lizalfos_C_Dead \(0x8d6783cd\) = 1: queued
+#! expect A coop: test flag DodongoCavern_Lizalfos_D_Dead \(0x317d56a8\) = 1: queued
+#! expect A coop: test flag Gimmick_DefeatEnemy_Open_DodongoCave_02 \(0xccf631b5\) = 1: queued
+#! expect A coop: flags debug: set_key64\(0xee46075ae271ed6, 1\) queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x0ee46075ae271ed6,A:LICHII_COOP_SET_KEY64=0ee46075ae271ed6,A:LICHII_COOP_SET_AFTER=100
+#! timeout 420
+mark start
+warp DodongoCavern EntrancePos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag DodongoCavern_Lizalfos_C_Dead 1
+wait 120
+flag DodongoCavern_Lizalfos_D_Dead 1
+wait 120
+flag Gimmick_DefeatEnemy_Open_DodongoCave_02 1
+wait 120
+mark flag
+wait 3600
+place 95.95 116.9 -23.49       # A at the same door, for its own capture
+wait 240
+toward 110.0 -15.59 20
+press ZL 10
+mark abierta
+wait 900
+mark end

@@ -1,0 +1,73 @@
+# peligro-agua (ORM, docs/PELIGROS.md sections 0, 3 and 6), A: both ADULT at the Water Temple's entrance
+# (15-agua: the Zora Tunic is owned, not worn: 'equip armor -' in the recipe). B (the later game) stands 20 s,
+# dives (A while swimming) and its life goes to 0 under water (peligro-agua.B.txt). Rule Peligros-2: a Link down
+# under water is shown to the others at his last firm ground and revived there. A stands 0.8 m from the start and
+# holds A over and over through the window where B goes down.
+# Unknown until it runs: whether WaterTemple_FromLakeHylia (-4.5 118.6 43.61) lands on a floor or in the water at
+# this save's water level. On a floor: B's reach line and A's revive are the test. In the water from the start: no
+# firm ground in this scene, B's real place is sent ('no firm ground known near'), A cannot reach it under water,
+# and A's REVIVE line is red: a finding for PELIGROS.md (punto 3), not a harness fault.
+# Mutant: the same run with LICHII_COOP_HAZARDS=0: B's real place is sent, A never reaches it.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario peligro-agua --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (needs the hook from orm/peligros). Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within holding..end
+#! expect A coop: downed: REVIVE sent to P\d within holding..end
+#! never A coop: downed: REVIVE sent to P\d \(NOT sent\)
+#! never A coop: downed: alive -> downed
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+place -3.70 118.70 43.40   # 0.8 m from the start, where B lands
+wait 120
+toward -4.50 43.61 8    # face the start
+wait 6000               # B lands about 120 s after us and goes down 20 s later
+mark holding
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+wait 30
+hold A 330
+mark held
+wait 900
+mark end

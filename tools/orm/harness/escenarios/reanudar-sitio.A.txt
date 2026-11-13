@@ -1,0 +1,42 @@
+# reanudar-sitio (ORM, docs/PARTIDA_SALA.md "Volver a tu sitio"), A: the player whose last place was in
+# a boss room. Both games load into Kokiri Forest (the room's save, here a warp) and each has a last place of its own
+# handed as the app does (LICHII_ORM_RESUME_PLACE, one line per name: A in Gohma's room, B on the slingshot ledge of
+# the Deku Tree, reanudar-sitio.B.txt). A's place is in a boss room: A goes to the Deku Tree's entrance and stays
+# there (no move into the room; with no fight running, nobody pulls him in).
+# Shots (A): back (A at the Deku Tree's entrance, not in Gohma's room), end.
+# Run (from , PowerShell; ORM_BUILD_BIN = a build with the branch orm/reanudar):
+#   python tools/harness/r03_pareja.py --scenario reanudar-sitio --transport ws --capture-marks --timeout 600
+#     --env LICHII_COOP_PUPPET=1 --env "LICHII_ORM_RESUME_PLACE=v1;pareja;A;InsideTheDekuTree;6.70;47.00;67.60;child;ok;1800000000|v1;pareja;B;InsideTheDekuTree;-51.50;112.60;15.00;child;ok;1800000000"
+# Mutant: the same run with --env LICHII_ORM_RESUME=0 turns every expect red (nobody goes back; both stay in Kokiri).
+# Not run yet (written 2026-11-12, no game that day).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_RESUME_PLACE=v1;pareja;A;InsideTheDekuTree;6.70;47.00;67.60;child;ok;1800000000|v1;pareja;B;InsideTheDekuTree;-51.50;112.60;15.00;child;ok;1800000000
+#! timeout 600
+#! expect A coop: resume: on: the last place of 'A' in room \S+: InsideTheDekuTree at 6\.7 47\.0 67\.6 \(ok, given by the app\)
+#! expect A coop: resume: the last place \(InsideTheDekuTree at 6\.70 47\.00 67\.60\) is not a place to go back to \(it is in a boss room\): going to the entrance of InsideTheDekuTree \(Entrance\) within title..end
+#! expect A coop: resume: scene change to InsideTheDekuTree at Entrance within title..end
+#! expect A coop: teleport: asked the scene change to InsideTheDekuTree at Entrance: scene set within title..end
+#! expect A coop: resume: at the entrance of InsideTheDekuTree \(the last place was a boss room or a cutscene\) within title..end
+#! expect A coop: resume: keeping our last place in within title..end
+#! count A coop: resume: (going|the last place .*going) == 1 within title..end
+#! never A coop: teleport: move to 6\.7
+#! never A coop: teleport: stopped
+#! never A coop: resume: .*(never stood still|not now|could not be written)
+mark start
+warp KokiriForest_Child FrontDekuTree
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 1800               # 3 s standing, the scene change, its load, 1.5 s to settle (about 25 s)
+mark back
+wait 600
+mark end

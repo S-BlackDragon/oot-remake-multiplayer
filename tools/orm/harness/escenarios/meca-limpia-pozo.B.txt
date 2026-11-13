@@ -1,0 +1,32 @@
+# meca-limpia-pozo (ORM, docs/MECANISMOS_ADULTO.md, family F9, Pozo de Kakariko (de nino)), B: lands where A does, enters the room after A; A's marks at the same times; the checks are in A's file.
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 236
+mark start
+warp BottomOfTheWell Well_KakarikoSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark limpia
+wait 300
+mark limpia2
+wait 300
+mark contador
+wait 300
+mark sensor
+wait 300
+mark tarde
+wait 600              # B's key table already holds A's work: a reload shows it
+wait 300
+mark end

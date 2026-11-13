@@ -1,0 +1,27 @@
+# meca-agua-nado (B): put in the central water, then no input: Link swims in place while A lowers the level.
+# Run with --transport ws; run.ps1 reads #! switches. Doc: docs/AGUA.md (PLAN_100 F6/E13).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_WATER=1,LICHII_COOP_GIMMICK_PROBE=1
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+wait 300
+mark put
+place 12.2 101.0 -3.8
+wait 600
+mark low
+wait 3000
+mark end

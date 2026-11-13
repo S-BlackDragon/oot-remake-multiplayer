@@ -1,0 +1,43 @@
+# puertas-casa (A), ORM doors and passages (docs/PUERTAS.md): Kakariko (child), the house door
+# Obj_Kakariko_Door_A_01 at -52.6 97.9 34.5 (KakarikoVillage_Child_Static). A stands 1.5 m in front of it, opens it
+# with A and walks through; B watches from 5 m (puertas-casa.B.txt). In B's game the same door must swing open for
+# A's puppet (our door's own Push_L/R_ByPlayer) and close behind it.
+# Run (emulator built from orm/puertas), from the repo root:
+#   python -I tools/orm/harness/r03_pareja.py --scenario puertas-casa --scen-dir tools/orm/harness/escenarios
+#     --transport ws --env LICHII_COOP_DEBUG_DOORS=1 --capture-marks --timeout 420
+# Not run yet (written 2026-11-11, no game that day). The side of the door A stands on is a guess from the Banc: if
+# the shot 'front' shows A inside the house, the door opens from inside, which the mirror takes the same way.
+#! noload
+#! start coop: test warp done
+#! saves 06-kakariko
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_DOORS=1
+#! timeout 420
+#! never A coop: doors: P\d 'DoorPushOpen\w*': Obj_Kakariko_Door_A_01 opens here
+#! never A coop: doors: .* not played
+mark start
+warp KakarikoVillage_Child Kakariko_GraveYardSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 7800               # B starts 60 s after our warp and lands about 50 s after that: wait for it
+place -52.6 98.0 36.0   # 1.5 m in front of the door
+wait 120
+toward -52.6 34.5 8     # face it
+wait 30
+mark front
+press A                 # open it
+wait 20
+mark push
+stick 0 1 90            # through
+wait 240
+mark through
+wait 300
+mark end

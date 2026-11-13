@@ -1,0 +1,86 @@
+# jefe-ganondorf-tenis, B: in the same room, nearer the boss than A and hitting it, so the hand-over rules
+# would take it; whichever game owns the boss when a ball flies logs the volley (both are checked
+# by reading the two logs: 'tennis: ... in flight' and then 'volley is over', with no owner change
+# between them).
+#! saves 20-ganon
+#! expect B coop: boss: in the boss room of InsideGanonCastle
+#! never B coop: check: tennis fallback
+#! never B coop: boss: boss beaten
+mark start
+warp InsideGanonCastle StartPos_Defeat_Ganon adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark b-in
+wait 2400
+mark volley
+goto 0.1 -20.0 0.5 600   # nearer Ganondorf than A
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+press B
+wait 70
+mark volley-end
+mark end

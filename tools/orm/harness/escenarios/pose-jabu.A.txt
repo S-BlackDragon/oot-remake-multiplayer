@@ -1,0 +1,47 @@
+# pose-jabu (ORM, PLAN_100 box M of block 10, Jabu-Jabu), A: both CHILD where the test warp lands (InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain).
+# The pattern of daurosk's pose with the test warp (PLAN_100 section 1, box M): once B is in, A walks, dashes,
+# turns, rolls and swings the sword while B stands still and watches; A's own puppet of B never hides. B's
+# captures at A's marks show the puppet with A's pose (walk, run, roll, attack), Navi beside it, standing on
+# the floor (not floating, not sunk), at the place A's capture shows.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario pose-jabu --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 10-jabu
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect A coop: puppet: P\d: create CoopPuppet_Child
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+#! count A coop: test mark (walk|run|back|roll|attack) >= 5
+mark start
+warp InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 70 s after that: wait for it
+mark walk
+stick 0 0.4 90          # walk forward slowly
+stick 0 0.4 40
+mark run
+hold LSTICK_UP+A 45     # dash (A held: the game's Basic Controls page)
+mark back
+stick 0 -1 30           # turn and come back
+mark roll
+stick 0 -1 10 A         # roll
+wait 12
+wait 40
+mark attack
+press Y 8               # sword swing
+wait 16
+mark still
+wait 600
+mark end

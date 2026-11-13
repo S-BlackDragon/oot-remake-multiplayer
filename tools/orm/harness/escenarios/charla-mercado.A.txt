@@ -1,0 +1,77 @@
+# charla-mercado (A), ORM F12 charlas (PLAN_100.md box P of block 4, Ciudadela (Mercado); docs/CHARLAS.md): A talks
+# to Npc_Hylia_066_Child (at -5.01 100.09 34.55); B watches.
+# A's talk claims the NPC (patch 0011, LICHII_COOP_NPC=1) and sends its bones as OBJECT_POSE while it lasts
+# (LICHII_COOP_NPC_POSE=1); the talk flags of shared_talk.txt it changes reach B without the NPC jumping there.
+# Precondition: a child save by day (the market's neighbours; Npc_Hylia_066_Child stands 31 m in from the drawbridge).
+# Run (emulator from orm/test8 + a patch file + a patch file):
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario charla-mercado --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 04-mercado
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: npc: talking to Npc_Hylia_066_Child\w* 0x[0-9a-f]+ \((ours|owner P\d, claimed)\) within talk..talked
+#! expect A coop: npc pose: sending Npc_Hylia_066_Child\w* 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\) within talk..talked
+#! expect A coop: npc: talk over, claim let go within talk..end
+#! never A coop: npc: Npc_Hylia_066_Child\w* 0x[0-9a-f]+ talks with its owner P\d
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp Market_Child Market_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 70 s after that: wait for it
+place -5.01 100.39 37.05     # 2.5 m from Npc_Hylia_066_Child
+wait 90
+toward -5.01 34.55 8          # face it
+wait 30
+mark at-npc
+wait 20
+mark talk
+press A 12              # talk
+wait 180
+mark talking
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press B 12              # close what is left (a question)
+wait 60
+press B 12
+wait 120
+stick 0 -1 30           # a step back: no second talk
+wait 60
+mark talked
+wait 600
+mark end

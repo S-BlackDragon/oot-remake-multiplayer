@@ -1,0 +1,37 @@
+# ancho-seis (ORM, docs/ANCHO_DE_BANDA.md, 'Lo hecho' 1, D-R69), A: six players, one game and five bots
+# (ancho-seis.bots.txt) in the Kokiri Forest (01-kokiri). A stands; the bots move round it, 45 s a phase: 3 m from
+# A, 25 m, 60 m, all in another scene, and back to 3 m. Rule (S-BlackDragon, D-R69: the native movement, no rate by
+# distance): with anyone in our place, at any distance, A's pose goes at the native 30 a second; with nobody, no
+# pose. So A's log has exactly two 'here' lines (when the bots are first known, and when they come back) and at
+# least one 'alone' (the other scene; one more at the start if A is in before the bots): no line at 25 or 60 m.
+# The bots' marks are in the bots' log; A's lines are counted over the whole run (A's script and the bots' do not
+# share a clock). By hand: in A's captures (--capture-marks) the five puppets keep moving smoothly at 60 m.
+# Run (hook and orm_server from orm/ancho, 1cca939 or later):
+#   python -I tools/orm/harness/r03_pareja.py --scenario ancho-seis --scen-dir tools/orm/harness/escenarios
+#   --capture-marks --server-arg=--log-stats-every-ms --server-arg=30000 (the relay's counters in the server log)
+# Mutant: the same run with LICHII_COOP_INTEREST=0: poses always on, and the 'alone' line turns red.
+# Not run yet (written 2026-11-11).
+#! players 1
+#! bots 5
+#! transport ws
+#! bot-arg -real -look auto
+#! saves 01-kokiri
+#! switches LICHII_COOP_PUPPET=1
+#! timeout 600
+#! count A coop: player \d+ 'bot\d' joined >= 5 within boot..
+#! count A coop: interest: here \((nearest \d+ m|nearest not known)\), poses every 33 ms == 2
+#! count A coop: interest: alone \(nearest not known\), poses off >= 1
+#! never A coop: server refused
+mark start
+wait 1800
+mark near
+wait 2700
+mark mid
+wait 2700
+mark far
+wait 2700
+mark alone
+wait 2700
+mark back
+wait 2700
+mark end

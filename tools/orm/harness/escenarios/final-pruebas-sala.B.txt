@@ -1,0 +1,73 @@
+# final-pruebas-sala, B: put 4 m from A in the same room before A asks; plays the same cutscene.
+#! expect B coop: story: STORY_EVENT start received from P\d \('InsideGanonCastle_Dungeon_BarrierRemove_Forest' in InsideGanonCastle\): starting within placed..end
+#! expect B coop: story: event running 'InsideGanonCastle_Dungeon_BarrierRemove_Forest' as P\d asked within placed..end
+#! expect B coop: story: STORY_EVENT start received from P\d \('InsideGanonCastle_Dungeon_BarrierRemove_Forest' in InsideGanonCastle\): starting \(near: [\d.]+ m from (where it started|P\d now)[^)]*\)?, near=30\) within placed..end
+#! expect B coop: test place .*: done
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_STORY=1,LICHII_COOP_DEBUG_FLAGS=1
+#! timeout 300
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600
+place -90.3 100.5 -21.0
+mark placed
+wait 120
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 600
+mark end

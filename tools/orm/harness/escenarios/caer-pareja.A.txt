@@ -1,0 +1,21 @@
+# caer-pareja (ORM "downed, not dead", P3, docs/CAIDO_REVIVIR.md), A: Link's life to 0 by the
+# Kokiri start (about -82 122 33.65) and nothing else: no gate or bottle commands, the hook's
+# downed state machine does it all. Expect in A's log: "coop: downed: alive -> downed", the dead
+# bit on, "REVIVE from P2", "downed -> reviving: revive requested by P2", a fairy written into a
+# bottle not owned (IsValid and StockNum kept out of sharing), "gate open", the game over event
+# running, then "reviving -> alive: revived (by P2 ...)", the bottle put back, the gate shut, the
+# dead bit off; no game over screen (no press needed) and no scene reload.
+# Run with --transport ws --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_ANIM=1.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: downed: alive -> downed within downed..end
+#! expect A downed -> reviving: revive requested by P\d
+#! expect A reviving -> alive: revived \(by P\d
+#! expect A coop: downed: gate shut
+#! never A -> game_over
+mark start
+wait 120
+life 0
+mark downed
+wait 1500
+mark end

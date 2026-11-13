@@ -1,0 +1,48 @@
+# mapa-flecha (ORM, docs/MAPA_COMPANEROS.md, 'Qué ve el jugador' 1 and 3), A: the watcher; both CHILD in Kokiri
+# (01-kokiri, the Lost Woods start at -32.27 121.07 -65.77). A stands and looks; B moves (mapa-flecha.B.txt), each
+# phase 60 s long because B's landing is known only to about 30 s (A's marks fall in the middle of each):
+#   near    B 2 m in front of A: his name tag, no arrow;
+#   far     B 82 m off (the ReturnFromDreamWorld start, -46.55 118.46 15.35), in view: a dot and 'B 82 m';
+#   behind  A turned round, B behind the camera: an arrow at the bottom edge, to B's side, in his colour, 'B 82 m';
+#   away    B in the Deku Tree: no arrow, the line 'B: en Gran Árbol Deku' at the bottom left.
+# All of it is drawn by the in-game HUD and nothing in the log says it: the test is the captures at those marks
+# (--capture-marks shows and shoots A's window). No LICHII_COOP_MAP_FILE: no map dots (mapa-piso does those).
+# Run (hook from orm/mapa):
+#   python -I tools/orm/harness/r03_pareja.py --scenario mapa-flecha --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks. Mutant: LICHII_COOP_MAP=0: no arrow, dot or line in any capture, and A's map line
+#   red. Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 01-kokiri
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_HUD=1,LICHII_COOP_MAP=1
+#! timeout 600
+#! expect A coop: map: no LICHII_COOP_MAP_FILE, no dots on the game's maps within boot..
+#! expect A coop: puppet: P\d CoopPuppet_\w+ spawned within a-in..end
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect A coop: check: map mini \S+ fallback no minimap view or box in the map table
+mark start
+warp KokiriForest_Child KokiriForest_FrontOfLostWood
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+toward -46.55 15.35 8   # face where B will stand far off
+wait 9300               # B lands about 120 s after us; its near phase is the minute after it lands
+mark near
+wait 3000
+mark far                # B 82 m off, in view
+wait 600
+toward -18.00 -146.00 30   # turn round: B behind the camera
+wait 570
+mark behind
+wait 3300
+mark away               # B in the Deku Tree
+wait 600
+mark end

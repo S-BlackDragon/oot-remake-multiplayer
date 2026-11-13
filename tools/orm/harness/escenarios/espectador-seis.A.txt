@@ -1,0 +1,59 @@
+# espectador-seis, A (ORM spectator camera C2, docs/ESPECTADOR_Y_JEFES.md "Resultado de C2"): six players, two games
+# and four bots (P3-P6) walking a 4 m circle round A's start in Kokiri. A stands 7 s (the wake nudge comes 3 s after
+# the camera is found), then life 0 and lies down; the d-pad goes round the five standing mates (right five times, then
+# left once). B goes down at about 30 s (espectador-seis.B.txt): from then on the ring is the four bots, never P2.
+# Run (from the repo root) with
+#   python tools/orm/harness/r03_pareja.py --scenario espectador-seis --scen-dir tools/orm/harness/escenarios
+#   --transport ws --bots 4 --bot-arg=-radius --bot-arg=4 --bot-arg=-center --bot-arg=-82,122,33.65
+#   --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_SPECTATOR=1 --env LICHII_COOP_DEBUG_CAMERA2=1 --capture-marks --timeout 480
+# The screenshots at ring5-* and ring4-* show the downed line "Mirando a ... (n de 5|4, cruceta para cambiar)" and the
+# view turning to each mate (the probe's "coop: camera2: P<n> ... ndc" lines say where each lands on screen).
+#! expect A coop: downed: alive -> downed
+#! expect A coop: spectator: following P\d \(nearest\)
+#! expect A spectator: d-pad right: P\d \(\d of 5\)
+#! expect A spectator: d-pad left: P\d \(\d of 5\)
+#! expect A spectator: screen: 'Mirando a .* \(\d de 5, cruceta para cambiar\)'
+#! expect A coop: downed: P2 is down
+#! expect A spectator: d-pad right: P\d \(\d of 4\)
+#! expect A spectator: screen: 'Mirando a .* \(\d de 4, cruceta para cambiar\)'
+#! never A spectator: d-pad right: P2 \(\d of 4\)
+#! never A -> game_over
+mark start
+wait 420
+mark alive
+life 0
+mark downed
+wait 240
+press DRIGHT
+wait 114
+mark ring5-1
+press DRIGHT
+wait 114
+mark ring5-2
+press DRIGHT
+wait 114
+mark ring5-3
+press DRIGHT
+wait 114
+mark ring5-4
+press DRIGHT
+wait 114
+mark ring5-5
+press DLEFT
+wait 114
+mark ring5-left
+wait 480                # B goes down at about 30 s
+press DRIGHT
+wait 114
+mark ring4-1
+press DRIGHT
+wait 114
+mark ring4-2
+press DRIGHT
+wait 114
+mark ring4-3
+press DRIGHT
+wait 114
+mark ring4-4
+wait 600
+mark end

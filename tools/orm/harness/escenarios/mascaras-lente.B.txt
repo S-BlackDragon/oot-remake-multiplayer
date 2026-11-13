@@ -1,0 +1,39 @@
+# mascaras-lente (ORM, docs/DETALLES_MARIONETA.md "Mascaras, sedal y cadena"), B: adult in Kakariko too, backs off
+# and watches A's puppet put the Lens of Truth on, walk with it and take it off. Screenshots at lens_seen and
+# walk_seen: the lens on the face; at off_seen: none. What the lens reveals is A's own world (not B's).
+# Emulator: orm/t9-integrado + orm/mascaras (its log lines and switches).
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_MASK_FOLLOW=1
+#! expect B coop: puppet: P\d: create CoopPuppet_Adult
+#! expect B P\d wears head 'Armor_(Adult_)?GlassTruth'
+#! expect B P\d head 'Armor_(Adult_)?GlassTruth' \(actor 0x[0-9a-f]+\) was [0-9.]+ from its puppet: placed on it every frame
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: mask follow ok 'Armor_(Adult_)?GlassTruth' was [0-9.]+ from its puppet
+#! never B coop: check: mask follow fallback
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 200
+stick 0 -0.6 30         # walk back toward the camera
+stick 0 0.3 8           # turn to face up the path
+press ZL                # camera behind B
+wait 60
+mark ready
+wait 520
+mark lens_seen
+wait 160
+mark walk_seen
+wait 300
+mark off_seen
+wait 300
+mark end

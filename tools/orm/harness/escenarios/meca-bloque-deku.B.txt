@@ -1,0 +1,39 @@
+# meca-bloque-deku (B): Deku Tree: room H's push block pushed by two ends on its goal in both games, no jump back (F4)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect B world: 7155a64297e96d5a Obj_MovableBox_A_01 (moved by another player|put where another player left it) within b-in..b-push1
+#! expect B world: 7155a64297e96d5a Obj_MovableBox_A_01 came to rest where another player left it within b-in..b-push1
+#! expect B world: 7155a64297e96d5a Obj_MovableBox_A_01 moved here: sending within b-watched..end
+#! expect B coop: flags debug: \w+ 0xfb39c3e6 \(entry \d+\) 0 -> 1 within b-in..end
+#! never B world: 7155a64297e96d5a Obj_MovableBox_A_01: another player moves it too
+#! never B coop: flags debug: \w+ 0xfb39c3e6 \(entry \d+\) 1 -> 0
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+place -54.5 79.9 50.2    # beside A, out of its way
+wait 240
+toward -51.06 40.0 10
+press ZL 10
+mark b-placed
+wait 600               # A pushes now
+mark b-watched
+place -51.06 79.9 50.2    # behind the block, where A stood
+wait 240
+toward -51.06 40.0 150   # push it on
+wait 120
+mark b-push1
+toward -51.06 40.0 150   # and on
+wait 120
+mark b-push2
+wait 1200
+mark end

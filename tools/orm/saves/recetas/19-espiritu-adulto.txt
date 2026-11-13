@@ -1,0 +1,13 @@
+# Block 19, the Spirit Temple, adult side: the child side done (the Silver Gauntlets, Nabooru taken by Twinrova).
+# Starts at the Colossus by the temple.
+include 19-espiritu-nino.txt
+age adult
+scene DesertColossus_Adult DesertColossus_FromSpiritTempleEntrance
+item Armor_Adult_Gauntlet_Silver
+seen Dm_DesertColossus_0020 Dm_DesertColossus_0025 Dm_DesertColossus_0030 Dm_SpiritTemple_0000
+step SageOfSpirit Step07
+equip weapon Weapon_Sword_Master
+equip shield Weapon_Shield_Hylian
+equip armor -
+other-era weapon Weapon_Sword_Kokiri
+other-era shield Weapon_Shield_Deku

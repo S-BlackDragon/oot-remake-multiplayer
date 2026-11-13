@@ -1,0 +1,103 @@
+# seis-kakariko (PLAN_100 F14, box 6 of block 6, Kakariko y Cementerio; docs/BOTS.md, docs/SEIS_BLOQUES_1_10.md): one
+# game and five bots. A walks the rooms of recorrido-kakariko (legs 1, 2) in one run from the entrance save; the bots
+# (seis-kakariko.bots.txt) follow it room to room and through each scene change it walks. In r01-entrada A falls (life
+# 0) and bots 2 and 3 revive it; then bot1 goes down 1 m from A and A holds A beside it. bot1 sends one of the block's
+# shared flags (KakarikoVillage_Windmill_DoorOpened) and A's game shows it 0 -> 1; bot5 goes to another scene and
+# follows A back.
+#   python -I tools/orm/harness/r03_pareja.py --scenario seis-kakariko --scen-dir tools/orm/harness/escenarios
+# 1 game, 5 bots, puppets and min-fps 25 come from the name (seis-*); transport and bot-arg are in the .bots.txt.
+#! noload
+#! start coop: test warp done
+#! saves entrada-kakariko
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 1800
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! never A coop: server refused
+#! count A coop: player \d+ 'bot\d' joined >= 5 within boot..
+#! count A coop: puppet: P\d+ CoopPuppet_\w+ spawned >= 5
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: flags debug: \w+ 0xc7fe3216 \(entry \d+\) 0 -> 1
+#! never A coop: flags debug: \w+ 0xc7fe3216 \(entry \d+\) 1 -> 0
+#! expect A coop: downed: alive -> downed within caida..levanta
+#! expect A downed -> reviving: revive requested by P\d within caida..levanta
+#! expect A reviving -> alive: revived \(by P\d within caida..levanta
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within caida..levanta
+#! expect A REVIVE sent to P\d within levanta..levantado
+#! expect A coop: downed: P\d is up again within levanta..fin
+#! never A -> game_over
+#! expect A coop: test place \-119\.77 96\.93 58\.70: done within r01-entrada..r02-molino
+#! expect A coop: test place \-10\.11 104\.93 43\.34: done within r02-molino..r03-puerta-montana
+#! expect A coop: test place \-41\.20 110\.29 \-10\.00: done within r03-puerta-montana..r04-cementerio
+#! expect A coop: test flag HavePlayedEvent\.KakarikoVillage_ClosedGateOpen \(0xf8823cf0\) = 1 within r03-puerta-montana..r04-cementerio
+#! expect A coop: test place \-5\.73 101\.84 68\.80: done within r04-cementerio..salida
+#! expect A coop: drops: asked for the drops of Graveyard within salida..fin
+#! expect A coop: test place \-36\.50 98\.31 8\.48: done within r05-entrada..r06-tumbas
+#! expect A coop: test place 25\.99 103\.32 2\.59: done within r06-tumbas..r07-fondo
+#! expect A coop: test place 64\.65 109\.27 2\.48: done within r07-fondo..fin
+mark start
+warp KakarikoVillage_Child KakarikoVillage_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 1200               # the bots follow A into its scene (they joined at the title)
+mark r01-entrada            # la entrada desde el campo
+place -119.77 96.93 58.70
+wait 120
+goto -105.00 55.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark caida              # A falls here (life 0): bots 2 and 3 come and hold A beside it
+life 0
+wait 2400               # their 3.5 s and the game's 6 s revive; then bot1 goes down 1 m from A
+mark levanta
+hold A 300              # A revives bot1 (reach 1.5)
+mark levantado
+wait 900                # bot1 gets up 6 s after the request
+mark r02-molino            # el molino
+place -10.11 104.93 43.34
+wait 120
+goto -20.00 40.00 1.5 900
+# (flag KakarikoVillage_Windmill_DoorOpened: bot1 sends it, docs/BOTS.md)
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r03-puerta-montana            # la puerta de la Montaña (guardia, carta de Zelda)
+place -41.20 110.29 -10.00
+wait 120
+goto -41.20 -10.00 1.5 900
+flag HavePlayedEvent.KakarikoVillage_ClosedGateOpen 1
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r04-cementerio            # el camino del Cementerio
+place -5.73 101.84 68.80
+wait 120
+goto 5.00 66.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark salida             # al Cementerio
+goto 16.72 64.14 0.8 900
+wait 1800               # the scene change; the bots follow A in
+mark r05-entrada            # la entrada (Dampé)
+place -36.50 98.31 8.48
+wait 120
+goto -17.27 8.38 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark r06-tumbas            # las tumbas
+place 25.99 103.32 2.59
+wait 120
+goto 40.00 2.60 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark r07-fondo            # el fondo, lado del Templo de la Sombra
+place 64.65 109.27 2.48
+wait 120
+goto 69.78 2.56 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark fin
+wait 600

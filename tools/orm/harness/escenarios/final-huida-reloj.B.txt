@@ -1,0 +1,61 @@
+# final-huida-reloj, B: its own collapse 30 s after A's; the clock line says by how much it is set.
+#! expect B escape clock: ours shows \d+ s, the group's \d+ s \(it started \d+ s ago\): set to \d+ within own..end
+#! noload
+#! start coop: test warp done
+#! saves 21-huida-arriba
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_STORY=1,LICHII_ORM_ESCAPE_CLOCK=1,LICHII_ORM_ESCAPE_CLOCK_TRIES=20
+# With LICHII_ORM_ESCAPE_CLOCK and no _WORD, our countdown is looked for (coop_escape_timer, orm/riesgos-mundo):
+# the line says which path ran: found (its word, then CoopFinal takes it: 'ours at ... found in our game'
+# and 'set to') or not found (the group's clock goes on without the game's timer: 'set to' stays red).
+#! expect B coop: escape clock: search on: our countdown is looked for in CrumblingGanonCastle within boot..
+#! expect B coop: escape clock: looking for our countdown \(try 1 of \d+\) within own..end
+#! expect B coop: escape clock: (our countdown found at main\+0x[0-9a-f]+(,0x[0-9a-f]+)+:(f32|u32|ms|mmss) \(reads|our countdown was not found \() within own..end
+#! timeout 600
+mark start
+warp CrumblingGanonCastle CrumblingGanonCastle_StartPos adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 2100
+mark own
+event CrumblingGanonCastle_Arrive
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 9000               # as A: the cutscene, then the countdown
+mark end

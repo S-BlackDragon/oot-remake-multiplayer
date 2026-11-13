@@ -1,0 +1,182 @@
+# historia-arbol (ORM, docs/HISTORIA_COMPLETA.md), A: the Deku Tree dies after Gohma's blue warp: a solo line (ZMP D-067), only who starts it sees it.
+# Both games warp to KokiriForest_Child; A asks for KokiriForest_WarpFromInsideTheDekuTree with the test command `event` (the hook's
+# request by name, CINEMATICAS.md P1) and both press A every 2 s for 150 s to move the texts on.
+# Run with --transport ws --scen-dir tools/orm/harness/escenarios --timeout 600
+# --env LICHII_COOP_STORY=1 (built-in list). Not run yet (written 2026-11-11, no game that day).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! expect A coop: story: 'KokiriForest_WarpFromInsideTheDekuTree' is solo: only we see it within asked..end
+#! expect A coop: event running 'KokiriForest_WarpFromInsideTheDekuTree' within asked..end
+#! never A coop: story: STORY_EVENT start sent \('KokiriForest_WarpFromInsideTheDekuTree' within asked..end
+#! never B coop: event running 'KokiriForest_WarpFromInsideTheDekuTree' within after..end
+#! expect A coop: story: HavePlayedEvent\.KokiriForest_WarpFromInsideTheDekuTree 0 -> 1 within asked..end
+#! expect B coop: story: HavePlayedEvent\.KokiriForest_WarpFromInsideTheDekuTree 0 -> 1 within after..end
+mark start
+warp KokiriForest_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark asked
+event KokiriForest_WarpFromInsideTheDekuTree
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark end
+wait 600

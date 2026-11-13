@@ -1,0 +1,128 @@
+# recorrido-jabu-1 (ORM, docs/RECORRIDOS.md, bloque 10. Jabu-Jabu y Barinade), A: tramo 1, de la boca a los tentáculos.
+# InsideJabuJabuBelly: warp to InsideJabuJabuBelly_FromZoraFountain, then room by room with place/goto; see recorrido-jabu.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-jabu-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 10-jabu
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-boca
+#! never A (?<!fairy )coop: puppet: P\d show -> hide within r01-boca..fin
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: test place \-0\.16 91\.97 \-0\.78: done within r01-boca..r02-sala1
+#! expect A coop: test place \-0\.08 90\.85 \-31\.38: done within r02-sala1..r03-sala2
+#! expect A coop: test flag InsideJabuJabuBelly_Room01_LiftMoveDown_GimmickClear \(0x6c3100bf\) = 1 within r02-sala1..r03-sala2
+#! expect A coop: test place 0\.80 93\.40 \-84\.30: done within r03-sala2..r04-mapa
+#! expect A coop: test flag InsideJabuJabuBelly_Room02_BiriSwitch \(0x12c1b1d7\) = 1 within r03-sala2..r04-mapa
+#! expect A coop: test place 19\.51 77\.75 \-38\.48: done within r04-mapa..r05-boomerang
+#! expect A coop: test flag InsideJabuJabuBelly_Room14_IsGetMap \(0xf6a19c8b\) = 1 within r04-mapa..r05-boomerang
+#! expect A coop: test flag InsideJabuJabuBelly_Room14_IsNearGimmick \(0xd0440e02\) = 1 within r04-mapa..r05-boomerang
+#! expect A coop: test place \-15\.55 92\.42 \-131\.76: done within r05-boomerang..r06-interruptor
+#! expect A coop: test flag InsideJabuJabuBelly_Room09Door \(0xfdec26af\) = 1 within r05-boomerang..r06-interruptor
+#! expect A coop: test flag InsideJabuJabuBelly_Room09_TBoxNearRuto \(0xf99477ee\) = 1 within r05-boomerang..r06-interruptor
+#! expect A coop: test place 14\.03 92\.26 \-141\.06: done within r06-interruptor..r07-rojo
+#! expect A coop: test flag InsideJabuJabuBelly_Room07_StepSwitch_Clear_OnlyRuto \(0xf79b37eb\) = 1 within r06-interruptor..r07-rojo
+#! expect A coop: test flag InsideJabuJabuBelly_Room07_StepSwitch_Ruto \(0x0a8079db\) = 1 within r06-interruptor..r07-rojo
+#! expect A coop: test place 35\.27 93\.30 \-140\.07: done within r07-rojo..r08-azul
+#! expect A coop: test flag InsideJabuJabuBelly_Enemy_Tentacle_Red_Defeat \(0x8c3b531f\) = 1 within r07-rojo..r08-azul
+#! expect A coop: test place \-21\.78 92\.42 \-169\.24: done within r08-azul..r09-verde
+#! expect A coop: test flag InsideJabuJabuBelly_Enemy_Tentacle_Blue_Defeat \(0x9579573c\) = 1 within r08-azul..r09-verde
+#! expect A coop: test place 1\.40 92\.90 \-190\.00: done within r09-verde..r10-cofre
+#! expect A coop: test flag InsideJabuJabuBelly_Enemy_Tentacle_Green_Defeat \(0xaad5a19e\) = 1 within r09-verde..r10-cofre
+#! expect A coop: test place 17\.48 92\.35 \-169\.71: done within r10-cofre..fin
+#! expect A coop: test flag InsideJabuJabuBelly_Room12_TBoxDemo \(0x8f1208d9\) = 1 within r10-cofre..fin
+#! expect A coop: test flag InsideJabuJabuBelly_Room12_TBoxNearRuto \(0xc3cf4176\) = 1 within r10-cofre..fin
+mark start
+warp InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 3000               # B loads after A (r03_pareja) or with it (run.ps1): wait for it
+mark r01-boca            # sala 0, la boca (Octoroks)
+place -0.16 91.97 -0.78
+wait 120
+goto 0.00 -20.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-sala1            # sala 1, el ascensor
+place -0.08 90.85 -31.38
+wait 120
+goto -0.10 -42.60 1.5 900
+flag InsideJabuJabuBelly_Room01_LiftMoveDown_GimmickClear 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r03-sala2            # sala 2, el interruptor eléctrico
+place 0.80 93.40 -84.30
+wait 120
+goto 0.60 -100.00 1.5 900
+flag InsideJabuJabuBelly_Room02_BiriSwitch 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r04-mapa            # sala 14, el mapa (gran sala de abajo)
+place 19.51 77.75 -38.48
+wait 120
+goto 28.90 -58.49 1.5 900
+flag InsideJabuJabuBelly_Room14_IsGetMap 1
+wait 60
+flag InsideJabuJabuBelly_Room14_IsNearGimmick 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r05-boomerang            # sala 9, el cofre del bumerán
+place -15.55 92.42 -131.76
+wait 120
+goto -28.00 -131.70 1.5 900
+flag InsideJabuJabuBelly_Room09Door 1
+wait 60
+flag InsideJabuJabuBelly_Room09_TBoxNearRuto 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r06-interruptor            # sala 7, el interruptor con Ruto
+place 14.03 92.26 -141.06
+wait 120
+goto 7.72 -141.34 1.5 900
+flag InsideJabuJabuBelly_Room07_StepSwitch_Clear_OnlyRuto 1
+wait 60
+flag InsideJabuJabuBelly_Room07_StepSwitch_Ruto 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r07-rojo            # sala 10, el tentáculo rojo
+place 35.27 93.30 -140.07
+wait 120
+goto 32.00 -138.00 1.5 900
+flag InsideJabuJabuBelly_Enemy_Tentacle_Red_Defeat 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r08-azul            # sala 11, el tentáculo azul
+place -21.78 92.42 -169.24
+wait 120
+goto -28.00 -180.00 1.5 900
+flag InsideJabuJabuBelly_Enemy_Tentacle_Blue_Defeat 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r09-verde            # sala 8, el tentáculo verde
+place 1.40 92.90 -190.00
+wait 120
+goto 1.00 -185.00 1.5 900
+flag InsideJabuJabuBelly_Enemy_Tentacle_Green_Defeat 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r10-cofre            # sala 12, el cofre con Ruto
+place 17.48 92.35 -169.71
+wait 120
+goto 25.50 -175.00 1.5 900
+flag InsideJabuJabuBelly_Room12_TBoxDemo 1
+wait 60
+flag InsideJabuJabuBelly_Room12_TBoxNearRuto 1
+wait 60
+wait 300                # the other one sees us in this room
+mark fin

@@ -1,0 +1,55 @@
+# meca-limpia-jabu (A): Jabu-Jabu: rooms 9 and 12 cleared for everyone, room 12's chest appears, Ruto's sensor stays (F9)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room 9 (Insidejabujabu_Room9_Cleared, counter Obj_EnemyCounter_A_05 6260ed5507d9c5a6: one-time key by
+# A:LICHII_COOP_SET_KEY64) and room 12 (Insidejabujabu_Room12_Cleared, Insidejabujabu_Gimmick_Room12_Treasure and
+# the chest's event HavePlayedEvent.InsideJabuJabuBelly_Room12_TreasureBoxAppear, held in B). A first sets its
+# Ruto's 'near the chest' sensor of room 9 (taken off by the child list: B must never get it). B walks in at
+# room 9's door (Obj_InsideJabu_Jabu_SwitchShutter_A_01 0f7f479e27e1e3ba, -18.4 94.42 -131.68).
+# Mutants: LICHII_COOP_DUNGEON=0; no LICHII_COOP_DUNGEON_LISTS (the sensor's never line red).
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x6260ed5507d9c5a6,LICHII_COOP_SET_KEY64=6260ed5507d9c5a6,LICHII_COOP_SET_AFTER=100 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag InsideJabuJabuBelly_Room09_TBoxNearRuto \(0xf99477ee\) = 1: queued
+#! expect A coop: test flag Insidejabujabu_Room9_Cleared \(0xed5247fb\) = 1: queued
+#! expect A coop: test flag Insidejabujabu_Room12_Cleared \(0x76f26ef4\) = 1: queued
+#! expect A coop: test flag Insidejabujabu_Gimmick_Room12_Treasure \(0x482f8dd4\) = 1: queued
+#! expect A coop: test flag HavePlayedEvent.InsideJabuJabuBelly_Room12_TreasureBoxAppear \(0x2f373f31\) = 1: queued
+#! expect A coop: flags debug: set_key64\(0x6260ed5507d9c5a6, 1\) queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt,LICHII_COOP_DEBUG_KEY64=0x6260ed5507d9c5a6,A:LICHII_COOP_SET_KEY64=6260ed5507d9c5a6,A:LICHII_COOP_SET_AFTER=100
+#! timeout 420
+mark start
+warp InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag InsideJabuJabuBelly_Room09_TBoxNearRuto 1
+wait 120
+flag Insidejabujabu_Room9_Cleared 1
+wait 120
+flag Insidejabujabu_Room12_Cleared 1
+wait 120
+flag Insidejabujabu_Gimmick_Room12_Treasure 1
+wait 120
+flag HavePlayedEvent.InsideJabuJabuBelly_Room12_TreasureBoxAppear 1
+wait 120
+mark flag
+wait 3600
+place -18.4 94.9 -131.68       # A at the same door, for its own capture
+wait 240
+toward -18.66 -131.69 20
+press ZL 10
+mark abierta
+wait 900
+mark end

@@ -1,0 +1,16 @@
+# evento (ORM story cutscenes, P1, docs/CINEMATICAS.md): one game at the Kokiri start asks the game
+# to start the Deku Tree meeting by its name, the way the game over asks its own (main+0x4aa890 with
+# Link's event component, from the svc cave). Link stands far from the tree's trigger.
+# Expect "coop: story: asking ..." then "the game took" or "refused", and, if it starts,
+# "coop: event running 'KokiriForest_Meet_DekuTree_MeetDekuTree_01'" or the timeline's name.
+# Run with --players 1 --bots 0 --env LICHII_COOP_DEBUG_ANIM=1 --env LICHII_COOP_DEBUG_LIFE=1
+# (the life probe logs Link's place and the event object on each change).
+mark start
+wait 60
+event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+mark asked
+wait 1200
+mark after
+press A 12
+wait 300
+mark end

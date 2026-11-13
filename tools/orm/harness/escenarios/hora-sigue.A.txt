@@ -1,0 +1,34 @@
+# hora-sigue (ORM, docs/HORA.md), A: the host. Both games land in Kakariko (outdoors: the clock runs and the sky
+# shows); 120 s after joining, B quietly puts its own clock 15 in-game minutes back (test switch, nobody told), as a
+# slow PC or a lost word would; B must come back to the shared clock by nudges only: its sky runs a little faster
+# for some seconds, nothing is remade (no time change, no 'clock: set to'), no jump is sent.
+# Mutant: B with LICHII_COOP_CLOCK_NUDGE=0 turns 'in step' red (the 15 minutes stay: below the one-hour rule).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_TIME=1
+#! expect A coop: clock on: the host owns the shared clock within start..end
+#! expect B coop: clock: test: our clock quietly to \d\d:\d\d:\d\d \(-900 s\) within day..end
+#! expect B coop: clock: catching up: the shared clock is \+\d+ s from ours within day..end
+#! expect B coop: clock: in step with the shared clock within offset..end
+#! never B coop: clock: set to within offset..end
+#! never A coop: clock: set to within day..end
+#! never A coop: clock: (sent a )?jump within day..end
+#! never B coop: clock: (sent a )?jump within day..end
+#! never B coop: clock: nudges do not hold within start..end
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark day
+wait 3000               # B moves its clock back 120 s after joining
+mark offset
+wait 3000               # 900 in-game s at up to 60 more a real second: about 15 s
+mark end

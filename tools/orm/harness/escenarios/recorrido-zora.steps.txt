@@ -1,0 +1,23 @@
+# recorrido-zora (ORM, docs/RECORRIDOS.md, PLAN_100 F13): bloque 9. Río Zora, Dominio y Fuente.
+# Both games play the critical path together, leg by leg; each leg starts both games again and warps
+# them in (a warp is taken only in the event after a save loads), then chains the rooms with place
+# and goto. Each leg's #! lines (in its .A/.B files) are what must be in the logs. Runs with
+# daurosk's tools/autotest/run.ps1 -Scenario recorrido-zora (copy the recorrido-zora*
+# files into its scenarios folder); each leg also runs alone with r03_pareja.py --scenario
+# recorrido-zora-N. Written 2026-11-11, not run yet (no game that day).
+#! noload
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+start A B                      # leg 1: el río hasta la cascada (ZoraRiver_Child)
+play A recorrido-zora-1.A.txt B recorrido-zora-1.B.txt
+expect zora-1 A=1 B=1
+close A
+close B
+start A B                      # leg 2: el Dominio hasta la Fuente (ZoraDomain_Child)
+play A recorrido-zora-2.A.txt B recorrido-zora-2.B.txt
+expect zora-2 A=1 B=1
+close A
+close B
+start A B                      # leg 3: la Fuente: Jabu-Jabu (ZoraFountain_Child)
+play A recorrido-zora-3.A.txt B recorrido-zora-3.B.txt
+expect zora-3 A=1 B=1

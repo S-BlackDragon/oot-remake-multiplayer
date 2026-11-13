@@ -1,0 +1,30 @@
+# meca-rompe-dodongo (B): Dodongo's Cavern: room 19's cracked wall bombed in one game falls in the other, live (F8)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect B coop: flags debug: get_key64\(0x53291f3ecd641eb3\) = 1 \(was 0\) within b-in..end
+#! expect B world: 53291f3ecd641eb3 Obj_DodongoCave_CrackWall_A_01 (broken by another player|was broken before we saw it) within b-in..end
+#! never B coop: flags debug: get_key64\(0x53291f3ecd641eb3\) = 0 \(was 1\)
+#! never B world: 53291f3ecd641eb3 Obj_DodongoCave_CrackWall_A_01 is back
+mark start
+warp DodongoCavern EntrancePos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 240
+place -18.0 97.0 -101.0   # the same room, 9 m away
+wait 240
+toward -27.13 -104.25 20
+press ZL 10
+mark b-puesto
+wait 1200
+mark rota
+wait 1200
+mark end

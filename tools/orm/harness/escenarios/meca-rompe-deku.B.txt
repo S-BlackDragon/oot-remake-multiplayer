@@ -1,0 +1,29 @@
+# meca-rompe-deku (B): Deku Tree: room I's web burned in one game is gone for a player who comes in later (F8)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect B coop: flags debug: get_key64\(0x73531f0d83a3ad60\) = 1 \(was 0\)
+#! expect B coop: dungeon: room gimmick flags from another player held until we leave this dungeon or load within b-in..end
+#! never B coop: flags debug: get_key64\(0x73531f0d83a3ad60\) = 0 \(was 1\)
+#! never B coop: flags debug: \w+ 0x429126ef \(entry \d+\) 0 -> 1
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 3000                # A sets the flags meanwhile (B is in another room)
+mark visto
+place -62.0 82.8 9.0       # B walks in: the room's door (Banc position)
+wait 240
+toward -68.57 6.51 20
+press ZL 10
+mark abierta
+wait 900
+mark end

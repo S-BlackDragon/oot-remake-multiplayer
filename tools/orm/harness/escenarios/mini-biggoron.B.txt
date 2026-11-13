@@ -1,0 +1,34 @@
+# mini-biggoron (B: reads the step after each of A's writes): Biggoron's trade step goes with the trade item, both ways: A moves it to Step04 (the Odd Mushroom handed over) and later back to Step03_03 (as a trip to the past does); B reads it after each.
+# docs/MINIJUEGOS.md (the minigame list, tools/release/kit/shared_dungeon_minigames.txt).
+# Run with --transport ws and --env for each of LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them. Mutant: the same run without
+# LICHII_COOP_DUNGEON_LISTS turns B's expect lines of a prize red (no list shares it).
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt
+#! expect B coop: lists: .*shared_dungeon_minigames\.txt: 30 flags and keys added, 0 taken off, 28 once, 0 held in their area, 0 one-time keys within boot..
+#! expect B coop: test enum Step_SubEvent_GetSwordBigGoron \(0x26a2e01c\): find_type 6, value 0x27f660fe \(no listed name\) within read1..read2
+#! expect B coop: test enum Step_SubEvent_GetSwordBigGoron \(0x26a2e01c\): find_type 6, value 0x057ef5f8 \(no listed name\) within read2..end
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+wait 450               # A writes Step04 at its 'control' mark
+mark read1
+enum Step_SubEvent_GetSwordBigGoron
+wait 600
+mark read2
+enum Step_SubEvent_GetSwordBigGoron
+wait 300
+mark end

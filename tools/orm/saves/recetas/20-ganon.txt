@@ -1,0 +1,19 @@
+# Block 20, Ganon's Castle, Ganondorf, the escape and Ganon: Twinrova beaten (the Spirit Medallion, the Mirror
+# Shield), the six medallions, Sheik is Zelda (the Light Arrows). Starts outside Ganon's Castle.
+include 19-espiritu-adulto.txt
+scene GanonCastle GanonCastleEntrance
+hearts 11
+item Item_Medal_Spirit
+item Weapon_Shield_Mirror
+item Item_Arrow_Light
+item Pouch_Range_BowAndArrow_Light
+dungeon SpiritTemple map compass bosskey
+bool Enemy_MiddleBoss_IronKnuckle_Nabooru_BossDefeat 1
+seen Dm_SpiritTemple_0010 Dm_SpiritTemple_0020 Dm_SpiritTemple_BossIn Dm_SpiritTemple_BossOut
+seen Dm_Awake_Spirit Dm_Awake_Spirit_Get
+seen Dm_TimeTemple_0090 Dm_TimeTemple_0095 Dm_TimeTemple_0110 Dm_TimeTemple_0115 Dm_TimeTemple_0125
+seen Dm_TimeTemple_0130 Dm_TimeTemple_0135
+step SageOfSpirit Complete
+step AllSage Complete
+step Defeat_Ganon Step01
+equip shield Weapon_Shield_Mirror

@@ -53,6 +53,15 @@ if ($kitAccess.RelayKey) { $env:OOT_COOP_RELAY_KEY = $kitAccess.RelayKey }
 # whole session's; the host can change it in the game with /pvp.
 if ($kitAccess.Pvp) { $access += @('--pvp', 'on') }
 
+# ORM: the WebSocket loop (orm_server --ws-port, TCP on the UDP port + 1; server_websocket = no in
+# coop-options.ini turns it off) and the ports checked before the server starts, in Spanish
+# (orm-hosting.ps1). On a problem the window waits for a key, so the message is read before it closes.
+. (Join-Path $PSScriptRoot 'orm-hosting.ps1')
+$ormOptions = Read-OrmServerOptions (Join-Path $kit 'coop-options.ini')
+if ($ormOptions.Problem) { Write-Host $ormOptions.Problem; Wait-OrmKey; exit 1 }
+$OrmWsPort = Get-OrmWsPort $Port $ormOptions
+if ((Test-OrmHostPorts $exe $Port $ormOptions) -ne 'free') { Wait-OrmKey; exit 1 }
+
 $logs = Join-Path $kit 'logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 $log = Join-Path $logs ('server-{0:yyyyMMdd-HHmmss}.log' -f (Get-Date))
@@ -68,6 +77,7 @@ else { Write-Host "Join password: $password   (server_password in coop-options.i
 Write-Host 'Every session has a join password, and the traffic is encrypted with it.'
 if ($kitAccess.Pvp) { Write-Host 'PvP: on (pvp in coop-options.ini): players can hurt each other. /pvp off in the game chat turns it off.' }
 else { Write-Host 'PvP: off (players cannot hurt each other; pvp = on in coop-options.ini, or /pvp on in the game chat).' }
+foreach ($line in (Format-OrmServerBanner $Port $OrmWsPort)) { Write-Host $line }
 # Which address the others type (hosting.ps1): VPN, internet (one HTTPS question to a fixed
 # service, unless coop-options.ini says public_address_lookup = no), home network. The best
 # one goes to the clipboard.
@@ -84,6 +94,10 @@ $copied = ''
 if ($best) { try { Set-Clipboard -Value $best -ErrorAction Stop; $copied = $best } catch { } }
 foreach ($line in (Format-JoinBlock $addresses $Port ($lookup -and -not $Bind.Trim() -and -not $public) $Allow.Trim() $copied $Bind.Trim())) { Write-Host $line }
 foreach ($line in $hosting.Notes) { Write-Host $line }
+# ORM: the same in Spanish, with ZeroTier and the WebSocket address.
+foreach ($line in (Format-OrmJoinBlock (Get-OrmJoinList (Get-OrmLocalAddresses) $Bind.Trim()) $Port $OrmWsPort $Bind.Trim())) { Write-Host $line }
+# ORM: what Windows' firewall will do with the server, before it asks (it reads the rules only).
+foreach ($line in (Get-OrmFirewallPreflight (Get-ServerFirewallRules $exe) $Bind.Trim())) { Write-Host $line }
 
 # This kit's co-op release (VERSION.txt), named when the server refuses a game of another
 # version, so the players know which one to update to.
@@ -94,7 +108,9 @@ if (Test-Path -LiteralPath $versionFile) {
     if ($first -match '\(release ([^)]+)\)') { $release = $Matches[1] }
 }
 
-$args2 = @('--port', "$Port") + $access + @($Rest | Where-Object { $_ })
+# ORM: --ws-port comes only from Get-OrmWsArgs (the port, or off with server_websocket = no). The line is written
+# so that oot-remake's kit_steps.ps1 no longer finds the plain "--port" line it used to add a fixed --ws-port to.
+$args2 = @(@('--port', "$Port") + (Get-OrmWsArgs $Port $ormOptions) + $access + @($Rest | Where-Object { $_ }))
 & $exe @args2 2>&1 | ForEach-Object {
     $text = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { "$_" }
     if ($release -and $text -match 'refused a connection, reason 1\b') {
@@ -114,6 +130,8 @@ $args2 = @('--port', "$Port") + $access + @($Rest | Where-Object { $_ })
     $line = '{0:HH:mm:ss.fff} {1}' -f (Get-Date), $text
     Write-Host $line
     Add-Content -Path $log -Value ('{0:HH:mm:ss.fff} {1}' -f (Get-Date), $logged) -Encoding UTF8
+    $help = Get-OrmServerLineHelp $text  # ORM: the lines that matter, in Spanish (window only)
+    if ($help) { Write-Host $help }
 }
 $code = $LASTEXITCODE
 Add-Content -Path $log -Value ('{0:HH:mm:ss.fff} (server exited with code {1})' -f (Get-Date), $code) -Encoding UTF8

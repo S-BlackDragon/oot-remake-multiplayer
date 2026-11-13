@@ -1,0 +1,45 @@
+# meca-cristal-jabu (A): Jabu-Jabu: the hit switches of rooms 0 and 5 open their doors for everyone (F2)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room 0's hit switch (Obj_InsideJabu_Jabu_SwitchHit_A_01 22af0df7f5ebb300, -0.02 97.53 -21.53: the
+# slingshot or boomerang) writes Insidejabujabu_Room0_Cleared; room 5's (SwitchHit_A_02 d5a3e604b0728bec)
+# Insidejabujabu_Room5_Cleared (both in daurosk's list, D1). A sets both as the hits would. B is in room 0 (the
+# start) facing its shutter (a65a522adddf9f46, -0.08 92.85 -28.53), then walks to room 5's door
+# (eb5e5768b5e40be9, 40.44 101.56 -65.15). Captures: visto (B: room 0's door), abierta (room 5).
+# Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag Insidejabujabu_Room0_Cleared \(0x2d748eb5\) = 1: queued
+#! expect A coop: test flag Insidejabujabu_Room5_Cleared \(0x695a1137\) = 1: queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag Insidejabujabu_Room0_Cleared 1
+wait 120
+flag Insidejabujabu_Room5_Cleared 1
+wait 120
+mark flag
+wait 1500
+place 40.44 102.0 -65.15       # A at the same door, for its own capture
+wait 240
+toward 31.13 -56.84 20
+press ZL 10
+mark abierta
+wait 900
+mark end

@@ -1,0 +1,17 @@
+# caer-revive (ORM "downed, not dead", P1, docs/CAIDO_REVIVIR.md): the gate closed, Link's life
+# to 0, then his life written back (12 quarter hearts) with the gate still closed: does he get
+# up, what do the Death word and the animation do, does a game over start? Then the gate opened.
+# Run with --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1 --env LICHII_COOP_DEBUG_ANIM=1
+# (one game, no bots).
+mark start
+wait 60
+gate 1
+life 0
+wait 300
+mark dead
+life 12
+wait 600
+mark restored
+gate 0
+wait 300
+mark end

@@ -1,0 +1,28 @@
+# jefe-dead-hand-tarde, B: waits 40 s more at the title, then loads into A's room: it is told the owner and
+# has the appear flag; it never beats Dead Hand.
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1
+#! timeout 600
+#! expect B coop: flags debug: bool 0x71e13575 \(entry \d+\) 0 -> 1 within late..end
+#! expect B coop: objects: share owner 0x[0-9a-f]+ is player \d epoch \d+ group \d+ within late..end
+#! never B coop: flags debug: bool 0xf2a863c4 \(entry \d+\) 0 -> 1
+mark start
+warp BottomOfTheWell StartPos_SubEvent_GetStormSong child
+wait 1200               # the title screen
+mark title
+wait 2400               # 40 s late
+mark late
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+mark b-in
+wait 1800
+mark end

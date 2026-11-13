@@ -1,0 +1,61 @@
+# efectos-magia (ORM efectos2, docs/DETALLES_MARIONETA.md "Efectos 2"), B: adult in Kakariko by day too, backs off,
+# faces A and watches A cast the three spells and roll. B's log is the check: each cast family played on A's puppet
+# under the copied pose (LICHII_COOP_DEBUG_ANIM=1 logs each command), the crystal on, its stand-in made and deleted
+# after 20 s, and never an attack, damage, lift, demo or horse command played that way. The screenshots at B's marks
+# show what the effects look like on the puppet (the casts, the crystal stand-in; docs/VISUAL_CHECKLIST.md).
+#! noload
+#! start coop: test warp done
+#! saves 20-magia
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_CHEATS=1,LICHII_COOP_OBJECTS_CHEAT=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_NAYRU_S=20
+#! timeout 600
+#! expect B coop: effects: commands under the pose on, damage flash on, burn/freeze/shock and Nayru's crystal on \(20 s crystal\) within boot..
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the crystal's time path; LICHII_ORM_NAYRU_S=20 here wins over the pack's NayruLoveTime.
+#! expect B coop: check: nayru crystal ok 20 s as LICHII_ORM_NAYRU_S sets it
+#! never B coop: check: nayru crystal fallback
+#! expect B coop: puppet: P\d effects: '[^']+' played under the copied pose \(its effect and sound events\)
+#! expect B coop: puppet: P\d effects: 'Magic_Din[^']*' played under the copied pose
+# Round 7 (sondas22r7): the remake's Farore commands are DemoStartFaroreWind and DemoEndFaroreWindSetting.
+#! expect B coop: puppet: P\d effects: '(Magic_Farore[^']*|DemoStartFaroreWind|DemoEndFaroreWindSetting)' played under the copied pose
+#! expect B coop: puppet: P\d effects: 'Magic_Nayru[^']*' played under the copied pose
+#! expect B coop: puppet: P\d effects: 'Rolling[^']*' played under the copied pose
+#! expect B coop: puppet: P\d effects: crystal on for 20 s
+#! expect B coop: effects: 1 status stand-in\(s\) on the puppets
+#! expect B coop: spawn: CoopFx_Nayru: create copy \d+
+#! expect B coop: puppet: P\d effects: crystal off \(time\)
+#! expect B coop: spawn: CoopFx_Nayru: copy \d+ deleted
+#! never B coop: puppet: P\d effects: '(?!DemoStartFaroreWind'|DemoEndFaroreWindSetting')[^']*(Attack|Damage|Lift|Throw|Demo|Horse|Ocarina|Bottle|Warp)[^']*' played
+#! never B coop: spawn: CoopFx_(Burn|Freeze|Shock): create copy
+#! never B coop: puppet: P\d effects: flash
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 200
+stick 0 -0.6 30         # walk back toward the camera
+stick 0 0.3 8           # turn to face up the path
+press ZL                # camera behind B
+wait 60
+mark ready
+wait 900
+mark din_seen           # marks spread over A's casts, for the screenshots
+wait 300
+mark farore_seen
+wait 400
+mark nayru_seen
+wait 400
+mark crystal_seen
+wait 600
+mark crystal_late
+wait 1200
+mark crystal_gone
+wait 300
+mark end

@@ -1,0 +1,32 @@
+# jefe-dead-hand-entrada, B: lands outside Dead Hand's door and walks in (the door the fight shuts behind
+# whoever is in: B must still get in), then stands 1 m inside.
+#! noload
+#! start coop: test warp done
+#! saves 16-pozo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1
+#! timeout 600
+#! expect B coop: flags debug: bool 0x71e13575 \(entry \d+\) 0 -> 1
+#! expect B coop: objects: share owner 0x[0-9a-f]+ is player \d epoch \d+ group \d+ within b-in..end
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+#! never B coop: flags debug: bool 0xf2a863c4 \(entry \d+\) 0 -> 1
+mark start
+warp BottomOfTheWell StartPos_SubEvent_GetStormSong_BeforeBossRoom child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+mark door
+goto 0.80 -97.80 0.5 900   # through the door, 1 m inside
+mark b-in
+wait 1800
+mark fight
+wait 1200
+mark end

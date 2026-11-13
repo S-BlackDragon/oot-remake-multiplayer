@@ -1,0 +1,22 @@
+# Block 1, Kokiri Forest (PLAN_100.md section 3): a child who has woken up, met Saria and holds the Kokiri Sword and
+# the Deku Shield, so Mido lets him by. Starts in the forest, before meeting the Deku Tree.
+# Syntax: ../receta.py. Story steps and scenes: daurosk tools/release/kit/shared_story.txt (what each event moves).
+age child
+scene KokiriForest_Child KokiriForest_FrontOfLostWood
+hearts 3
+rupees 20
+item Obj_Armor_Child_Normal
+item Weapon_Sword_Kokiri
+item Weapon_Shield_Deku
+item Item_Wallet_Small
+equip weapon Weapon_Sword_Kokiri
+equip shield Weapon_Shield_Deku
+equip armor -
+other-era weapon -
+other-era shield -
+seen Dm_Kokiri_0000 Dm_Kokiri_0030 Dm_Kokiri_0045 Dm_Kokiri_0050 Dm_Kokiri_0060
+# What the base save (a real player's, ORM_BASE_SAVES) holds at this point (slot_03, 2026-11-07)
+step Meet_DekuTree Step01
+step Get_StoneOfForest Ready
+# Mido steps aside once Link has the sword and the shield (tools/romfs/child_list.py, block 1)
+bool KokiriForest_Npc_Kokiri_Mido_Child_Blocker 0

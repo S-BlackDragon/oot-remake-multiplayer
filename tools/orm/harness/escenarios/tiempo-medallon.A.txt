@@ -1,0 +1,164 @@
+# tiempo-medallon (ORM, docs/TEMPLO_TIEMPO.md "Medallones", ZMP D-067, D-R20), A: a sage's awakening after an adult temple's
+# blue warp is only for who warps (solo); the medallion is a shared item and the first of Saria's and Darunia's
+# awakenings (AllSage_AwakeSage_Fire_Or_Forest, 0x4161c78f) a shared flag of the temple list. Both adult at the
+# Forest Temple's warp out (KokiriForest_Adult WarpFromForestTemple); A asks for Saria's awakening with the test
+# command `event`. Item_Medal_Forest's IsGet is 0xfcd8d653. If A's game loads the Chamber of Sages (SageRoom), its
+# log says "the room's age waits: in SageRoom" (no reload begins there): not checked, the event may play where A is.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario tiempo-medallon --transport ws --scen-dir tools/orm/harness/escenarios --capture-marks
+#   (r03_pareja reads #! switches, #! saves and #! timeout). Needs daurosk branch orm/tiempo2.
+# Not run yet (written 2026-11-11, a code-only wave: no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_ORM_STORY_EVENTS=1,LICHII_ORM_AGE=1
+#! timeout 600
+#! expect A coop: temple: sharing \d+ flags \(\d+ new\): .*AllSage_AwakeSage_Fire_Or_Forest
+#! expect A coop: story: 'ForestTemple_SageOfForest_SageRoom' is solo: only we see it, its flags are shared within asked..end
+#! expect A coop: event running 'ForestTemple_SageOfForest_SageRoom' within asked..end
+#! expect A coop: flags debug: bool 0xfcd8d653 \(entry \d+\) 0 -> 1 within asked..end
+#! expect A coop: flags debug: bool 0x4161c78f \(entry \d+\) 0 -> 1 within asked..end
+#! never A coop: age: reloading as
+#! never B coop: event running 'ForestTemple_SageOfForest_SageRoom'
+#! never B coop: story: STORY_EVENT start received from P\d \('ForestTemple_SageOfForest_SageRoom'
+#! expect B coop: flags debug: bool 0xfcd8d653 \(entry \d+\) 0 -> 1 within after..end
+#! expect B coop: flags debug: bool 0x4161c78f \(entry \d+\) 0 -> 1 within after..end
+#! never B coop: age: reloading as
+mark start
+warp KokiriForest_Adult WarpFromForestTemple
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 3600               # B lands about 60 s after us
+mark asked
+event ForestTemple_SageOfForest_SageRoom
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+wait 900                # the medallion and the flag reach B
+mark end

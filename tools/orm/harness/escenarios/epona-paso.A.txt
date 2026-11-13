@@ -1,0 +1,33 @@
+# epona-paso (ORM D-R19, docs/EPONA.md), A: the group's Epona. Both adult at Lon Lon (HyruleField_Adult,
+# StartPos_Get_Epona_Race). A's step goes to Complete, as winning at Lon Lon ends (the test `enum` command: no
+# race is run); B must take it from A. Run with --transport ws --env LICHII_COOP_PUPPET=1
+# --env LICHII_COOP_DEBUG_FLAGS=1. Mutant: the same run with --env LICHII_COOP_EPONA=0 turns every 'epona' line red.
+# Precondition: neither save has Epona yet (each log's first 'coop: epona: Step_Get_Epona here is' line is not
+# Complete): a group that has her already never sends her again, so such a run proves nothing; give the
+# games saves from before Lon Lon (save_flags.py, E15) and say so in the run's notes.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1
+#! expect A coop: epona: Step_Get_Epona = Complete shared forward \(the group's Epona\): added
+#! expect A coop: test enum Step_Get_Epona = 0x4c0a63f4 .*: queued
+#! never A coop: epona: our race with Ingo runs
+mark start
+warp HyruleField_Adult StartPos_Get_Epona_Race
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark a-win
+enum Step_Get_Epona Complete
+wait 600
+enum Step_Get_Epona
+mark end

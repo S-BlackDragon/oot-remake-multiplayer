@@ -1,0 +1,30 @@
+# jefe-volvagia-derrota, B: into the same room, life to 0 2 s after A, the same game over and Continue.
+#! saves 13-fuego
+#! expect B group defeat: GROUP_DEFEAT from the server \(2 down
+#! expect B coop: boss: loaded again after the game over: the boss room starts over within pressed..end
+#! expect B coop: boss: respawn: (Continue left us in the boss room|back in the boss room of FireTemple) within pressed..end
+#! never B coop: boss: boss beaten
+mark start
+warp FireTemple StartPos_SageOfFire
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+wait 2520               # 2 s after A
+mark dying
+life 0
+wait 1080               # presses at the same time as A
+mark over
+press A 12
+mark pressed
+wait 2400
+mark after
+wait 900
+mark end

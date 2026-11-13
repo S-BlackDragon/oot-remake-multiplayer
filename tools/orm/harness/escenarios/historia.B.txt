@@ -1,0 +1,6 @@
+# historia, B: stands at the start and waits; its game is asked for A's cutscene by the hook.
+mark start
+wait 60
+mark watching
+wait 2400
+mark end

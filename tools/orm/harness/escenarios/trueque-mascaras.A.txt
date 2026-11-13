@@ -1,0 +1,37 @@
+# trueque-mascaras (A: moves the shop's step): the Happy Mask Shop is one chain for the group, both ways: A rents the Keaton Mask and sells it; B reads the step after each, gets the mask (the group's, max) and the Running Man's flag.
+# docs/BOTELLAS_TRUEQUES.md (the bottle and trade list, tools/release/kit/shared_dungeon_trades.txt).
+# Run with --transport ws and an --env for each #! switches item (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them (an emulator from orm/t9-integrado + orm/botellas2:
+# the `int` and `enum` test commands). Written 2026-11-11, not run yet (no games that day).
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS turns B's step and Bunny lines red (no list shares them).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_trades.txt
+#! expect A coop: lists: .*shared_dungeon_trades\.txt: 28 flags and keys added, 3 taken off, 5 once, 0 held in their area, 0 one-time keys within boot..
+#! expect A coop: test enum Step_SubEvent_MaskSalesman = 0x60c72303 \(no listed name\): queued
+#! expect A coop: test enum Step_SubEvent_MaskSalesman = 0x0e5afad8 \(no listed name\): queued
+#! expect A coop: test int PouchData\.Armor_Child_Mask_Keaton\.StockNum \(0xb5c10899\) = 1: queued
+#! expect A coop: test flag IsAfterSell_Mask_Bunny \(0x7d3acd77\) = 1: queued
+mark start
+warp Market_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+enum Step_SubEvent_MaskSalesman UntilRentMaskOfKeaton    # the shop offers the Keaton Mask
+int PouchData.Armor_Child_Mask_Keaton.StockNum 1         # rented: the group's mask (max)
+wait 900
+mark sold
+enum Step_SubEvent_MaskSalesman Step02                   # sold to the guard: the chain moves for all
+flag IsAfterSell_Mask_Bunny 1                            # (the Running Man's flag, later in the chain)
+wait 900
+mark end

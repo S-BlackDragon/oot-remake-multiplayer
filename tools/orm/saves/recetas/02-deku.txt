@@ -1,0 +1,11 @@
+# Block 2, Inside the Deku Tree and Gohma: the Deku Tree met (its mouth open), sticks and nuts. Starts in front of
+# the Deku Tree, so the scenario walks in and the arrival scene (Dm_Deku_0000) plays as in a real game.
+include 01-kokiri.txt
+scene KokiriForest_Child FrontDekuTree
+seen Dm_Kokiri_0070 Dm_Kokiri_0075
+step Meet_DekuTree Complete
+step Get_StoneOfForest GoInside
+bool KokiriForest_Meet_DekuTree_OpenDekuTreeMouth 1
+bool KokiriForest_Npc_Kokiri_Blocker 0
+item Item_DekuStick 10
+item Item_DekuNut 20

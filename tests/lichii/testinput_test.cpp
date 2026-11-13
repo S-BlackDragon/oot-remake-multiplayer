@@ -465,3 +465,73 @@ TEST_CASE("testinput: setenum hands the hook an Enum flag (name or 0x hash) and 
     CHECK(requests[1].name == "PlayerStatus.AssignableItem.Child");
     CHECK(requests[1].start == "Bow");
 }
+
+// ORM: the harness starts the second game up to two minutes after the first (hot instances 20 s), so a
+// step that needs the other one there waits for him (docs/SONDAS.md).
+TEST_CASE("testinput: await mate waits for a mate in our scene, or its ticks") {
+    Runner r(Must("await mate 600\n"
+                  "mark both\n"
+                  "press a\n"
+                  "await mate\n"
+                  "mark late\n"));
+    std::vector<std::string> log;
+    r.Advance(1.0, std::nullopt, log, std::nullopt, false);
+    CHECK(log.empty());
+    CHECK(r.Current() == Output{});
+    r.Advance(4.0, std::nullopt, log, std::nullopt, true);  // he lands
+    REQUIRE(log.size() == 2);
+    CHECK(log[0] == "await mate: here after 4.0 s");
+    CHECK(log[1] == "mark both");
+    r.Advance(4.05, std::nullopt, log, std::nullopt, true);
+    CHECK(r.Current().buttons == kA);
+    // The default is 150 s; nobody here: it goes on when they run out.
+    r.Advance(5.0, std::nullopt, log, std::nullopt, false);
+    r.Advance(200.0, std::nullopt, log, std::nullopt, false);
+    REQUIRE(log.size() == 4);
+    CHECK(log[2].rfind("await mate: timed out after", 0) == 0);
+    CHECK(log[3] == "mark late");
+    std::string error;
+    CHECK_FALSE(Parse("await 30\n", error));
+    CHECK_FALSE(Parse("await mate soon\n", error));
+}
+
+// ORM (docs/SONDAS.md, 2026-11-12): a talk's text took more pages than a script's fixed presses.
+TEST_CASE("testinput: talkthrough presses A while our event runs, until it has stopped 1 s") {
+    Runner r(Must("talkthrough 600\n"
+                  "mark done\n"
+                  "talkthrough 120\n"
+                  "mark none\n"
+                  "talkthrough 60\n"
+                  "mark stuck\n"));
+    std::vector<std::string> log;
+    r.Advance(0.0, std::nullopt, log, std::nullopt, false, true);  // the talk runs: a press
+    CHECK(r.Current().buttons == kA);
+    r.Advance(0.2, std::nullopt, log, std::nullopt, false, true);  // released between presses
+    CHECK(r.Current().buttons == 0);
+    r.Advance(0.8, std::nullopt, log, std::nullopt, false, true);  // the next page
+    CHECK(r.Current().buttons == kA);
+    r.Advance(1.0, std::nullopt, log, std::nullopt, false, false);  // over: no press, waits 1 s
+    CHECK(r.Current().buttons == 0);
+    CHECK(log.empty());
+    r.Advance(1.5, std::nullopt, log, std::nullopt, false, true);  // another page came: not over
+    r.Advance(1.7, std::nullopt, log, std::nullopt, false, false);
+    r.Advance(2.8, std::nullopt, log, std::nullopt, false, false);
+    REQUIRE(log.size() == 2);
+    CHECK(log[0] == "talkthrough: event over after 2.8 s, 2 presses");
+    CHECK(log[1] == "mark done");
+    // No event at all: on after 3 s.
+    r.Advance(5.9, std::nullopt, log, std::nullopt, false, false);
+    REQUIRE(log.size() == 4);
+    CHECK(log[2] == "talkthrough: no event after 3.1 s, 0 presses");
+    CHECK(log[3] == "mark none");
+    // An event that never ends: its ticks.
+    r.Advance(6.0, std::nullopt, log, std::nullopt, false, true);
+    r.Advance(7.1, std::nullopt, log, std::nullopt, false, true);
+    REQUIRE(log.size() == 6);
+    CHECK(log[4].rfind("talkthrough: timed out (event still on) after", 0) == 0);
+    CHECK(log[5] == "mark stuck");
+    std::string error;
+    CHECK(Parse("talkthrough\n", error));
+    CHECK_FALSE(Parse("talkthrough soon\n", error));
+    CHECK_FALSE(Parse("talkthrough 1 2\n", error));
+}

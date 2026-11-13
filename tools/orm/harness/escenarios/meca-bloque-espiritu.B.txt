@@ -1,0 +1,29 @@
+# meca-bloque-espiritu (ORM, docs/MECANISMOS_ADULTO.md, family F4, Templo del Espiritu), B: lands where A does, is put by the mechanism; A's marks at the same times; the checks are in A's file.
+#! noload
+#! start coop: test warp done
+#! saves 19-espiritu-adulto
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 235
+mark start
+warp SpiritTemple SpiritTemple_Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+place 19.35 103.85 -25.50   # B by the mechanism, out of A's way
+mark empuja
+wait 1110
+mark hecho
+wait 300
+mark hecho2
+wait 300
+wait 300
+mark end

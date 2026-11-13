@@ -1,0 +1,31 @@
+# templo-link-oscuro (ORM, docs/TEMPLOS.md), B: lands where A does and stays at the entrance (far from Dark Link's
+# room, so its own game never writes those flags). A's five Dark Link room flags must never change here; the boss
+# key (the control) must.
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect B coop: flags debug: bool 0x79daf80a \(entry \d+\) 0 -> 1 within watching..end
+#! never B coop: flags debug: bool 0x5eb654bd \(entry \d+\)
+#! never B coop: flags debug: bool 0x127c57f8 \(entry \d+\)
+#! never B coop: flags debug: bool 0x3b9398e7 \(entry \d+\)
+#! never B coop: flags debug: bool 0x670a179c \(entry \d+\)
+#! never B coop: flags debug: bool 0x3ff7a89a \(entry \d+\)
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+mark watching
+wait 4800               # A sets the room flags about 25 s after we are in, the key 5 s later
+wait 600
+mark end

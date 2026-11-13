@@ -1,0 +1,64 @@
+# epona-cancion (ORM D-R19, docs/EPONA.md), A: both adult at Lon Lon Ranch with the save 12-epona (Epona won:
+# Step_Get_Epona Complete, her song known; the ranch's own Epona gone). A plays Epona's Song (high D, B, A twice:
+# X Y A X Y A on the remake's Ocarina), she comes to A, A gets on (A), rides forward 3 s, stops and gets off; B
+# watches (round 7: epona-rancho's Epona, AfterWonGambleRace, could not be got on from any side). epona-cancion.B.txt: A's puppet on a horse of ours that looks like Epona (CoopPuppet_Horse), its
+# getting on, its gaits and the horse waiting where A left it. With LICHII_ORM_DEBUG_HORSE=1 A's log says where our
+# Link sits in Epona's frame (the 'saddle:' line: LICHII_ORM_HORSE_SADDLE for the kit). Mutant: LICHII_ORM_HORSE=0
+# turns B's 'gets on', 'rides' and 'spawned' lines red.
+#! noload
+#! start coop: test warp done
+#! saves 12-epona
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_HORSE=1,LICHII_COOP_DEBUG_ANIM=1
+#! timeout 600
+#! expect A coop: epona: saddle: our Link sits at within near..end
+#! expect A coop: check: saddle ok \([-0-9.]+, [-0-9.]+, [-0-9.]+\), the median of \d+ still readings on our own Animal_\w+
+#! never A coop: check: saddle fallback
+mark start
+warp HyruleField_Adult StartPos_Get_Epona_Race adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp (already there: taken at once)
+wait 2400
+mark after
+await mate              # B lands up to two minutes after us
+wait 600                # both puppets made
+stick 1 0 20            # a step aside from B
+wait 60
+press DLEFT 12          # takes the Ocarina out
+wait 240
+press A 12              # closes the take-out's message, or one note before the song (the ring holds 8)
+wait 300
+press X 12              # Epona's Song: high D, B, A, high D, B, A
+wait 40
+press Y 12
+wait 40
+press A 12
+wait 40
+press X 12
+wait 40
+press Y 12
+wait 40
+press A 12
+mark played
+wait 420
+press A 12              # a page after the song, if one comes
+wait 1200               # she runs to us
+mark near
+press A 12              # get on (the prompt says Ride when she stands beside us)
+wait 240
+mark mounted
+stick 0 0.8 180         # ride forward 3 s
+mark riding
+wait 180                # still in the saddle: the saddle probe reads
+mark still
+press A 12              # get off
+wait 240
+mark off
+wait 600
+mark end

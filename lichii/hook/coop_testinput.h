@@ -288,8 +288,17 @@ public:
 
     // Moves on to the step for `now_s`. Appends to `log` the marks reached
     // and "goto timed out" lines, in order.
+    // `mate_here`: another player is in our scene as presence shows it (await mate).
+    // `event`: whether our own event runs (talkthrough); unknown when it cannot be read.
     void Advance(double now_s, std::optional<std::array<float, 2>> player,
-                 std::vector<std::string>& log, std::optional<Camera> camera = std::nullopt);
+                 std::vector<std::string>& log, std::optional<Camera> camera = std::nullopt,
+                 bool mate_here = false, std::optional<bool> event = std::nullopt);
+    // talkthrough: A pressed for kTalkPressS every kTalkEveryS while the event runs; over once no
+    // event is seen for kTalkFreeS (or none came in kTalkNoneS).
+    static constexpr double kTalkPressS = 0.1;
+    static constexpr double kTalkEveryS = 0.75;
+    static constexpr double kTalkFreeS = 1.0;
+    static constexpr double kTalkNoneS = 3.0;
     const Output& Current() const { return out_; }
     // The warp and give steps reached since the last call, for the hook.
     struct Request {
@@ -343,6 +352,11 @@ private:
     double progress_at_ = 0.0;
     double detour_until_ = -1.0;
     double detour_side_ = -1.0;
+    // talkthrough (ORM): the step's state.
+    bool talk_seen_ = false;          // the event was seen running in this step
+    double talk_free_since_ = -1.0;   // since when no event (-1: an event now)
+    double talk_last_press_ = -1.0;   // when the last press began
+    int talk_presses_ = 0;
 };
 
 // Called once per emulated frame by the hook. Does nothing unless

@@ -1,0 +1,11 @@
+# historia-tarde (ORM story cutscenes, P2): as historia, but B has played the Deku Tree meeting
+# before (its HavePlayedEvent flag is set 6 s before A starts it). Expect in A: owner, start sent;
+# in B: "STORY_EVENT start received from P1 (...): ignored, HavePlayedEvent.KokiriForest_Meet_
+# DekuTree_MeetDekuTree_01 is set here", and no "event running 'KokiriForest_Meet...'" in B.
+# Same switches as historia.
+mark start
+wait 360
+event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+mark asked
+wait 1200
+mark end

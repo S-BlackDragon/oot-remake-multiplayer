@@ -1,0 +1,229 @@
+# historia-largo (ORM story cutscenes, P3, docs/CINEMATICAS.md): historia played through to its real end.
+# historia-fin stopped 36 s into Dm_Kokiri_0075, which lasts ~66 s (evento-largo, one game: over 66 s
+# after it began, HavePlayedEvent of the meeting 1 at once, Link left in front of the Deku Tree and
+# walking with the stick). A asks for the meeting; both games press A every 2 s for 200 s, then push
+# the stick up for 1 s. Expect in both "coop: event over (was 'Dm_Kokiri_0075')", "coop: story:
+# HavePlayedEvent.KokiriForest_Meet_DekuTree_MeetDekuTree_01 0 -> 1", Link moving after "mark walk";
+# in A one "STORY_EVENT end sent", in B "P1's '...' is over there", in the server one end.
+# Run with --transport ws --scen-dir tools/orm/harness/escenarios --timeout 480
+# --env LICHII_COOP_STORY=1 --env LICHII_COOP_DEBUG_ANIM=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_BOOL=0xef98d829
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect A coop: event running 'KokiriForest_Meet_DekuTree within asked..pressed25
+#! expect A coop: story: HavePlayedEvent\.KokiriForest_Meet_DekuTree_MeetDekuTree_01 0 -> 1
+#! expect A coop: event over \(was 'Dm_Kokiri_0075'\) within pressed50..walk
+#! count A coop: story: STORY_EVENT end sent == 1
+mark start
+wait 120
+event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+mark asked
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed25
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed50
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed75
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark pressed100
+wait 120
+mark walk
+stick 0 1 60
+mark walked
+wait 240
+mark end

@@ -1,0 +1,35 @@
+# templo-goron (ORM, docs/TEMPLOS.md), B: lands at the Fire Temple's entrance, stands 5.4 m south of Goron 010's
+# cell facing it, and watches A (in Goron City) rescue that Goron about 25 s later: the cell flag, then both 'gone'
+# flags 0 -> 1 here, never back to 0. By hand on B's screen: at 'watching' the Goron in his cell, at 'freed' gone.
+#! noload
+#! start coop: test warp done
+#! saves 13-fuego
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_temples.txt
+#! timeout 600
+#! never B coop: lists: LICHII_COOP_DUNGEON_LISTS .*the lists are not used
+#! expect B coop: flags debug: bool 0x6948b592 \(entry \d+\) 0 -> 1 within watching..end
+#! expect B coop: flags debug: bool 0x20dc1f8a \(entry \d+\) 0 -> 1 within watching..end
+#! expect B coop: flags debug: bool 0xa4e7353f \(entry \d+\) 0 -> 1 within watching..end
+#! never B coop: flags debug: bool (0x20dc1f8a|0xa4e7353f) \(entry \d+\) 1 -> 0
+mark start
+warp FireTemple FireTemple adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark b-in
+place -5.70 100.20 -4.50   # 5.4 m south of Goron 010's cell
+wait 120
+toward -5.73 -9.92 8
+press ZL 10
+mark watching
+wait 4200               # A frees the Goron about 25 s after we are in
+mark freed
+wait 600
+mark end

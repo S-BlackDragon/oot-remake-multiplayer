@@ -1,0 +1,13 @@
+# Block 14, the Ice Cavern: Volvagia beaten (the Fire Medallion, the hammer), Zora's Domain frozen. Starts in
+# Zora's Fountain at the cavern.
+include 13-fuego.txt
+scene ZoraFountain_Adult ZoraFountain_FromIceCavern
+hearts 8
+item Item_Medal_Fire
+item Item_Hammer
+dungeon FireTemple map compass bosskey
+seen Dm_FireTemple_0000 Dm_FireTemple_0010 Dm_FireTemple_BossIn Dm_FireTemple_BossOut SageOfFire_DefeatBoss
+seen Dm_DeathMtCrater_0010 Dm_Awake_Fire Dm_Awake_Fire_Get
+step SageOfFire Complete
+step AllSage Step01_00_01
+step SageOfWater Ready

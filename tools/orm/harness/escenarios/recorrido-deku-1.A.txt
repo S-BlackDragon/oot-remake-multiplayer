@@ -1,0 +1,119 @@
+# recorrido-deku-1 (ORM, docs/RECORRIDOS.md, bloque 2. Árbol Deku y Gohma), A: tramo 1, de la entrada a la puerta de Gohma.
+# InsideTheDekuTree: warp to Entrance, then room by room with place/goto; see recorrido-deku.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-deku-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 02-deku
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-vestibulo
+#! never A (?<!fairy )coop: puppet: P\d show -> hide within r01-vestibulo..fin
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: test place 0\.22 101\.30 14\.71: done within r01-vestibulo..r02-sala1
+#! expect A coop: test place \-13\.70 109\.30 8\.91: done within r02-sala1..r03-tirachinas
+#! expect A coop: test place \-33\.45 109\.79 10\.45: done within r03-tirachinas..r04-andamio
+#! expect A coop: test flag InsideTheDekuTree_RoomC_Cleared \(0x77279a83\) = 1 within r03-tirachinas..r04-andamio
+#! expect A coop: test place 4\.51 108\.70 7\.25: done within r04-andamio..r05-piso3
+#! expect A coop: test flag InsideTheDekuTree_RoomA_NearScaffold \(0xe27b79a0\) = 1 within r04-andamio..r05-piso3
+#! expect A coop: test place \-39\.38 120\.59 1\.69: done within r05-piso3..r06-sotano1
+#! expect A coop: test flag InsideTheDekuTree_RoomD_StepSwitch_On_01 \(0x6fb4f455\) = 1 within r05-piso3..r06-sotano1
+#! expect A coop: test place \-22\.81 80\.23 \-1\.82: done within r06-sotano1..r07-ojo
+#! expect A coop: test flag InsideTheDekuTree_RoomE_Cleared \(0x32797f0c\) = 1 within r06-sotano1..r07-ojo
+#! expect A coop: test place \-15\.46 78\.76 28\.37: done within r07-ojo..r08-agua
+#! expect A coop: test place \-20\.26 78\.76 31\.77: done within r08-agua..r09-bloque
+#! expect A coop: test flag InsideTheDekuTree_RoomG_Cleared \(0x27dfe587\) = 1 within r08-agua..r09-bloque
+#! expect A coop: test place \-45\.12 79\.60 42\.58: done within r09-bloque..r10-huevos
+#! expect A coop: test flag InsideTheDekuTree_Level_RoomH_ClearBlock \(0xfb39c3e6\) = 1 within r09-bloque..r10-huevos
+#! expect A coop: test place \-60\.24 82\.54 5\.95: done within r10-huevos..r11-hermanos
+#! expect A coop: test flag InsideTheDekuTree_RoomI_Cleared \(0xa32a1bd0\) = 1 within r10-huevos..r11-hermanos
+#! expect A coop: test place \-29\.00 53\.00 43\.65: done within r11-hermanos..fin
+#! expect A coop: test flag InsideTheDekuTree_RoomK_Cleared \(0xd2f46f66\) = 1 within r11-hermanos..fin
+mark start
+warp InsideTheDekuTree Entrance child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 3000               # B loads after A (r03_pareja) or with it (run.ps1): wait for it
+mark r01-vestibulo            # sala 0, vestíbulo
+place 0.22 101.30 14.71
+wait 120
+goto -6.00 -1.95 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-sala1            # sala 1, matorral Deku (piso 2)
+place -13.70 109.30 8.91
+wait 120
+goto -22.67 9.68 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-tirachinas            # sala 2, la del tirachinas y la escalera
+place -33.45 109.79 10.45
+wait 120
+goto -38.90 10.80 1.5 900
+flag InsideTheDekuTree_RoomC_Cleared 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r04-andamio            # sala 0 piso 2, el andamio
+place 4.51 108.70 7.25
+wait 120
+goto 4.00 7.25 1.5 900
+flag InsideTheDekuTree_RoomA_NearScaffold 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r05-piso3            # sala 3, piso 3 (interruptor de suelo)
+place -39.38 120.59 1.69
+wait 120
+goto -48.29 0.00 1.5 900
+flag InsideTheDekuTree_RoomD_StepSwitch_On_01 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r06-sotano1            # sala 4, sótano 1 (telarañas, antorcha)
+place -22.81 80.23 -1.82
+wait 120
+goto -10.24 -9.04 1.5 900
+flag InsideTheDekuTree_RoomE_Cleared 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r07-ojo            # sala 5, matorral y ojo
+place -15.46 78.76 28.37
+wait 120
+goto -10.50 27.62 1.5 900
+wait 300                # the other one sees us in this room
+mark r08-agua            # sala 6, el agua y el interruptor de buceo
+place -20.26 78.76 31.77
+wait 120
+goto -33.80 41.00 1.5 900
+flag InsideTheDekuTree_RoomG_Cleared 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r09-bloque            # sala 7, antorchas y bloque
+place -45.12 79.60 42.58
+wait 120
+goto -60.00 42.00 1.5 900
+flag InsideTheDekuTree_Level_RoomH_ClearBlock 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r10-huevos            # sala 8, huevos de Gohma y telaraña
+place -60.24 82.54 5.95
+wait 120
+goto -64.32 30.06 1.5 900
+flag InsideTheDekuTree_RoomI_Cleared 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r11-hermanos            # sala 9, los hermanos Deku 2-3-1
+place -29.00 53.00 43.65
+wait 120
+goto -29.00 39.00 1.5 900
+flag InsideTheDekuTree_RoomK_Cleared 1
+wait 60
+wait 300                # the other one sees us in this room
+mark fin

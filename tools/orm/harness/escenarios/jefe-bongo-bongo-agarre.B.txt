@@ -1,0 +1,28 @@
+# jefe-bongo-bongo-agarre, B: in the same room, beside the fight; sees A held on its own copy of the part.
+#! saves 17-sombra
+#! expect B coop: ride: P\d is held by Enemy_DungeonBoss_BongoBongo_(Left|Right)Hand [0-9a-f]{16}: drawn on our copy of it within bait..end
+#! expect B coop: ride: P\d is let go within bait..end
+mark start
+warp ShadowTemple StartPos_SageOfShadow
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark b-in
+wait 2400
+mark bait
+wait 2400
+mark held
+press B                # a hit on the hand: it goes to A's game (DAMAGE), the owner stays
+wait 60
+press B
+wait 480
+mark held-end
+wait 1800
+mark end

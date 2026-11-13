@@ -84,6 +84,7 @@ public:
         if (address + size < address || !memory_.IsValidVirtualAddressRange(address, size)) {
             return false;
         }
+        CoopPerf::The().Guest(size, false);
         return memory_.ReadBlockUnsafe(address, out, size);
     }
     bool Write(std::uint64_t address, const void* in, std::size_t size) override {
@@ -93,6 +94,7 @@ public:
         if (address + size < address || !memory_.IsValidVirtualAddressRange(address, size)) {
             return false;
         }
+        CoopPerf::The().Guest(size, true);
         return memory_.WriteBlockUnsafe(address, in, size);
     }
 
@@ -293,6 +295,11 @@ bool Call(Core::System& system, std::uint32_t imm, std::array<std::uint64_t, 8>&
     auto& process = Kernel::GetCurrentProcess(system.Kernel());
     if (!process.Is64Bit() || process.GetProgramId() != kOcarinaProgramId) {
         return false;
+    }
+    // ORM (coop_perf.h, LICHII_ORM_PERF): the game's calc thread waits for all of this.
+    const CoopPerf::Scope perf_scope(CoopPerf::Part::calc);
+    if (args[2] == 0) {
+        CoopPerf::The().CalcFrame();  // the cave's first call of a game frame
     }
     ProcessGuest guest(process.GetMemory());
     const auto now_ms = static_cast<std::uint64_t>(

@@ -1,0 +1,53 @@
+# epona-aparcar, B: lands at Lon Lon, walks 30 m off and, once it has the group's Epona, calls its own with the
+# song; she comes to B, not to where A left A's.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_CHEATS=1
+#! timeout 600
+#! expect B coop: epona: Step_Get_Epona = Complete shared forward \(the group's Epona\): added
+#! expect B coop: epona: Step_Get_Epona here is Complete
+#! never B coop: objects: share worst copy 0x[0-9a-f]+ 'Animal_
+mark start
+warp HyruleField_Adult StartPos_Get_Epona_Race
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+stick 1 0 240           # 30 m to the side
+wait 120
+mark watching
+wait 2400               # A's Epona comes and is parked
+flag IsGet.Item_Melody_EponaSong 1
+wait 120
+mark b-call
+press DLEFT 12          # takes out the Ocarina (ocarina-find, 2026-11-11)
+wait 240
+press X 12
+wait 40
+press Y 12
+wait 40
+press R 12
+wait 40
+press X 12
+wait 40
+press Y 12
+wait 40
+press R 12
+wait 40
+wait 600
+press B 12
+wait 120
+press B 12
+wait 120
+mark b-called
+wait 900
+mark end

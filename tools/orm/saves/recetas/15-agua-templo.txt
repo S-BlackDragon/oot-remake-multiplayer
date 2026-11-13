@@ -1,0 +1,14 @@
+# Block 15 inside the Water Temple with the Iron Boots on (meca-sostenido-agua, docs/SOSTENIDOS.md, docs/AGUA.md):
+# 15-agua-botas (boots got and worn, the Zora Tunic on) loaded at the temple's door (WaterTemple_FromLakeHylia, the
+# scenario's warp), so Continue lands in the temple without the 30 s warp. What room 14 needs: the water at its
+# first level (WaterTemple_Room00_WaterLevel 2, the high one, its one-hot flags 01/02 0 and 03 1, the new game's
+# values) so the floor switch is under water, and the switch's three flags not pressed.
+include 15-agua-botas.txt
+scene WaterTemple WaterTemple_FromLakeHylia
+int WaterTemple_Room00_WaterLevel 2
+bool WaterTemple_WaterLevelChange01 0
+bool WaterTemple_WaterLevelChange02 0
+bool WaterTemple_WaterLevelChange03 1
+bool WaterTemple_Room14_SwitchPushed 0
+bool WaterTemple_Room14_SwitchPushedByBlock 0
+bool WaterTemple_Room14_SwitchPushedHeavyBoots 0

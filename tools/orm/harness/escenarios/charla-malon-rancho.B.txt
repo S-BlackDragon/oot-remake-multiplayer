@@ -1,0 +1,40 @@
+# charla-malon-rancho (B), ORM F12 charlas (charla-malon-rancho.A.txt): B watches A talk to Malon at Lon Lon Ranch (Npc_Hylia_Malon_Child) from 8 m.
+# B's copy of the NPC follows A's pose (OBJECT_POSE) while A talks; B's own talk is not involved; A's puppet never
+# hides; no copy of the NPC is put a metre or more from where the Mover puts it (the objects debug's 'worst copy');
+# a talk flag A's talk changes waits while B's own NPC is in view and is never forced by the 120 s limit.
+# Command and precondition: charla-malon-rancho.A.txt.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect B coop: talk: sharing \d+ talk flags within boot..
+#! expect B coop: npc pose: copies following their owner's pose: P\d 0x[0-9a-f]+ within watching..watched
+#! never B coop: npc: talking to
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+#! never B coop: objects: share worst copy 0x[0-9a-f]+ 'Npc_Hylia_Malon_Child\w*' off
+#! never B coop: flags: talk flag 0x[0-9a-f]+ .* written: time ran out
+#! expect B coop: flags: talk flag 0x63ccae30 \S+ = 0 (waits: in view here|written: ) within watching..end
+#! expect B coop: talk: 0x63ccae30 \S+ 1 -> 0 within watching..end
+#! never B coop: flags: talk flag 0x63ccae30 \S+ = 0 written: time ran out
+mark start
+warp HyruleField_Child FindCuccoStartPos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+place -85.33 151.12 240.35     # where B watches from
+wait 90
+toward -91.88 245.36 8          # face the NPC
+mark watching
+wait 7200               # A talks about 30 s after this mark (it waits 150 s after its own landing)
+mark watched
+wait 1200               # A's fallback flag and its wait here
+mark end

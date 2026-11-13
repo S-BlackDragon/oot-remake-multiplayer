@@ -1,0 +1,34 @@
+# hora-salto (ORM, docs/HORA.md), A: the host. Both games land in Kakariko; 120 s after joining B's clock jumps to
+# midnight as the Sun's Song would (test switch: the game's own setter, the shared clock is not told). B must send
+# the jump once; A (the host, which owns the shared clock) must take it with its setter and keep it: no one goes
+# back to the morning, and A never sends a jump of its own (its set is not one).
+# Mutant: B without its LICHII_COOP_CLOCK_TEST_JUMP switch turns every 'expect' red; B with
+# LICHII_COOP_CLOCK_TEST_OFF=-43000@120 instead (a quiet move, not a jump) turns A's jump lines red.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_TIME=1
+#! expect B coop: clock: test: our clock jumps to 00:00:00 within day..end
+#! expect B coop: clock: sent a jump to 00:0\d:\d\d within day..end
+#! expect A coop: clock: jump to 00:0\d:\d\d from P\d within day..end
+#! expect A coop: time: set to 00:0\d:\d\d within day..end
+#! expect B coop: clock: in step with the shared clock within night..end
+#! never A coop: clock: sent a jump within day..end
+#! never B coop: clock: set to within day..end
+#! never A coop: clock: set to (0[6-9]|1\d|2[0-3]): within night..end
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark day
+wait 3000               # B's clock jumps to midnight 120 s after joining
+mark night
+wait 1800
+mark end

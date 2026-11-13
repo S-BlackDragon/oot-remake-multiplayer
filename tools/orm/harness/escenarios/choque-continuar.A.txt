@@ -1,0 +1,23 @@
+# choque-continuar (ORM choque, docs/CHOQUE.md; SONDAS.md round 7), A: A joins second and Continues on B's save
+# spot (0.17 m from B in round 7). Neither Link may be wedged: the mate's body is a ghost while they overlap
+# ("a ghost until clear"; the puppet is drawn aside as before) and turns solid only once they are 0.8 m apart.
+# Then A walks 3 m off and back past B's side, and a goto through the railing's gap must not time out.
+# Run with --join B-first (A joins second, as round 7).
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! join B-first
+#! expect A coop: bodies: colliders on within start..walk
+#! expect A bodies: P\d's body solid within start..end
+#! never A coop: test goto timed out within walk..end
+#! never A moved Link to
+#! never A coop: check: bodies: collider fallback
+mark start
+wait 600                      # B's /choque on, both loaded on one spot, ten seconds standing
+mark walk
+goto -83.6 33.65 0.4 600      # first away from where B is drawn on one Continue spot (1 m to +0.77 -0.64: his body is
+                              # there), to 1.6 m: past 1.5 m his puppet and body go back on his sample (-82.0 33.65)
+goto -82.0 30.6 0.4 600       # away from the spot: free to walk
+wait 60
+goto -80.6 33.65 0.4 600      # back, beside B
+wait 60
+goto -82.0 30.6 0.4 600
+mark end

@@ -1,0 +1,88 @@
+# meca-cancion-tiempo-espiritu (ORM, docs/CANCIONES.md "Por ver", PLAN_100 F10), A: the Spirit Temple's room 15 pair of
+# Song of Time blocks that swap each time the song is played (signs 0x03ecedcb30afe5e4, on at first, and
+# 0x97e1668d83dba136, off; blocks at 40.4 102.8 -54.6 and 40.4 102.8 -62.7). EXPLORATORY: it says which 64-bit keys
+# A's game writes on each song (A's flags debug lines), so the toggle can get its rule. Today no list shares those keys
+# (a key64 line is one-way). Since orm/riesgos-mundo they are toggle64 lines (shared both ways, held while our Link is
+# in the Spirit Temple: no block taken from under B, no bounce; the last song wins when B leaves or loads): B never
+# writes them while it stays in the temple ("never" below) and says it holds them; A's own blocks answer live.
+# A plays the song twice, 30 s apart.
+# Mutant: shared_dungeon_songs.txt with the toggle64 lines as plain key64 lines: B's 'never' turns red (written).
+# Run (from , PowerShell):
+#   python tools/harness/r03_pareja.py --scenario meca-cancion-tiempo-espiritu --transport ws --capture-marks
+#     --timeout 900 --env LICHII_COOP_PUPPET=1 --env LICHII_COOP_DEBUG_FLAGS=1
+#     --env LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,shared_dungeon_adult.txt,shared_dungeon_songs.txt
+# Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 19-espiritu-adulto
+# run.ps1 splits #! switches at every comma, so a list of files cannot be a value there: '.' is the
+# emulator's folder (where the list files are), and the hook loads every shared_dungeon_*.txt in it.
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.,LICHII_COOP_OBJECTS=1
+#! expect A coop: test place 37\.50 103\.00 -58\.60: done within placed..end
+#! expect A coop: flags debug: key64 0x(3ecedcb30afe5e4|97e1668d83dba136) \(record \d+\) within first..end
+#! never B coop: flags debug: key64 0x(3ecedcb30afe5e4|97e1668d83dba136)
+#! expect B coop: dungeon: room gimmick flags from another player held until we leave this dungeon or load within first..end
+#! expect A coop: live: song of time SpiritTemple: .*live within first..end
+#! never A coop: live: song of time SpiritTemple: unexplained within first..end
+mark start
+warp SpiritTemple SpiritTemple_Entrance adult
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+flag IsGet.Item_Melody_TimeSong 1
+wait 600
+place 37.5 103.0 -58.6  # between the two blocks, 3 m to -x
+wait 120
+mark placed
+toward 40.4 -58.6 8
+wait 120
+mark antes
+press DLEFT 12
+wait 240
+press R 12
+wait 40
+press A 12
+wait 40
+press L 12
+wait 40
+press R 12
+wait 40
+press A 12
+wait 40
+press L 12
+mark first
+wait 900
+mark despues1
+press B 12
+wait 120
+press B 12
+wait 1500
+press DLEFT 12
+wait 240
+press R 12
+wait 40
+press A 12
+wait 40
+press L 12
+wait 40
+press R 12
+wait 40
+press A 12
+wait 40
+press L 12
+mark second
+wait 900
+mark despues2
+press B 12
+wait 120
+press B 12
+wait 300
+mark end

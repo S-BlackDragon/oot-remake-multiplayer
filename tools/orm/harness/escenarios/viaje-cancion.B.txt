@@ -1,0 +1,62 @@
+# viaje-cancion (ORM, docs/CANCIONES.md), B: the one who plays the Minuet of Forest and leaves alone. Gives itself the
+# song and its lesson (so Sheik's lesson does not start on arrival, as met), walks 1 m from A, takes the
+# Ocarina out and plays A, up, left, right, left, right (daurosk's note guess: A = A, X = up, Y = left, R = right).
+# The checks are in A's file; B's own line says its game ran the warp song's arrival.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_WARP_INVITE=1
+#! expect B coop: test flag IsGet\.Item_Melody_ForestMinuet \(0x[0-9a-f]+\) = 1
+#! expect B coop: songs: our Link arrives by a warp song in SacredForestMeadow_Child within played..end
+#! saves 16-pozo
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+flag IsGet.Item_Melody_ForestMinuet 1
+flag HavePlayedEvent.ForestTemple_SageOfForest_MelodyGet 1
+# sondas8: the landing's event (DefaultBootEvent) still ran at 'ready': it ate the take-out, and the notes came out
+# as sword moves. 30 s more for the landing.
+wait 2400
+mark ready
+stick 1 0 20            # a step aside, so the two Links do not overlap
+wait 60
+press DLEFT 12          # takes the Ocarina out
+wait 240
+# sondas5: B's take-out opened a message (EvtWait, 9 s) and the six notes went in while it was up: none reached the
+# song check. An A closes it (sondas7, ocarina-mano), or else is one note A before the song: 7 notes, within the
+# 8 the check's ring holds (docs/SONDAS.md round 4).
+press A 12
+wait 300                # its control is up about 0.4 s after the 4 s of taking it out (sondas4)
+# The Minuet of Forest: D, high D, B, A, B, A. The remake's notes (sondas4, docs/SONDAS.md): L = D,
+# X = high D, Y = B, A = A (R is F).
+press L 12
+wait 40
+press X 12
+wait 40
+press Y 12
+wait 40
+press A 12
+wait 40
+press Y 12
+wait 40
+press A 12
+mark played
+# sondas9: the Minuet was recognised (DemoOcarinaCorrect) and B stayed in it to the end of the run: the remake
+# waits on its warp question after the song. A answers it (the default, go); a second A for a page after it.
+wait 420
+press A 12
+wait 120
+press A 12
+wait 1800               # the warp and the arrival
+mark arrived
+wait 2400               # A arrives beside B
+mark end

@@ -1,0 +1,32 @@
+# adulto-ganon (ORM, docs/CONTENIDO_ADULTO.md, block 20, Castillo de Ganon), A: both adult at the entrance inside Ganon's Castle. A removes the Light trial's barrier flag (InsideGanonCastle_Dungeon_BarrierRemove_Light, live in the built-in list). Its played event is held while B is in the castle, so B's tower barrier changes only at B's next load (docs/CONTENIDO_ADULTO.md).
+# Run with --transport ws --env LICHII_COOP_PUPPET=1 --env LICHII_COOP_DEBUG_FLAGS=1
+# --env LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt (the adult branch's kit file, next to the emulator as
+# shared_story.txt is; its reader comes with the child-dungeon branch). Mutant: the same run without
+# LICHII_COOP_DUNGEON_LISTS turns the 'never' lines red (the built-in list still shares those flags) and the
+# lines of a flag only the adult list shares.
+#! noload
+#! start coop: test warp done
+#! saves 20-ganon
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! expect B coop: puppet: P\d: create CoopPuppet_Adult
+#! expect A coop: test flag InsideGanonCastle_Dungeon_BarrierRemove_Light \(0x444d4c74\) = 1 within control..end
+#! expect B coop: flags debug: bool 0x444d4c74 \(entry \d+\) 0 -> 1 within control..end
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+flag InsideGanonCastle_Dungeon_BarrierRemove_Light 1
+wait 600
+wait 300
+mark end

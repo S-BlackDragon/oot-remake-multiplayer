@@ -1,0 +1,34 @@
+# pueblo-redead (A: beats the grotto's ReDeads (its flag), then sets it back to 0; mutant: without LICHII_COOP_DUNGEON_LISTS B's expect goes red)
+# docs/PUEBLOS.md (the town list, tools/release/kit/shared_dungeon_towns.txt).
+# Run with --transport ws (r03_pareja reads #! switches and #! saves); the list files next to the
+# emulator, as the kit puts them. Not run yet (code wave, 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 06-kakariko
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_towns.txt
+#! timeout 240
+#! expect A coop: lists: .*shared_dungeon_towns\.txt: \d+ flags and keys added, 0 taken off, 7 once, 4 held in their area, 13 one-time keys within boot..
+#! expect A coop: test flag KakarikoVillage_Gimmick_IsReDeadDestroyed \(0xbdbf9ba5\) = 1: queued within hecho..end
+#! expect A coop: test flag KakarikoVillage_Gimmick_IsReDeadDestroyed \(0xbdbf9ba5\) = 0: queued within deshacer..end
+mark start
+warp KakarikoVillage_Child Kakariko_GraveYardSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark hecho
+flag KakarikoVillage_Gimmick_IsReDeadDestroyed 1          # the ReDead grotto beaten: once for the group
+wait 600
+mark deshacer
+flag KakarikoVillage_Gimmick_IsReDeadDestroyed 0          # a 0 never undoes a once: flag
+wait 600
+wait 300
+mark end

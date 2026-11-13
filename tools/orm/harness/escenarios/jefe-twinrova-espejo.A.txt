@@ -1,0 +1,39 @@
+# jefe-twinrova-espejo (docs/FINAL.md, block C; ZMP Twinrova row 3, D-231), A: both in Twinrova's arena
+# with the mirror shield up (ZL held) through the first half: the sisters shoot at the owner's Link only (the
+# boss AI knows its own game's Link), B's copy follows. EXPLORATORY, look at the captures and the objects lines:
+# who owns the sisters, whether B's shield takes a copy's beam, whether an owner change mid-charge loses it
+# (hand_over_holds, docs/FINAL.md). Nobody beaten, nobody frozen for ever.
+# Twinrova's room (SpiritTemple, room 33) has no StartPos: both load at the temple's entrance and
+# the one who goes in is put in the arena with 'place' (the boss pull's free-play move).
+# Run with --transport ws --timeout 400 --capture-marks (r03_pareja; run.ps1 reads #! switches).
+#! expect A coop: boss: in the boss room of SpiritTemple: Enemy_DungeonBoss_Twinrova
+#! expect A coop: boss: intro ended
+#! never A coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 19-espiritu-adulto
+#! switches LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 400
+mark start
+warp SpiritTemple SpiritTemple_Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark a-in
+wait 300
+place -0.7 142.2 -158.6
+wait 2400               # the intro and into the fight
+mark shield
+hold ZL 1800
+mark shield-1
+hold ZL 1800
+mark shield-2
+wait 300
+mark end

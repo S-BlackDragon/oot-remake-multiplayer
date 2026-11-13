@@ -1,0 +1,73 @@
+# charla-mido-adulto (A), ORM F12 charlas (PLAN_100.md; docs/CHARLAS.md): A talks to adult Mido in the Lost Woods (Npc_Kokiri_Mido_Adult, at 47.89 100 -28.8); B watches.
+# A's talk claims the NPC (patch 0011, LICHII_COOP_NPC=1) and sends its bones as OBJECT_POSE while it lasts
+# (LICHII_COOP_NPC_POSE=1); the talk flags of shared_talk.txt it changes reach B without the NPC jumping there.
+# Precondition: an adult save before the Forest sage (Mido blocks the Meadow path: KokiriForest_Npc_Kokiri_Mido_Adult_Blocker 1).
+# Run (emulator from orm/test8 + a patch file + a patch file), with an --env for
+# each item of the #! switches line (run.ps1 reads it; r03_pareja needs the --env):
+#   python -I tools/orm/harness/r03_pareja.py --scenario charla-mido-adulto --scen-dir tools/orm/harness/escenarios
+#     --transport ws --timeout 600 --capture-marks
+# Not run yet (written 2026-11-11, no game that day). Doc: docs/CHARLAS.md. Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: npc: talking to Npc_Kokiri_Mido_Adult\w* 0x[0-9a-f]+ \((ours|owner P\d, claimed)\) within talk..talked
+#! expect A coop: npc pose: sending Npc_Kokiri_Mido_Adult\w* 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\) within talk..talked
+#! expect A coop: npc: talk over, claim let go within talk..end
+#! never A coop: npc: Npc_Kokiri_Mido_Adult\w* 0x[0-9a-f]+ talks with its owner P\d
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+#! expect A coop: talk: 0x3b320c55 \S+ 1 -> 0 within talk..end
+mark start
+warp LostWood_Adult LostWood_GoronCitySide_after
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 50 s after that: wait for it
+place 45.39 100.3 -28.84     # 2.5 m from Npc_Kokiri_Mido_Adult
+wait 90
+toward 47.89 -28.8 8          # face it
+wait 30
+mark at-npc
+wait 20
+mark talk
+press A 12              # talk
+wait 180
+mark talking
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press B 12              # close what is left (a shop's menu, a question)
+wait 60
+press B 12
+wait 120
+stick 0 -1 30           # a step back: no second talk
+wait 60
+mark talked
+wait 300                # B's lines for the flag
+mark fallback
+flag KokiriForest_Npc_Kokiri_Mido_Adult_Blocker 0   # only if the talk did not (test, as the game's setter)
+wait 600
+mark end

@@ -1,0 +1,53 @@
+# puertas-deku (A), ORM doors and chests (docs/PUERTAS.md): Deku Tree, the slingshot room (room C). A
+# opens its shutter door (Obj_SwitchShutter_A_01 at -30.5 109.8 10.2, Banc InsideTheDekuTree_Static; EvtDoorShutter),
+# walks in, goes up to the ledge and opens the big chest (Obj_TBox_A_02 at -54.4 112.0 12.2, the kick). B waits inside
+# the room (puertas-deku.B.txt): in B's game the shutter must rise for A's puppet and come down behind it (ToOpen,
+# ToClose), and the chest must open with A's kick (Open_Front_Dungeon) and stay open, not vanish.
+# Run (emulator built from orm/puertas), from the repo root:
+#   python -I tools/orm/harness/r03_pareja.py --scenario puertas-deku --scen-dir tools/orm/harness/escenarios
+#     --transport ws --env LICHII_COOP_DEBUG_DOORS=1 --env LICHII_COOP_CHEATS=1 --capture-marks --timeout 480
+# Not run yet (written 2026-11-11, no game that day). Positions as deku-ladder's (daurosk tools/autotest); the outer
+# side of the shutter is a guess (the room is to its west).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_DOORS=1,LICHII_COOP_DEBUG_OBJECTS=1
+#! timeout 480
+#! never A coop: doors: P\d .* opens here
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+wait 7800               # B starts 60 s after our warp and lands about 50 s after that: wait for it
+place -27.8 110.0 10.2  # 2.7 m east of the shutter, outside room C
+wait 120
+toward -30.5 10.2 8
+mark at-door
+press A                 # the shutter rises, Link walks in (EvtDoorShutter)
+wait 240
+mark in-room
+wait 300
+place -51.8 112.6 12.2  # the chest ledge
+wait 240
+goto -53.3 12.2 0.4 300 # in front of the chest
+toward -54.4 12.2 8
+mark at-chest
+press A                 # the kick, the item get
+wait 300
+press A
+wait 120
+press A
+wait 120
+press A
+wait 240
+mark opened
+wait 600
+mark end

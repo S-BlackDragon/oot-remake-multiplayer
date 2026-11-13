@@ -1,0 +1,35 @@
+# mirada-pnj, B: the charla way into the Kokiri camp, right up to the Kokiri (1 m from Npc_Kokiri_003_Child at
+# -76.34 -17.52, charla.A.txt's run), talks to it, then walks 15 m back east along the root ledge.
+#! never B (?<!fairy coop: puppet: P\d )show -> hide
+mark start
+wait 300                     # after A, so A is placed first
+goto -76.3 13.4 1.2 1500
+toward -73.0 13.4 10
+wait 10
+press A 12                   # "Enter"
+wait 120
+stick 0 1 600
+wait 60
+goto -73.0 -12.0 1.5 400
+goto -73.0 -18.0 1.5 400
+goto -78.9 -17.0 1.5 600     # into the camp, by the fire (charla.A.txt)
+toward -76.34 -17.52 8
+goto -76.9 -17.4 0.4 300     # about 0.6 m from the Kokiri
+mark at-npc
+wait 600
+press A 12                   # talk
+wait 180
+mark talking
+press A 12
+wait 60
+press A 12
+wait 60
+press A 12
+wait 60
+press B 12
+wait 300
+goto -73.0 -12.0 1.5 600     # back east, out of the camp
+goto -73.0 2.0 1.5 600       # about 15 m from the Kokiri
+mark away
+wait 900
+mark end

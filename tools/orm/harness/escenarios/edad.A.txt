@@ -1,0 +1,24 @@
+#! env LICHII_ORM_AGE=1
+# edad (ORM D-R17, docs/EDAD.md), A: the room's age. Both games in Kokiri Forest as children;
+# A turns adult with the test command `age adult` (standing in for drawing the Master Sword), B follows on its
+# own (edad.B.txt does nothing but walk 4 m off its start); then A turns child again and B follows back.
+# Expect in A's log: "coop: test age adult: asked", "coop: age: change to adult asked (the test command)",
+# "reloading as adult: KokiriForest_Child -> KokiriForest_Adult", "Sequence_IsChildhood <- 0 (queued)",
+# "asking the event 'ReplaceEquipmentForEraChange'", "event running ... scene change to KokiriForest_Adult
+# asked", "loading KokiriForest_Adult", "now adult in KokiriForest_Adult", then later "P<n> is adult now
+# (was child)" for B; the same back to child. In B's log: "P<n> is adult now (was child)", "we follow:
+# reload as adult once nothing runs here", the same reload lines and "Link put back where he stood".
+# Run with --transport ws --env LICHII_COOP_AGE=1 --timeout 420 --capture-marks.
+mark start
+wait 600                      # both games settle; each sees the other's age (first seen: not a change)
+mark adult-ask
+age adult
+wait 3600                     # A's reload (~20 s), then B's after A's age has read the same 2 s
+mark adult
+wait 900
+mark child-ask
+age child
+wait 3600
+mark child
+wait 600
+mark end

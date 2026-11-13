@@ -1,0 +1,64 @@
+# epona-aparcar (ORM D-R19, docs/EPONA.md, PLAN_100 F15, block 3 Campo y Rancho Lon Lon), A: each player's Epona
+# stays where its player left her (: one Epona per player, each calls his own with the song,
+# the possession is the group's). Both adult at Lon Lon (HyruleField_Adult, StartPos_Get_Epona_Race); once B
+# is in, A makes the group's Epona (Step_Get_Epona Complete, as epona-paso) and gets Epona's Song, calls her
+# (up, left, right, up, left, right: X Y R X Y R by ocarina-probe's guess), walks 15 m away and leaves her
+# there; B, 30 m off, calls its own 20 s later. What it says: Animal_* are each game's own (EPONA.md, 'De cada
+# juego'): no game copies the other's horse (no 'worst copy' of an Animal_ line) and B's capture at 'b-called'
+# shows B's Epona by B while A's stays parked where A left her (A's capture at 'parked').
+# Precondition: as epona-paso (12-bosque: nobody has Epona yet, so the Complete comes from A's game).
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario epona-aparcar --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_CHEATS=1
+#! timeout 600
+#! expect A coop: epona: Step_Get_Epona = Complete shared forward \(the group's Epona\): added
+#! expect A coop: test flag IsGet\.Item_Melody_EponaSong \(0xb492ac33\) = 1
+#! never A coop: objects: share worst copy 0x[0-9a-f]+ 'Animal_
+mark start
+warp HyruleField_Adult StartPos_Get_Epona_Race
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 70 s after that: wait for it
+mark a-epona
+enum Step_Get_Epona Complete
+flag IsGet.Item_Melody_EponaSong 1
+wait 300
+mark call
+press DLEFT 12          # takes out the Ocarina (ocarina-find, 2026-11-11)
+wait 240
+press X 12
+wait 40
+press Y 12
+wait 40
+press R 12
+wait 40
+press X 12
+wait 40
+press Y 12
+wait 40
+press R 12
+wait 40
+wait 600                # she comes
+press B 12
+wait 120
+press B 12
+wait 120
+mark called
+stick 0 -1 240          # walk 15 m away from her
+wait 120
+mark parked
+wait 1800
+mark end

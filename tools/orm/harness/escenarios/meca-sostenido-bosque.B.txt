@@ -1,0 +1,30 @@
+# meca-sostenido-bosque, B: lands where A does, is put 3.5 m from room 17's switch and watches; the switch
+# goes down in B too (the shared flag) and stays down when A steps off.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_HELD_SWITCHES=1,LICHII_COOP_HELD_SWITCH_PROBE=1,LICHII_COOP_GIMMICK_PROBE=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! timeout 600
+#! expect B coop: flags debug: (bool 0x[0-9a-f]{8} \(entry|key64 0x[0-9a-f]+ \(record) \d+\) 0 -> 1 within watching..end
+#! never B coop: flags debug: bool 0x985d21fd \(entry \d+\) 1 -> 0
+#! never B coop: held switch: ForestTemple
+mark start
+warp ForestTemple ForestTemple adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+place 20.63 100.60 -17.16     # 3.5 m from the switch
+wait 90
+toward 17.13 -17.16 8
+mark watching
+wait 5400               # A stands on it and steps off
+mark end

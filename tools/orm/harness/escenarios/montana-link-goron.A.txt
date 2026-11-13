@@ -1,0 +1,39 @@
+# montana-link-goron (A: stops Link the Goron, talks to him and moves Darunia's statue (five flags) and comes in from the Crater (its own); mutant: without LICHII_COOP_DUNGEON_LISTS B's expect lines go red)
+# docs/MONTANA_SOMBRA.md (the mountain list, tools/release/kit/shared_dungeon_montana.txt).
+# Run with --transport ws (r03_pareja reads #! switches and #! saves); the list files next to the
+# emulator, as the kit puts them. Not run yet (code wave, 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_montana.txt
+#! timeout 240
+#! expect A coop: lists: .*shared_dungeon_montana\.txt: \d+ flags and keys added, 1 taken off, 12 once, 3 held in their area, 25 one-time keys within boot..
+#! expect A coop: test flag SageOfFire_GenerateDaruniaJr \(0x07bac3ce\) = 1: queued within goron..end
+#! expect A coop: test flag SageOfFire_Step01_DaruniaJr_BombHit \(0xc9f273ba\) = 1: queued within goron..end
+#! expect A coop: test flag SageOfFire_Step02_DaruniaJr_FirstTalked \(0x0bc25f5d\) = 1: queued within goron..end
+#! expect A coop: test flag SageOfFire_Step02_TalkedSchedule \(0x87e4f819\) = 1: queued within goron..end
+#! expect A coop: test flag SageOfFire_Step02_DoorOpen \(0x56f40096\) = 1: queued within goron..end
+mark start
+warp GoronCity_Adult GoronCity_MountainTrailSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark goron
+flag SageOfFire_GenerateDaruniaJr 1
+flag SageOfFire_Step01_DaruniaJr_BombHit 1
+flag SageOfFire_Step02_DaruniaJr_FirstTalked 1
+flag SageOfFire_Step02_TalkedSchedule 1
+flag SageOfFire_Step02_DoorOpen 1
+flag SageOfFire_FromCrater 1          # A's way in: never crosses
+wait 900
+wait 300
+mark end

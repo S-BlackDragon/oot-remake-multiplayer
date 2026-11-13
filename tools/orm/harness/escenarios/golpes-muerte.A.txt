@@ -1,0 +1,31 @@
+# golpes-muerte (A), ORM golpes (docs/GOLPES_LATENCIA.md): both load into the Deku Tree entrance room; A is in
+# first, so A's game owns its enemies, and the test drive holds one of them 2 m in front of A, still. A stands; B
+# slashes it (until it dies). Meant over the tunnel (about 100 ms each way) as well as on 127.0.0.1.
+# By hand, in B's captures at each 'slash' mark: the copy flinches and is knocked back at once, no second flinch about
+# half a second later, no pull back to A's place; at the kill it falls where it stands and does not walk on with A's enemy.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario golpes-muerte --scen-dir tools/orm/harness/escenarios
+#   --transport ws --timeout 480 (the #! switches go to both games), with the hook built from orm/golpes
+#   (a patch file). Not run yet (written 2026-11-11 with that branch, not compiled).
+#! expect A coop: objects: test drive 0x[0-9a-f]+ 
+#! expect A coop: objects: share hits feedback on within boot..
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_OBJECTS_TEST_DRIVE=2,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 480
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 3400               # B arrives about 1800 frames after us and slashes after 1600
+mark slashing
+wait 1920
+mark end

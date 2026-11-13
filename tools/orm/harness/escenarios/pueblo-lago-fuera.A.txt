@@ -1,0 +1,30 @@
+# pueblo-lago-fuera (A: the lake fills while B is away from Hyrule Field (the control of pueblo-lago))
+# docs/PUEBLOS.md (the town list, tools/release/kit/shared_dungeon_towns.txt).
+# Run with --transport ws (r03_pareja reads #! switches and #! saves); the list files next to the
+# emulator, as the kit puts them. Not run yet (code wave, 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_towns.txt
+#! timeout 240
+#! expect A coop: lists: .*shared_dungeon_towns\.txt: \d+ flags and keys added, 0 taken off, 7 once, 4 held in their area, 13 one-time keys within boot..
+#! expect A coop: test flag HavePlayedEvent\.Dm_LakeHrl_0020 \(0x81f4c6b5\) = 1: queued within lleno..end
+mark start
+warp HyruleField_Adult HyruleField_FromLakeHylia
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark lleno
+flag HavePlayedEvent.Dm_LakeHrl_0020 1          # the lake fills
+wait 900
+wait 300
+mark end

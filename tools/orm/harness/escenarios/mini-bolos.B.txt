@@ -1,0 +1,30 @@
+# mini-bolos (B: lands where A does and watches): Bombchu Bowling: the first prize is given once for the group (B's next win gets the second prize); the hard mode A picked stays his.
+# docs/MINIJUEGOS.md (the minigame list, tools/release/kit/shared_dungeon_minigames.txt).
+# Run with --transport ws and --env for each of LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them. Mutant: the same run without
+# LICHII_COOP_DUNGEON_LISTS turns B's expect lines of a prize red (no list shares it).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_minigames.txt
+#! expect B coop: lists: .*shared_dungeon_minigames\.txt: 30 flags and keys added, 0 taken off, 28 once, 0 held in their area, 0 one-time keys within boot..
+#! expect B coop: puppet: P\d: create CoopPuppet_Child
+#! expect B coop: flags debug: bool 0x19e5a36b \(entry \d+\) 0 -> 1 within b-in..end
+#! never B coop: flags debug: bool 0x7e630d00 \(entry \d+\) 0 -> 1
+mark start
+warp Market_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark b-in
+wait 900
+wait 300
+mark end

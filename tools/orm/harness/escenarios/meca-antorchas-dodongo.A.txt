@@ -1,0 +1,44 @@
+# meca-antorchas-dodongo (A): Dodongo's Cavern: room 8's torch puzzle solved opens its shutter for everyone (F7)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room 8: three timed torches (Obj_CandleStick_TimeExtinguish_A_01 at 36.23 -59.67, 40.8 -41.14, 49.55 -64.14)
+# lit from Obj_CandleStick_A_01 cb56a30869220178 (48.46 100.0 -51.5). The solve is DodongoCavern_CandleStick
+# (saved, shared) and the shutter's event HavePlayedEvent.DodongoCavern_Gimmick_CandleStickShutter (held in B
+# while in the cavern). A sets both. B walks into room 8 and looks at a torch: the shutter open, the torches
+# as B's own game has them (not lit by A: each game's). Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag DodongoCavern_CandleStick \(0x67b834a5\) = 1: queued
+#! expect A coop: test flag HavePlayedEvent.DodongoCavern_Gimmick_CandleStickShutter \(0xa7e3faf1\) = 1: queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp DodongoCavern EntrancePos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag DodongoCavern_CandleStick 1
+wait 120
+flag HavePlayedEvent.DodongoCavern_Gimmick_CandleStickShutter 1
+wait 120
+mark flag
+wait 1500
+place 44.0 100.5 -54.0       # A at the same door, for its own capture
+wait 240
+toward 40.8 -41.14 20
+press ZL 10
+mark abierta
+wait 900
+mark end

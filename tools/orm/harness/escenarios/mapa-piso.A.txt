@@ -1,0 +1,44 @@
+# mapa-piso (ORM, docs/MAPA_COMPANEROS.md, 'Qué ve el jugador' 2 and 'Investigación del mapa'), A: the watcher;
+# both CHILD in the Deku Tree (02-deku). Floors from MapParam (bottoms B2 45, B1 73, 1F 93.5, 2F 106.5, 3F 118):
+# A stays on 1F at the entrance (y 101). B (mapa-piso.B.txt), a minute each because its landing is known only to
+# about 30 s:
+#   other   B in the basement (StartPos_Get_StoneOfForest, y 47: B2): on A's minimap a ring in B's colour, not a dot;
+#   same    B back on 1F, 6 m from A: a dot.
+# By hand (F7 is a keyboard key, not a script one): with the pause map shown during 'other', 'B B2' after B's dot.
+# Drawn by the in-game HUD: the test is A's captures at 'other' and 'same' (--capture-marks), plus the table line.
+# NEEDS coop_map.txt beside the emulator (LICHII_COOP_MAP_FILE; tools/romfs/map_table.py is not written yet,
+# MAPA_COMPANEROS.md 'Falta' 2): with a 'floors InsideTheDekuTree -2 45 73 93.5 106.5 118' line, a 'mini' view and
+# a 'screen mini' box. Without it the hook says 'cannot read' and the table line is red.
+# Run (hook from orm/mapa):
+#   python -I tools/orm/harness/r03_pareja.py --scenario mapa-piso --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks. Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 02-deku
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_HUD=1,LICHII_COOP_MAP=1,LICHII_COOP_MAP_FILE=coop_map.txt
+#! timeout 600
+#! expect A coop: map: coop_map\.txt: [1-9]\d* dungeons with floors, [1-9]\d* minimap and \d+ pause map views, minimap box set within boot..
+#! never A coop: map: cannot read
+#! never A coop: map: coop_map\.txt: line \d+
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect A coop: check: map mini \S+ ok minimap dots by the table
+#! never A coop: check: map mini \S+ fallback
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 9300               # B lands about 120 s after us and goes down to B2 at once
+mark other
+wait 3600
+mark same               # B back on our floor
+wait 1200
+mark end

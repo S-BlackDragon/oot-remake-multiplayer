@@ -1,0 +1,74 @@
+# charla-rey-zora-dos (B), ORM F12 charlas, two talkers (charla-rey-zora-dos.A.txt): B stands 1.5 m to A's side and talks to
+# King Zora on his throne (Npc_Zora_KingZora_child) while A's talk is open. The NPC is A's and A talks with it (A's OBJECT_POSE of it
+# comes, A's PLAYER_STATUS says event), so B's talk does not claim it, plays on B's copy and, once over, the
+# copy blends back to A's pose. What must not show: B taking the NPC ('is ours now: claimed', 'claim on ...
+# held') and A's puppet hiding.
+# Command and precondition: charla-rey-zora-dos.A.txt.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect B coop: talk: sharing \d+ talk flags within boot..
+#! expect B coop: npc: talking to Npc_Zora_KingZora_child\w* 0x[0-9a-f]+ \(owner P\d, not claimed\) within talk..end
+#! expect B coop: npc: Npc_Zora_KingZora_child\w* 0x[0-9a-f]+ talks with its owner P\d: not claimed, our talk plays on our copy only within talk..end
+#! expect B coop: npc: talk over, claim let go within talk..end
+#! expect B coop: npc: copy 0x[0-9a-f]+ blends back to its owner's pose over 600 ms within talk..end
+#! never B coop: npc: Npc_Zora_KingZora_child\w* 0x[0-9a-f]+ is ours now: claimed
+#! never B coop: npc: claim on .* held \d+ s, let go
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+warp ZoraDomain_Child ZoraDomain_FromZoraFountain
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 300
+place 70.29 119.1 17.1     # 1.5 m to the side of where A talks from
+wait 90
+toward 67.28 15.58 8          # face the same NPC
+mark watching
+wait 2700               # A's talk started 5 to 45 s ago (it waits 140 s after its landing)
+mark talk
+press A 12              # talk to the NPC A is talking to
+wait 180
+mark talking-own
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press B 12
+wait 60
+press B 12
+wait 30
+mark blended-start
+wait 90                 # the 1.5 s linger and the 600 ms blend
+mark blended
+wait 600
+mark end

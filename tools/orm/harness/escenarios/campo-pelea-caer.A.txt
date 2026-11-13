@@ -1,0 +1,48 @@
+# campo-pelea-caer (PLAN_100 block 3: 'Pelea clave: Stalchild/Peahat con un caido', J = F1 without a boss), A:
+# both child in Hyrule Field in front of Kakariko at night (the host's clock to 20:00 90 s after joining, as
+# daurosk's stalchild). Once B is in, A walks where the Stalchild rise (stalchild: about 172.5 28.7), fights
+# for a few seconds and goes down (life 0): a downed player is no target, so the Stalchild A owned go to B
+# (docs/ENEMIGOS.md 'Caido': 'share owner' with a later epoch), B comes and gets A up. No game over.
+# Needs the enemies' branch (a patch file) and the clock switch of orm/hora or daurosk's.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario campo-pelea-caer --scen-dir tools/orm/harness/escenarios
+#   --transport ws --capture-marks (r03_pareja reads #! saves, #! switches and #! timeout).
+# Not run yet (written 2026-11-11, no game that day). Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! saves 03-campo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1,LICHII_COOP_TIME_TEST_SET=72000@90,LICHII_COOP_DEBUG_TIME=1
+#! timeout 600
+#! expect A coop: downed: alive -> downed within dying..end
+#! expect A downed -> reviving: revive requested by P\d
+#! expect A reviving -> alive: revived \(by P\d
+#! never A -> game_over
+mark start
+warp HyruleField_Child HyruleField_FrontOfKakarikoVillage
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 9000               # B starts 60 s after our warp and lands about 70 s after that: wait for it
+mark night
+goto 186.0 22.0 1.0 900 # where they rose in grass-sync-2
+wait 60
+goto 179.0 25.5 1.0 600
+mark rise
+wait 120                # they rise (PreAppear, Appear)
+toward 172.5 28.7 6
+hold ZL 20
+hold ZL+Y 8
+hold ZL 16
+hold ZL+Y 8
+hold ZL 30
+mark dying
+life 0
+wait 2400               # B comes and holds A
+mark end

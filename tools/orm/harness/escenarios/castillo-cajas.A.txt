@@ -1,0 +1,35 @@
+# castillo-cajas (A): Hyrule Castle: the moat crates in place and Talon woken are so in every game (F4, once:).
+# docs/CONTENIDO_NINO.md; families of PLAN_100 section 4.
+# A queues the crates-in-place flag and Talon woken; B, at the castle's entrance, gets both live. The crates'
+# positions themselves go by WORLD_MOVE (daurosk's world sync). Por comprobar en juego: B's Talon goes home.
+# Run with --transport ws --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=<kit>/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja; player numbers vary: P\d):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag HyruleCastle_IsBoxMoveCorrectPos \(0x723c2faf\) = 1
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 400
+mark start
+warp HyruleCastle HyruleCastle_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark flag
+flag HyruleCastle_IsBoxMoveCorrectPos 1
+wait 60
+flag Talon_AfterWakeUp 1
+wait 120
+wait 600
+mark visto
+wait 600
+mark end

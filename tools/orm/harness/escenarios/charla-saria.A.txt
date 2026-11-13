@@ -1,0 +1,77 @@
+# charla-saria (A), ORM F12 charlas (PLAN_100.md; docs/CHARLAS.md): A talks to Saria by Link's house (Npc_Kokiri_Saria_Child, at -29.48 114.04 5.88); B watches.
+# A's talk claims the NPC (patch 0011, LICHII_COOP_NPC=1) and sends its bones as OBJECT_POSE while it lasts
+# (LICHII_COOP_NPC_POSE=1); the talk flags of shared_talk.txt it changes reach B without the NPC jumping there.
+# Precondition: a child save where Saria stands by Link's house (her placement at -29.48 114.04 5.88; she has two more, by Mido's path and on the bridge, that her schedule picks).
+# Run (emulator from orm/t9-integrado + a patch file), with an --env for
+# each item of the #! switches line (run.ps1 reads it; r03_pareja needs the --env):
+#   python -I tools/orm/harness/r03_pareja.py --scenario charla-saria --scen-dir tools/orm/harness/escenarios
+#     --transport ws --timeout 600 --capture-marks
+# Self-check (charla-radio): the 'coop: check: talk target' line says which path took the NPC: by its event component
+# (the assumption holds) or by radius (it did not change); either passes, the line tells which.
+# Not run yet (written 2026-11-11, no game that day). Doc: docs/CHARLAS.md. Player numbers vary: P\d.
+#! noload
+#! saves 01-kokiri
+#! start coop: test warp done
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: npc: talking to Npc_Kokiri_Saria_Child\w* 0x[0-9a-f]+ \((ours|owner P\d, claimed)\) within talk..talked
+#! expect A coop: check: talk target Npc_Kokiri_Saria_Child\w* by (event-component|radius [0-9.]+ m \(event component did not change) within talk..talked
+#! expect A coop: npc pose: sending Npc_Kokiri_Saria_Child\w* 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\) within talk..talked
+#! expect A coop: npc: talk over, claim let go within talk..end
+#! never A coop: npc: Npc_Kokiri_Saria_Child\w* 0x[0-9a-f]+ talks with its owner P\d
+#! never A (?<!fairy )coop: puppet: P\d show -> hide
+mark start
+# 2026-11-12 (round 7): the warp with no start put Link in the void (DmF_SY_FallDown in a loop, every round):
+# a named start
+warp KokiriForest_Child KokiriForest_FrontOfLostWood
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+await mate              # B lands (up to two minutes after us)
+wait 600
+# In the saves built on S-BlackDragon's base Saria is the Ocarina holder on her chair (Npc_Kokiri_Saria_Child_OcarinaHolder
+# at -18.86 110.03 1.06, 'Act_SitChair_Wait'; docs/SONDAS.md row 6): walked up to, so Link faces her.
+place -18.86 110.10 4.00     # 3 m on her +z side
+wait 90
+goto -18.86 1.06 1.1 300      # up to her
+toward -18.86 1.06 20         # face her
+mark at-npc
+wait 20
+mark talk
+press A 12              # talk
+wait 180
+mark talking
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press B 12              # close what is left (a shop's menu, a question)
+wait 60
+press B 12
+wait 120
+stick 0 -1 30           # a step back: no second talk
+wait 60
+mark talked
+wait 600
+mark end

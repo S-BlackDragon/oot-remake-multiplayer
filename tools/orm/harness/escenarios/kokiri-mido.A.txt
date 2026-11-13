@@ -1,0 +1,35 @@
+# kokiri-mido (A): Kokiri: Mido stops blocking the Deku Tree path in every game (familia F2/F12; ZMP K1).
+# docs/CONTENIDO_NINO.md; families of PLAN_100 section 4.
+# A queues Mido's blocker flag (the end of his talk with sword and shield) with the test `flag`; B, beside A by the
+# path, gets it live. Por comprobar en juego: whether B's Mido steps aside at once (capture at `visto`) or only on a
+# reload.
+# Run with --transport ws --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=<kit>/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja; player numbers vary: P\d):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag KokiriForest_Npc_Kokiri_Mido_Child_Blocker \(0x502f6cea\) = 1
+#! expect A coop: flags debug: \w+ 0x502f6cea \(entry \d+\) 0 -> 1
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 400
+mark start
+warp KokiriForest_Child FrontDekuTree
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark flag
+flag KokiriForest_Npc_Kokiri_Mido_Child_Blocker 1
+wait 120
+wait 600
+mark visto
+wait 600
+mark end

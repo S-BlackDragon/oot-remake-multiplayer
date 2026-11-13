@@ -1,0 +1,9 @@
+# seis-derrota, the five bots: around A, 2 m off; down as soon as A is down.
+#! never script line \d+
+#! never until P1 down: timed out
+scene KokiriForest_Child
+follow 1 2
+until 1 down 120
+down
+wait 60
+mark done

@@ -10,6 +10,7 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <optional>
 #include <string>
@@ -588,12 +589,64 @@ void Runner::Learn(double now_s, std::optional<std::array<float, 2>> player) {
 }
 
 void Runner::Advance(double now_s, std::optional<std::array<float, 2>> player,
-                     std::vector<std::string>& log, std::optional<Camera> camera) {
+                     std::vector<std::string>& log, std::optional<Camera> camera, bool mate_here,
+                     std::optional<bool> event) {
     camera_ = camera;
     Learn(now_s, player);
     while (index_ < script_.steps.size()) {
         const Step& s = script_.steps[index_];
         const double length = static_cast<double>(s.ticks) / kTicksPerSecond;
+        if (s.kind == Kind::talk_through) {
+            const double in_step = now_s - step_start_;
+            const bool running = event.value_or(false);
+            if (running) {
+                talk_seen_ = true;
+                talk_free_since_ = -1.0;
+            } else if (talk_free_since_ < 0.0) {
+                talk_free_since_ = now_s;
+            }
+            const bool over = talk_seen_ ? !running && now_s - talk_free_since_ >= kTalkFreeS
+                                         : in_step >= kTalkNoneS;
+            if (over || in_step >= length) {
+                char text[128];
+                std::snprintf(text, sizeof text, "talkthrough: %s after %.1f s, %d presses",
+                              over ? (talk_seen_ ? "event over" : "no event") : "timed out (event still on)",
+                              in_step, talk_presses_);
+                log.push_back(text);
+                ++index_;
+                step_start_ = now_s;
+                talk_seen_ = false;
+                talk_free_since_ = -1.0;
+                talk_last_press_ = -1.0;
+                talk_presses_ = 0;
+                continue;
+            }
+            out_ = Output{};
+            if (running && (talk_last_press_ < 0.0 || now_s - talk_last_press_ >= kTalkEveryS)) {
+                talk_last_press_ = now_s;
+                ++talk_presses_;
+            }
+            if (running && talk_last_press_ >= 0.0 && now_s - talk_last_press_ < kTalkPressS) {
+                out_.buttons = kA;
+            }
+            Hold(std::nullopt, now_s);
+            return;
+        }
+        if (s.kind == Kind::await_mate) {
+            const double waited = now_s - step_start_;
+            if (mate_here || waited >= length) {
+                char text[96];
+                std::snprintf(text, sizeof text, "await mate: %s after %.1f s",
+                              mate_here ? "here" : "timed out", waited);
+                log.push_back(text);
+                ++index_;
+                step_start_ = now_s;
+                continue;
+            }
+            out_ = Output{};
+            Hold(std::nullopt, now_s);
+            return;
+        }
         if (s.kind == Kind::mark) {
             log.push_back("mark " + s.mark);
             ++index_;  // the next step starts when this one did
@@ -816,6 +869,20 @@ struct State {
         bool told_off = false;
     };
     std::optional<PendingWarp> warp;
+    // A `place` whose Link was not found (it happens a frame after a load or an event: the
+    // probes of 2026-11-12 lost the step onto the switch; levantar-vasija placed 2 s after a load): tried
+    // again every 0.1 s, 10 s at most.
+    struct PendingPlace {
+        std::array<float, 3> at{};
+        double next = 0.0;
+        int tries = 0;
+    };
+    std::optional<PendingPlace> place;
+#ifndef COOP_HOOKSHOT
+    // Nudge's own injector, when no script runs (a script's injector adds the
+    // nudge itself).
+    Core::HID::EmulatedController* nudge_controller = nullptr;
+#endif
 } g_state;  // only touched on the present thread
 
 // The emulator plays LICHII_COOP_TEST_SCRIPT whole, input and all. Hookshot's
@@ -919,6 +986,15 @@ std::optional<std::array<float, 2>> PlayerXZ(Core::System& system) {
     }
     g_state.link = std::array<float, 3>{(*p)[0], (*p)[1], (*p)[2]};
     return std::array<float, 2>{(*p)[0], (*p)[2]};
+}
+
+// ORM talkthrough: whether our own event runs; nothing when it cannot be read.
+std::optional<bool> OwnEventRunning(Core::System& system) {
+    if (!FindMain(system)) {
+        return std::nullopt;
+    }
+    CoopHook::EmulatorMemory memory(system.ApplicationMemory(), g_state.main);
+    return coop::host::PlayerReader(memory).read_event_running();
 }
 
 // The camera's ground directions from the last frame's world-to-clip matrix
@@ -1694,7 +1770,17 @@ void OnFrame(Core::System& system) {
     std::vector<std::string> log;
     const auto player = PlayerXZ(system);
     const auto camera = CameraXZ();
-    r.runner->Advance(now, player, log, camera);
+    // await mate: another player in our scene, as presence shows it (CoopHook::CurrentMates).
+    bool mate_here = false;
+    if (const auto mates = CoopHook::CurrentMates(); mates && mates->scene) {
+        for (const auto& m : mates->others) {
+            if (m.scene && *m.scene == *mates->scene) {
+                mate_here = true;
+                break;
+            }
+        }
+    }
+    r.runner->Advance(now, player, log, camera, mate_here, OwnEventRunning(system));
     if (r.runner->Steering() && quarter) {
         const auto& out = r.runner->Current();
         LOG_INFO(Core,
@@ -1714,6 +1800,18 @@ void OnFrame(Core::System& system) {
             LOG_INFO(Core, "coop: test {}", line);
         }
     }
+    if (g_state.place && now >= g_state.place->next) {
+        auto& p = *g_state.place;
+        const bool ok = CoopBoss::MoveLink(system, g_state.main, CoopBoss::Vec{p.at[0], p.at[1], p.at[2]});
+        ++p.tries;
+        if (ok || p.tries >= 100) {
+            LOG_INFO(Core, "coop: test place {:.2f} {:.2f} {:.2f}: {} ({} tries)", p.at[0], p.at[1], p.at[2],
+                     ok ? "done" : "failed", p.tries);
+            g_state.place.reset();
+        } else {
+            p.next = now + 0.1;
+        }
+    }
     for (const auto& request : r.runner->TakeRequests()) {
         if (request.kind == Kind::warp) {
             Warp(system, request.name, request.start, request.child);
@@ -1729,8 +1827,13 @@ void OnFrame(Core::System& system) {
         } else if (request.kind == Kind::place) {
             const bool ok = CoopBoss::MoveLink(system, g_state.main,
                                                CoopBoss::Vec{request.at[0], request.at[1], request.at[2]});
-            LOG_INFO(Core, "coop: test place {:.2f} {:.2f} {:.2f}: {}", request.at[0], request.at[1],
-                     request.at[2], ok ? "done" : "failed");
+            if (ok) {
+                g_state.place.reset();
+                LOG_INFO(Core, "coop: test place {:.2f} {:.2f} {:.2f}: done", request.at[0], request.at[1],
+                         request.at[2]);
+            } else {
+                g_state.place = State::PendingPlace{request.at, now + 0.1, 1};  // ORM: tried again
+            }
         } else if (request.kind == Kind::kill) {
             CoopObjects::QueueTestKill(request.name);  // logged where it is done
         } else if (request.kind == Kind::chat) {

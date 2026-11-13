@@ -1,0 +1,20 @@
+# reanudar-mazmorra, session 1, A (reanudar-mazmorra-1.B.txt): only the second player; loads into Kokiri Forest and waits.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_ORM_RESUME_PLACE=none
+#! timeout 600
+mark start
+warp KokiriForest_Child FrontDekuTree
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 2400
+mark end

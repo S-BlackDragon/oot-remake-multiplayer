@@ -1,0 +1,22 @@
+# Block 16, the Bottom of the Well (child): Morpha beaten (the Water Medallion, the Longshot), the Song of Storms
+# learned in the windmill as an adult, back to childhood. Starts in Kakariko by the well (still full: the song
+# drains it in the block).
+include 15-agua.txt
+age child
+scene KakarikoVillage_Child Kakariko_WellSide
+hearts 9
+item Item_Medal_Water
+item Item_Longshot
+song StormSong
+dungeon WaterTemple map compass bosskey
+seen Dm_WaterTemple_0010 Dm_WaterTemple_0015 Dm_WaterTemple_BossIn Dm_WaterTemple_BossOut Dm_LakeHrl_0020
+seen Dm_Awake_Water Dm_Awake_Water_Get Dm_MelodyGet_Storm
+step SageOfWater Complete
+step SubEvent_GetStormSong step02
+equip weapon Weapon_Sword_Kokiri
+equip shield Weapon_Shield_Deku
+equip armor -
+other-era weapon Weapon_Sword_Master
+other-era shield Weapon_Shield_Hylian
+# Back to a child: no tunic worn (as the real child saves; the save has no other-era armor slot)
+equip armor -

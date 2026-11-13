@@ -1,0 +1,41 @@
+# espectador-escena, A (ORM spectator E4 "E2", docs/ESPECTADOR_Y_JEFES.md "Resultado de E2"): Kokiri, two games and two
+# bots (P3, P4) on a 4 m circle round A's start. A stands 7 s (the wake nudge), falls, and picks B with the d-pad
+# (right until the line names P2). B walks the charla way into the Kokiri camp (the camera turns with him, the same
+# room) and, in a talk (a warp is taken only during an event, docs/testing.md), warps to Kakariko: A's camera cannot
+# go there, so the view holds and the line says "en Aldea Kakariko" for 10 s; then A follows the nearest bot.
+# Run (from the repo root) with
+#   python tools/orm/harness/r03_pareja.py --scenario espectador-escena --scen-dir tools/orm/harness/escenarios
+#   --transport ws --bots 2 --bot-arg=-radius --bot-arg=4 --bot-arg=-center --bot-arg=-82,122,33.65
+#   --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_SPECTATOR=1 --env LICHII_COOP_NPC=1 --env LICHII_COOP_DEBUG_CAMERA2=1
+#   --capture-marks --timeout 600
+# By hand: A's captures at walking (the view toward the tunnel B went into) and away (the view held, the line with
+# "en Aldea Kakariko").
+#! expect A coop: downed: alive -> downed
+#! expect A spectator: d-pad (right|left): P2
+#! expect A coop: spectator: P2 went to KakarikoVillage_Child: the camera cannot go there
+#! expect A spectator: screen: 'Mirando a .*\(en Aldea Kakariko
+#! expect A spectator: P2 stays in KakarikoVillage_Child \(10 s\); back to the nearest of our scene
+#! expect A coop: spectator: following P[34] \(nearest\)
+#! never A -> game_over
+mark start
+wait 420
+mark alive
+life 0
+mark downed
+wait 240
+press DRIGHT                 # B loads where A does (0-1 m, the bots at 4 m): P2 is followed first;
+# (three presses go round P3, P4 and back to P2, now picked)
+wait 60
+press DRIGHT
+wait 60
+press DRIGHT
+wait 60
+mark picked
+wait 1800                    # B walks into the camp
+mark walking
+wait 1800                    # B talks and warps
+mark away
+wait 900                     # 15 s: past the 10 s hold
+mark nearest
+wait 300
+mark end

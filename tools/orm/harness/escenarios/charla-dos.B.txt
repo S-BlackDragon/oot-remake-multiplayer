@@ -1,0 +1,40 @@
+# charla-dos (B), ORM "Dos jugadores con el mismo PNJ" (docs/NPC_COMPARTIDOS.md, section 10): B takes
+# the charla-pose route 30 frames behind A, stops a metre and a half east of A by the camp fire and talks to the
+# same Kokiri about two seconds (60 frames) after A. The Kokiri is A's and A is talking to it (A's PLAYER_STATUS
+# says event, A's Link stands beside it, A's OBJECT_POSE of it comes), so B's talk does not claim it: B's own game
+# plays the talk on B's copy (freed from A's pose), and when B's talk is over the copy blends back to A's pose over
+# 600 ms instead of snapping. B's talk ends after A's (five presses), so the blend goes to A's Kokiri at rest.
+# Not run yet (written 2026-11-11 with the branch orm/npc-dos). Command: charla-dos.A.txt. What must not show in
+# B's log (checked by hand): "is ours now: claimed", "claim on ... held", and an "objects: share owner" line moving
+# the Kokiri to B during or after the talks. Captures of B at `talking-own` (B's Kokiri faces B) and `blended` (it
+# faces A's puppet again, no jump in between). Player numbers vary: P\d.
+#! expect B coop: npc: talking to Npc_Kokiri_\w+ 0x[0-9a-f]+ \(owner P\d, not claimed\)
+#! expect B coop: npc: Npc_Kokiri_\w+ 0x[0-9a-f]+ talks with its owner P\d: not claimed, our talk plays on our copy only
+#! expect B coop: npc: talk over, claim let go
+#! expect B coop: npc: copy 0x[0-9a-f]+ blends back to its owner's pose over 600 ms
+mark start
+wait 90                      # 30 frames behind A
+goto -76.3 13.4 1.2 1500     # the crawl-space lintel
+toward -73.0 13.4 10
+wait 10
+press A 12                   # "Enter"
+wait 120
+stick 0 1 600                # through the tunnel
+mark out-tunnel
+wait 60
+goto -73.0 -12.0 1.5 900
+goto -73.0 -18.0 1.5 600
+goto -77.3 -16.4 1.5 600     # east of A's spot (-78.9 -17.0), about 2 m from the Kokiri
+toward -78.91 -14.98 8       # face the same Kokiri
+mark at-npc
+wait 330                     # A presses 200 frames after its own at-npc and keeps its talk 7 s: we press 2-3 s after
+press A 12                   # talk to the Kokiri A is talking to
+wait 120
+mark talking-own
+talkthrough 1800             # our own text to its end (after A's: A waits 5 s before its own)
+wait 30
+mark blended-start
+wait 90                      # the 1.5 s linger and the 600 ms blend
+mark blended
+wait 300
+mark end

@@ -1,0 +1,41 @@
+# meca-suelo-dodongo (A): Dodongo's Cavern: room 9's floor switch pressed in one game stays pressed for everyone (F2)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room 9's floor switch Obj_StepSwitch_A_01 339dc37878c8ea54 (25.0 103.0 -23.0) writes DodongoCavern_StepSwitch_01
+# (room 1's switch 2d7d78a8bc38ec60 writes _03: the regex takes either, the room graphs name both). A is put ON
+# it, stays 5 s, steps off; B is put by room 9's shutter (Obj_DodongoCave_SwitchShutter_A_01 da10e1c05d553384,
+# 42.5 100.05 -31.25). Not the step-on sensors (Room02/19_StepSwitchOnPlayer, taken off by the list: F3,
+# dodongo-sensores). Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: flags debug: \w+ 0x(cf5e43e4|0e57bc50) \(entry \d+\) 0 -> 1 within pisado..end
+#! never A coop: flags debug: \w+ 0x(cf5e43e4|0e57bc50) \(entry \d+\) 1 -> 0
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp DodongoCavern EntrancePos
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 600
+place 25.0 103.5 -23.0     # on the switch
+wait 60
+mark pisado
+wait 300
+place 28.0 103.3 -23.0     # off it
+wait 240
+toward 42.5 -31.25 20
+press ZL 10
+mark abierta
+wait 1200
+mark end

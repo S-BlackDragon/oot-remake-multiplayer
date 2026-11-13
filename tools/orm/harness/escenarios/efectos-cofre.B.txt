@@ -1,0 +1,65 @@
+# efectos-cofre (B), ORM cofre (docs/DETALLES_MARIONETA.md, "Cofres"): B stands on the Deku Tree
+# slingshot ledge 4 m from the big chest (outside the 3 m beside rule of the objects sync, so the lid is the only thing
+# that can show it open) and watches A open it (efectos-cofre.A.txt).
+# Shots: lid1..3 (the lid going up with A's kick, at A's frame), held1..2 (the slingshot over A's puppet while A holds it
+# up; the notice "<A> encontró el tirachinas de las hadas" in the top middle with LICHII_COOP_HUD=1), after (the chest
+# still there, open; the notice gone after 5 s).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_DOORS=1,LICHII_COOP_HUD=1
+#! timeout 480
+#! expect B coop: chests: CHEST_OPEN from P\d: 0x0b66198d17d6584e in \S+ \(Item_Range_SlingShot\) within watching..end
+#! expect B coop: chests: P\d opened 0x0b66198d17d6584e: Obj_TBox_A_02 opens here too \('FrontOpen(_Adult)?' within watching..end
+#! count B coop: chests: P\d opened 0x0b66198d17d6584e: Obj_TBox_A_02 opens here too == 1 within watching..end
+#! expect B coop: chests: P\d holds up Item_Range_SlingShot within watching..end
+#! expect B coop: spawn: CoopGet_Item_Range_SlingShot: create copy within watching..end
+#! expect B coop: notice: \S+ encontró el tirachinas de las hadas within watching..end
+#! count B coop: notice: \S+ encontró == 1 within watching..end
+#! expect B coop: objects: share Obj_TBox_A_02 \S+: opened in another game, its lid opened here within watching..end
+#! never B coop: objects: share Obj_TBox_A_02 \S+: taken or opened in another game, removed here
+#! never B coop: chests: .*: that chest is not loaded here
+#! never B coop: doors: .* not played
+#! never B coop: spawn: Item_Range_SlingShot: create copy
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: chest lid ok Obj_TBox_A_02 kept our 'FrontOpen(_Adult)?' 300 ms within watching..end
+#! expect B coop: check: chest reopen ok Obj_TBox_A_02: not opened again here within watching..end
+#! never B coop: check: chest (lid|reopen) fallback
+# One opener (riesgos-visual, "Objeto doble"): no tie of two CHEST_OPENs and no find of ours left out as the second.
+#! never B coop: check: chest (tie|double find)
+#! never B coop: chests: 0x[0-9a-f]+ opened here second
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+place -51.5 112.6 15.0  # on the ledge, 4 m from the chest
+wait 120
+# 2026-11-12 (sondas4): the first place was "done" before the warp had settled and B stood at the room's
+# entrance (0.2 101.0 14.9), where the slingshot room unloads: placed again once landed.
+place -51.5 112.6 15.0
+wait 120
+toward -54.4 12.2 8     # the chest
+press ZL 10
+mark watching
+wait 1800               # A kicks it about 30 s from here
+mark lid1
+wait 30
+mark lid2
+wait 60
+mark lid3
+wait 90
+mark held1
+wait 60
+mark held2
+wait 600
+mark after-find
+wait 900
+mark end

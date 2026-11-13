@@ -1,0 +1,45 @@
+# meca-antorchas-deku (A): Deku Tree: room H's torches lit open the room for everyone, live (F7)
+# docs/MECANISMOS.md (## Nino); families of PLAN_100 section 4.
+# Room H's three timed torches (Obj_CandleStick_TimeExtinguish_A_01 at -67.03 37.61, -59.84 38.05,
+# -63.81 45.58; lit from Obj_CandleStick_A_01 aa8da4f153cd3480). Their lit state is each game's (actor-local);
+# the solve is InsideTheDekuTree_RoomH_Cleared and the event HavePlayedEvent ..._Gimmick_RoomH_CandleStick,
+# which daurosk leaves LIVE (kLiveOnTest6: seen live in a players' test), so here the event crosses at once
+# too, with no hold. A sets both as the last torch would. B walks in at the G-H door (Obj_SwitchShutter_A_01
+# 45ba0cb9bd3cb87d, -42.36 79.6 41.57) and looks at the torches. Mutant: LICHII_COOP_DUNGEON=0.
+# Run with --transport ws --capture-marks --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (E0; player numbers vary):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag HavePlayedEvent.InsideTheDekuTree_Gimmick_RoomH_CandleStick \(0x3c0459a9\) = 1: queued
+#! expect A coop: test flag InsideTheDekuTree_RoomH_Cleared \(0xf85ceb3f\) = 1: queued
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 420
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark set
+flag HavePlayedEvent.InsideTheDekuTree_Gimmick_RoomH_CandleStick 1
+wait 120
+flag InsideTheDekuTree_RoomH_Cleared 1
+wait 120
+mark flag
+wait 1500
+place -42.36 80.1 41.57       # A at the same door, for its own capture
+wait 240
+toward -63.8 41.3 20
+press ZL 10
+mark abierta
+wait 900
+mark end

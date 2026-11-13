@@ -1,0 +1,38 @@
+# meca-agua-jabu (A): Jabu-Jabu's room 14 water up and down for everyone (both child; LICHII_COOP_WATER_JABU=1).
+# daurosk left this flag out (its step switches set it both ways): the count line says B's game did not
+# bounce it (one 0 -> 1 only). Mutant: without LICHII_COOP_WATER_JABU the B lines go red.
+# Run with --transport ws; run.ps1 reads #! switches. Doc: docs/AGUA.md (PLAN_100 F6/E13).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_WATER=1,LICHII_COOP_GIMMICK_PROBE=1,LICHII_COOP_WATER_JABU=1
+#! timeout 400
+#! expect A coop: water: on: .*Jabu-Jabu's room 14 too within boot..
+#! expect B coop: flags debug: bool 0xc517f1b5 \(entry \d+\) 0 -> 1 within set..end
+#! expect B coop: flags debug: bool 0xc517f1b5 \(entry \d+\) 1 -> 0 within set..end
+# docs/RIESGOS_RESUELTOS.md: a bounce (3 values from the others in 10 s) is held and said; it must not happen here.
+#! never B coop: water: Gimmick_Insidejabujabu_\w+_MoveWater bounced
+#! count B coop: flags debug: bool 0xc517f1b5 \(entry \d+\) 0 -> 1 within set..end == 1
+mark start
+warp InsideJabuJabuBelly InsideJabuJabuBelly_FromZoraFountain child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark set
+flag Gimmick_Insidejabujabu_Updown_MoveWater 1
+wait 30
+flag Gimmick_Insidejabujabu_Updown_MoveWater 1               # twice: a queued write may miss the frame
+wait 1200
+flag Gimmick_Insidejabujabu_Updown_MoveWater 0
+wait 30
+flag Gimmick_Insidejabujabu_Updown_MoveWater 0               # twice: a queued write may miss the frame
+wait 1200
+mark end

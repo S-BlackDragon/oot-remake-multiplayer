@@ -1,0 +1,108 @@
+# recorrido-campo-1 (ORM, docs/RECORRIDOS.md, bloque 3. Campo de Hyrule y Rancho Lon Lon), B: tramo 1, del puente del bosque a la Ciudadela.
+# HyruleField_Child: warp to HyruleField_FrontOfLostWoodBridge, then room by room with place/goto (B 1.2 m beside A); see recorrido-campo.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-campo-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 03-campo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect B coop: test warp done
+#! never B coop: test goto timed out
+#! never B coop: test place .*: failed
+#! expect B coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-puente
+#! never B (?<!fairy )coop: puppet: P\d show -> hide within r01-puente..salida
+#! expect B coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect B coop: test place 199\.38 163\.68 309\.63: done within r01-puente..r02-talon
+#! expect B coop: story: STORY_EVENT start received from P\d \('HyruleField_Goto_HyruleCastle_Kaepora' in HyruleField_Child\): starting within r01-puente..fin
+#! expect B coop: event running 'HyruleField_Goto_HyruleCastle_Kaepora' within r01-puente..fin
+#! expect B coop: test place \-48\.24 151\.02 199\.32: done within r02-talon..r03-malon
+#! expect B coop: test place \-87\.68 150\.92 245\.36: done within r03-malon..r04-cajas
+#! expect B coop: test place \-141\.20 151\.22 267\.22: done within r04-cajas..r05-puente-levadizo
+#! expect B coop: flags debug: \w+ 0xd55d9221 \(entry \d+\) 0 -> 1 within r04-cajas..fin
+#! never B coop: flags debug: \w+ 0xd55d9221 \(entry \d+\) 1 -> 0
+#! expect B coop: test place 1\.31 149\.95 98\.59: done within r05-puente-levadizo..salida
+#! expect B coop: drops: asked for the drops of Market within salida..fin
+#! expect B coop: puppet: P\d:? (create )?CoopPuppet_Child within salida..fin
+mark start
+warp HyruleField_Child HyruleField_FrontOfLostWoodBridge
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 600                # the other game is in already, or lands now
+mark r01-puente            # a la salida del bosque: Kaepora
+place 199.38 163.68 309.63
+wait 120
+goto 191.20 296.00 1.5 900
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 300                # the other one sees us in this room
+mark r02-talon            # la entrada del rancho (Talon)
+place -48.24 151.02 199.32
+wait 120
+goto -58.80 210.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-malon            # Malon y Epona
+place -87.68 150.92 245.36
+wait 120
+goto -78.80 240.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r04-cajas            # las cajas del rancho
+place -141.20 151.22 267.22
+wait 120
+goto -138.80 262.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r05-puente-levadizo            # ante el puente levadizo
+place 1.31 149.95 98.59
+wait 120
+goto 1.25 70.00 1.5 900
+wait 300                # the other one sees us in this room
+mark salida             # a la Ciudadela
+goto 0.61 53.63 0.8 900
+wait 1800               # the scene change, then the other one lands too
+mark fin

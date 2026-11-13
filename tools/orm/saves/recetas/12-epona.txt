@@ -1,0 +1,13 @@
+# Epona won (ORM D-R19, docs/EPONA.md; epona-montar, epona-paso, epona-aparcar, epona-carrera): adult, Ingo beaten and
+# the ranch's fence jumped. The escape (Get_Epona_EscapeRanch_EscapeFromA/B/C in the Get_Epona flow) plays
+# Dm_HrlField_0070/0071/0072 and sets Step_Get_Epona Complete and Skullchild_JustAfterGetEpona; the race before it
+# played Dm_LonLon_0020 (Ingo's race), 0030 and 0040 (0040 sets AfterWonGambleRace). Epona's Song is from 07-montana,
+# the Ocarina of Time on its button from 12-bosque. Starts in Lon Lon Ranch at the race's start
+# (StartPos_Get_Epona_Race, HyruleField_Adult). With Complete the ranch's own Epona is gone (her placement's Presence
+# is 'not Get_Epona_IsCompleted_Exp'): the owned horse comes to Epona's Song. 12-epona-rancho has her standing there.
+include 12-bosque.txt
+scene HyruleField_Adult StartPos_Get_Epona_Race
+step Get_Epona Complete
+seen Dm_LonLon_0020 Dm_LonLon_0030 Dm_LonLon_0040 Dm_HrlField_0070
+bool MiniGame_Unlock_GambleRace 1
+bool Skullchild_JustAfterGetEpona 1

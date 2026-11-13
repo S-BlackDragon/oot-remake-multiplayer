@@ -1,0 +1,53 @@
+# efectos-cofre (A), ORM cofre (docs/DETALLES_MARIONETA.md, "Cofres"): Deku Tree, the slingshot room
+# (room C). A goes up to the ledge and opens the big chest (Obj_TBox_A_02 at -54.4 112.0 12.2, placement
+# 0x0b66198d17d6584e, Banc InsideTheDekuTree_Static; Drop Item_Range_SlingShot). A's game tells it as CHEST_OPEN (type
+# 249) when the lid starts to move; B (efectos-cofre.B.txt) stands on the same ledge 4 m off and must see the lid open
+# with A's kick, the slingshot over A's puppet while A holds it up, and the notice "<A> encontró el tirachinas de las
+# hadas"; the chest stays open in B's game (never removed) and B gets the slingshot (the shared item flag).
+# Run (emulator built from orm/cofre2), from the repo root:
+#   python -I tools/orm/harness/r03_pareja.py --scenario efectos-cofre --scen-dir tools/orm/harness/escenarios
+#     --transport ws --env LICHII_COOP_DEBUG_DOORS=1 --env LICHII_COOP_HUD=1 --capture-marks --timeout 480
+# Needs a puppet pack rebuilt with this branch's tools/puppet_pack (the CoopGet_* stand-ins). Not run yet (written
+# 2026-11-11, no game that day). Positions as puertas-deku's (daurosk tools/autotest deku-ladder).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_DOORS=1,LICHII_COOP_HUD=1
+#! timeout 480
+#! expect A coop: chests: our Link opens Obj_TBox_A_02 0x0b66198d17d6584e \(Item_Range_SlingShot\): CHEST_OPEN '\w*Open\w*' at frame within at-chest..end
+#! expect A coop: chests: CHEST_OPEN sent: 0x0b66198d17d6584e in \S+ \(Item_Range_SlingShot\) within at-chest..end
+#! count A coop: chests: CHEST_OPEN sent: == 1 within at-chest..end
+#! never A coop: chests: P\d opened 0x0b66198d17d6584e: Obj_TBox_A_02 opens here too
+# One opener (riesgos-visual, "Objeto doble"): A's CHEST_OPEN is the first, so A keeps its find (no tie, nothing left out).
+#! never A coop: check: chest (tie|double find)
+#! never A coop: chests: 0x[0-9a-f]+ opened here second
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+# 2026-11-12 (sondas6): a fixed 130 s was too short when B's warp took 60 s: B was still placing itself when the lid
+# went up. Wait for B in our scene, then the ~5 s B takes to stand on the ledge and face the chest.
+await mate
+wait 900
+place -51.8 112.6 12.2  # the chest ledge
+wait 240
+place -53.34 112.0 12.23      # in front of the chest, where the first probe opened it (goto timed out on the ledge)
+wait 60
+toward -54.4 12.2 30          # placed, Link may face anywhere: a half turn takes about 0.3 s
+mark at-chest
+press A                 # the kick, the lid, the item get (CHEST_OPEN goes as the lid moves)
+wait 300
+mark holding
+talkthrough 1500        # the find's text to the end: the chest's event (Dm_SY_Treasurebox) ran past the run's end
+                        # with three presses (sondas4), and its opened key, which B's objects sync waits for, comes after it
+mark opened
+wait 600
+mark end

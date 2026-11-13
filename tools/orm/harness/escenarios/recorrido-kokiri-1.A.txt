@@ -1,0 +1,129 @@
+# recorrido-kokiri-1 (ORM, docs/RECORRIDOS.md, bloque 1. Bosque Kokiri, Bosque Perdido y Pradera Sagrada), A: tramo 1, del pueblo al Árbol Deku.
+# KokiriForest_Child: warp to the save point of the scene, then room by room with place/goto; see recorrido-kokiri.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-kokiri-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-casa
+#! never A (?<!fairy )coop: puppet: P\d show -> hide within r01-casa..salida
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: test place \-46\.09 118\.76 15\.39: done within r01-casa..r02-tienda
+#! expect A coop: test place \-1\.05 110\.41 \-15\.38: done within r02-tienda..r03-espada
+#! expect A coop: test place \-81\.74 118\.88 34\.03: done within r03-espada..r04-mido
+#! expect A coop: test place 19\.50 111\.90 0\.00: done within r04-mido..r05-arbol
+#! expect A coop: test flag KokiriForest_Npc_Kokiri_Mido_Child_Blocker \(0x502f6cea\) = 1 within r04-mido..r05-arbol
+#! expect A coop: test place 72\.21 114\.21 \-25\.50: done within r05-arbol..salida
+#! expect A coop: event running 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' within r05-arbol..salida
+#! expect A coop: story: owner: our game started 'KokiriForest_Meet_DekuTree_MeetDekuTree_01' in KokiriForest_Child within r05-arbol..salida
+#! expect A coop: drops: asked for the drops of InsideTheDekuTree within salida..fin
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within salida..fin
+mark start
+warp KokiriForest_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 3000               # B loads after A (r03_pareja) or with it (run.ps1): wait for it
+mark r01-casa            # junto a la casa de Link (inicio)
+place -46.09 118.76 15.39
+wait 120
+goto -40.09 9.39 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-tienda            # la puerta de la tienda (escudo Deku)
+place -1.05 110.41 -15.38
+wait 120
+goto -11.47 -1.66 1.5 900
+wait 300                # the other one sees us in this room
+mark r03-espada            # el pasadizo de la Espada Kokiri (peñasco)
+place -81.74 118.88 34.03
+wait 120
+goto -86.50 45.66 1.5 900
+wait 300                # the other one sees us in this room
+mark r04-mido            # Mido cierra el paso al Árbol
+place 19.50 111.90 0.00
+wait 120
+goto 12.25 17.01 1.5 900
+flag KokiriForest_Npc_Kokiri_Mido_Child_Blocker 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r05-arbol            # ante el Árbol Deku
+place 72.21 114.21 -25.50
+wait 120
+goto 65.78 -24.77 1.5 900
+event KokiriForest_Meet_DekuTree_MeetDekuTree_01
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 300                # the other one sees us in this room
+mark salida             # entrar en el Árbol (boca abierta tras el encuentro)
+goto 92.41 -27.53 0.8 900
+wait 1800               # the scene change, then the other one lands too
+mark fin

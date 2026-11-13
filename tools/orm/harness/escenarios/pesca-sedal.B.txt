@@ -1,0 +1,46 @@
+# pesca-sedal (ORM, docs/DETALLES_MARIONETA.md "Mascaras, sedal y cadena"), B: child at the fishing pond too, stands
+# by the water and watches A cast and reel in. Screenshots at each mark: the line from the tip of the rod in A's
+# puppet's hands to the lure on the water, never a straight 17 m rope at rest nor a line hanging from the lure
+# alone; at reeled_seen, no line. The 'laid to the puppet's' line says where it starts: Rod_4 (the rod's tip, as
+# wanted) or Weapon_R/Weapon_L (no rod piece found on the puppet: the hand).
+# Emulator: orm/t9-integrado + orm/mascaras (its log lines and switches).
+#! saves 10-jabu
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_OBJECTS_RELEASE=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_TETHERS=1
+#! timeout 420
+#! expect B coop: spawn: hookshot chains and fishing lines on the copies on
+#! expect B coop: spawn: got Weapon_(Sinking)?Lure #
+#! expect B spawn: CoopShot_(Sinking)?Lure: create copy
+#! expect B spawn: CoopShot_FishingLine: create copy
+#! expect B \w+: copy \d+: fishing line of \d+ bones from 'Root'
+#! expect B \w+: copy \d+: fishing line laid to the puppet's (Rod_4|Rod_3|Weapon_R|Weapon_L) \((piece|hand frame|hand),
+#! never B \w+: copy \d+: fishing line not laid: no chain of bones
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: bone rows ok (axes|matrix)
+#! expect B coop: check: fishing line ok \w+ laid to the puppet's \w+ \((piece|hand frame|hand)\)
+#! never B coop: check: fishing line fallback
+mark start
+warp HyruleField_Child MiniGame_Fishing_PlayerStart
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark b-in
+stick 0.6 0 20          # a step aside: A's puppet and the water in view
+wait 60
+mark ready
+wait 1300
+mark cast_seen          # marks spread over A's casts, for the screenshots
+wait 150
+mark reel_half_seen
+wait 360
+mark reeled_seen
+wait 240
+mark cast2_seen
+wait 480
+mark end

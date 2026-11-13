@@ -1,0 +1,183 @@
+# historia-impa-historia (ORM, docs/HISTORIAS_ESCENARIOS.md; block Adulto: Kakariko en llamas y Templo de la Sombra), A: Sheik tells Impa's story (Dm_SY_BancChangeArrive; plays Dm_Kakariko_0040).
+# Both games warp to KakarikoVillage_Adult Kakariko_WellSide; A asks for KakarikoVillage_FlashbackScenes with the test command `event` (the hook's
+# request by name, CINEMATICAS.md P1) and both press A every 2 s for 150 s to move the texts on.
+# Run: python tools/orm/harness/r03_pareja.py --scenario historia-impa-historia --transport ws --scen-dir tools/orm/harness/escenarios --timeout 500 --env LICHII_COOP_STORY=1
+# Written by tools/harness/historias.py: change its table and run it again, do not edit by hand. Not run yet.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! timeout 500
+#! expect A coop: story: owner: our game started 'KakarikoVillage_FlashbackScenes' in KakarikoVillage_Adult; STORY_EVENT start to the others within asked..end
+#! expect A coop: story: STORY_EVENT start sent \('KakarikoVillage_FlashbackScenes' in KakarikoVillage_Adult, within asked..end
+#! expect A coop: event running 'KakarikoVillage_FlashbackScenes' within asked..end
+#! expect A coop: story: HavePlayedEvent\.KakarikoVillage_FlashbackScenes 0 -> 1 within asked..end
+#! never A coop: story: 'KakarikoVillage_FlashbackScenes' runs here again
+mark start
+warp KakarikoVillage_Adult Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark asked
+event KakarikoVillage_FlashbackScenes
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark played
+wait 600
+mark end

@@ -1,0 +1,29 @@
+# historia-rezagado, B: marks the meeting played here at once (so A's start is ignored: "is set here"),
+# reads the steps, then only watches for 240 s while A plays the meeting; the story layer logs each
+# change of the meeting's end flags as it comes in; the steps are read again at the end.
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! never B coop: event running 'KokiriForest_Meet_DekuTree
+#! expect B STORY_EVENT start received from P\d .*: ignored
+#! expect B coop: story: Step_Meet_DekuTree \S+ -> Complete within flagged..after
+#! expect B coop: story: Step_Get_StoneOfForest \S+ -> GoInside within flagged..after
+#! expect B coop: story: KokiriForest_Meet_DekuTree_OpenDekuTreeMouth 0 -> 1 within flagged..after
+mark start
+wait 30
+flag HavePlayedEvent.KokiriForest_Meet_DekuTree_MeetDekuTree_01 1
+wait 60
+enum Step_Meet_DekuTree
+enum Step_Get_StoneOfForest
+mark flagged
+wait 3600
+mark watched60
+wait 3600
+mark watched120
+wait 3600
+mark watched180
+wait 3600
+mark watched240
+enum Step_Meet_DekuTree
+enum Step_Get_StoneOfForest
+mark after
+wait 120
+mark end

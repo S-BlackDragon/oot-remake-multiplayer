@@ -1,0 +1,5 @@
+# Block 15 with the Iron Boots on (meca-sostenido-agua, 2026-11-12): the room 14 floor switch is under water, and
+# the boots on ZR did nothing in the test runs ('assign HeavyBoot' + ZR, objetos-uso and sondas5), while 'wear' only
+# changes what the puppets show. Equipped in the save, Link loads in wearing them and sinks onto the switch.
+include 15-agua.txt
+equip boot Armor_Adult_HeavyBoot

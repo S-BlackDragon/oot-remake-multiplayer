@@ -1,0 +1,23 @@
+# ancho-seis, the five bots (remake-bot -script, docs/BOTS.md). They start about 10 s before A's script, at a
+# game's sample rate (-real). 45 s a phase: 3 m from A, 25 m, 60 m, another scene, and back to 3 m.
+# Letterless directives here read the bots' log.
+#! count joined as player >= 5
+#! expect bot1: mark back
+#! never script line \d+
+scene KokiriForest_Child
+follow 1 3
+wait 45
+mark mid
+follow 1 25
+wait 45
+mark far
+follow 1 60
+wait 45
+mark elsewhere
+stand
+scene BotElsewhere 1                        # out of A's place: A is alone
+wait 45
+mark back
+follow 1 3                                  # following brings each bot back into A's scene
+wait 45
+mark done

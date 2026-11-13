@@ -1,0 +1,37 @@
+# deku-sensor (A): Deku Tree: the first room's 'near the scaffold' sensor stays in its game; the room clear crosses (unshare:).
+# docs/CONTENIDO_NINO.md; families of PLAN_100 section 4.
+# A queues room A's NearScaffold sensor (taken off by the list) and then room A cleared (shared by daurosk's list). B
+# gets the clear, never the sensor. Mutant: without LICHII_COOP_DUNGEON_LISTS the never line goes red.
+# Run with --transport ws --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=<kit>/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja; player numbers vary: P\d):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag InsideTheDekuTree_RoomA_NearScaffold \(0xe27b79a0\) = 1
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 400
+mark start
+warp InsideTheDekuTree Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark sensor
+flag InsideTheDekuTree_RoomA_NearScaffold 1
+wait 120
+mark flag
+wait 300
+flag InsideTheDekuTree_RoomA_Cleared 1
+wait 120
+wait 600
+mark visto
+wait 600
+mark end

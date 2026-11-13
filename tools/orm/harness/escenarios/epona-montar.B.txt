@@ -1,0 +1,21 @@
+# epona-montar (ORM D-R19, docs/EPONA.md), B: watches A ride (see the A file for the saves and switches).
+#! noload
+#! start coop: test script started
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_HORSE=1,LICHII_COOP_DEBUG_ANIM=1
+#! expect B coop: epona: riders drawn on a horse, actor CoopPuppet_Horse
+#! expect B coop: epona: P\d gets on: a horse beside him
+#! expect B coop: epona: P\d rides
+#! expect B horse coop: puppet: P\d CoopPuppet_Horse\w* spawned after
+#! expect B coop: epona: P\d got off: his horse waits where he left it
+#! never B (?<!fairy )coop: puppet: P\d show -> hide \((riding|getting on)\)
+#! never B coop: epona: CoopPuppet_Horse was not made twice
+#! never B coop: objects: .*Animal_Epona_Adult
+# riesgos-visual (docs/RIESGOS_RESUELTOS.md): the self-check lines say which path ran; ok is right, the fallback is the risk seen.
+#! expect B coop: check: saddle (ok \(.*an earlier run|ok \(.*LICHII_ORM_HORSE_SADDLE|fallback \(0\.00, 1\.20, 0\.00\), the estimate: we have not sat still)
+#! expect B coop: check: horse gaits (ok|fallback)
+mark start
+wait 1200
+mark watched
+wait 300
+mark end

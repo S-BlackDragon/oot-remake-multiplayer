@@ -1,0 +1,128 @@
+# recorrido-dodongo-1 (ORM, docs/RECORRIDOS.md, bloque 8. Cueva de los Dodongos y Rey Dodongo), A: tramo 1, de la entrada a la sala del cráneo.
+# DodongoCavern: warp to DodongoCavern_MountainTrailSide, then room by room with place/goto; see recorrido-dodongo.steps.txt.
+# Run alone: r03_pareja.py --scenario recorrido-dodongo-1 --transport ws (switches from the header).
+#! noload
+#! start coop: test warp done
+#! saves 08-dodongo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt
+#! timeout 900
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! expect A coop: puppet: P\d:? (create )?CoopPuppet_Child within llegada..r01-entrada
+#! never A (?<!fairy )coop: puppet: P\d show -> hide within r01-entrada..fin
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: test place 0\.00 102\.74 41\.00: done within r01-entrada..r02-gran-sala
+#! expect A coop: test place 14\.25 112\.28 \-23\.00: done within r02-gran-sala..r03-este
+#! expect A coop: test flag DodongoCavern_StepSwitch_01 \(0xcf5e43e4\) = 1 within r02-gran-sala..r03-este
+#! expect A coop: test place 81\.15 100\.55 \-6\.50: done within r03-este..r04-lizalfos
+#! expect A coop: test place 75\.97 100\.55 \-59\.62: done within r04-lizalfos..r05-antorchas
+#! expect A coop: test flag DodongoCavern_Room05_NearTreasureBox \(0xeb055de5\) = 1 within r04-lizalfos..r05-antorchas
+#! expect A coop: test place 44\.40 100\.30 \-42\.90: done within r05-antorchas..r06-interruptor
+#! expect A coop: test flag DodongoCavern_CandleStick \(0x67b834a5\) = 1 within r05-antorchas..r06-interruptor
+#! expect A coop: test place 42\.50 100\.05 \-28\.40: done within r06-interruptor..r07-escalera
+#! expect A coop: test flag DodongoCavern_StepSwitch_02 \(0x03061f09\) = 1 within r06-interruptor..r07-escalera
+#! expect A coop: test place \-27\.50 101\.55 \-23\.00: done within r07-escalera..r08-oeste-alto
+#! expect A coop: test flag DodongoCavern_Room10_PlayerOutOfRoom \(0x7d1f6539\) = 1 within r07-escalera..r08-oeste-alto
+#! expect A coop: test place \-42\.10 111\.44 \-8\.00: done within r08-oeste-alto..r09-este-alto
+#! expect A coop: test flag DodongoCavern_StepSwitch_03 \(0x0e57bc50\) = 1 within r08-oeste-alto..r09-este-alto
+#! expect A coop: test place 40\.04 113\.16 \-8\.75: done within r09-este-alto..r10-lizalfos2
+#! expect A coop: test flag DodongoCavern_Room13_MovableBox \(0x4bf8ba8a\) = 1 within r09-este-alto..r10-lizalfos2
+#! expect A coop: test place 110\.00 116\.21 \-18\.10: done within r10-lizalfos2..r11-craneo
+#! expect A coop: test flag DodongoCavern_Lizalfos_C_Dead \(0x8d6783cd\) = 1 within r10-lizalfos2..r11-craneo
+#! expect A coop: test flag DodongoCavern_Lizalfos_D_Dead \(0x317d56a8\) = 1 within r10-lizalfos2..r11-craneo
+#! expect A coop: test place 0\.00 102\.35 \-36\.00: done within r11-craneo..fin
+#! expect A coop: test flag DodongoCavern_BlastedLeftEye \(0x92b110e6\) = 1 within r11-craneo..fin
+#! expect A coop: test flag DodongoCavern_BlastedRightEye \(0x4088069a\) = 1 within r11-craneo..fin
+mark start
+warp DodongoCavern DodongoCavern_MountainTrailSide child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 3000               # B loads after A (r03_pareja) or with it (run.ps1): wait for it
+mark r01-entrada            # sala 0, la entrada
+place 0.00 102.74 41.00
+wait 120
+goto 0.00 25.00 1.5 900
+wait 300                # the other one sees us in this room
+mark r02-gran-sala            # sala 1, la gran sala (interruptor de suelo)
+place 14.25 112.28 -23.00
+wait 120
+goto 0.00 -10.00 1.5 900
+flag DodongoCavern_StepSwitch_01 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r03-este            # salas 2-4, el pasillo del este
+place 81.15 100.55 -6.50
+wait 120
+goto 70.00 -7.60 1.5 900
+wait 300                # the other one sees us in this room
+mark r04-lizalfos            # sala 5, los dos Lizalfos
+place 75.97 100.55 -59.62
+wait 120
+goto 90.00 -52.00 1.5 900
+flag DodongoCavern_Room05_NearTreasureBox 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r05-antorchas            # sala 8, las antorchas
+place 44.40 100.30 -42.90
+wait 120
+goto 44.00 -55.00 1.5 900
+flag DodongoCavern_CandleStick 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r06-interruptor            # sala 9, el interruptor del atajo
+place 42.50 100.05 -28.40
+wait 120
+goto 30.00 -25.00 1.5 900
+flag DodongoCavern_StepSwitch_02 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r07-escalera            # sala 10, la escalera que cae
+place -27.50 101.55 -23.00
+wait 120
+goto -49.00 -38.00 1.5 900
+flag DodongoCavern_Room10_PlayerOutOfRoom 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r08-oeste-alto            # sala 12, el piso alto del oeste
+place -42.10 111.44 -8.00
+wait 120
+goto -49.00 -12.00 1.5 900
+flag DodongoCavern_StepSwitch_03 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r09-este-alto            # sala 13, el piso alto del este (bloque)
+place 40.04 113.16 -8.75
+wait 120
+goto 40.00 -15.00 1.5 900
+flag DodongoCavern_Room13_MovableBox 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r10-lizalfos2            # sala 16, Lizalfos otra vez
+place 110.00 116.21 -18.10
+wait 120
+goto 104.00 -30.00 1.5 900
+flag DodongoCavern_Lizalfos_C_Dead 1
+wait 60
+flag DodongoCavern_Lizalfos_D_Dead 1
+wait 60
+wait 300                # the other one sees us in this room
+mark r11-craneo            # sala 1 arriba: los ojos del cráneo
+place 0.00 102.35 -36.00
+wait 120
+goto 0.00 -40.00 1.5 900
+flag DodongoCavern_BlastedLeftEye 1
+wait 60
+flag DodongoCavern_BlastedRightEye 1
+wait 60
+wait 300                # the other one sees us in this room
+mark fin

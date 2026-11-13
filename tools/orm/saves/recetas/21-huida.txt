@@ -1,0 +1,15 @@
+# Block 20 again, at the escape: Ganondorf beaten in the tower (InsideGanonCastle_Dungeon_BossDie_1 moves
+# Defeat_Ganon to Step06), the six barriers down. The scenario warps to the top of the collapsing castle (it has no
+# Banc of its own for a StartPos), before the collapse
+# (CrumblingGanonCastle_Arrive, Dm_InsideGanonCastle_0110, not seen). For final-huida-reloj (docs/SONDAS.md row 1).
+include 20-ganon.txt
+bool InsideGanonCastle_Dungeon_BarrierRemove_Forest 1
+bool InsideGanonCastle_Dungeon_BarrierRemove_Fire 1
+bool InsideGanonCastle_Dungeon_BarrierRemove_Water 1
+bool InsideGanonCastle_Dungeon_BarrierRemove_Shadow 1
+bool InsideGanonCastle_Dungeon_BarrierRemove_Spirit 1
+bool InsideGanonCastle_Dungeon_BarrierRemove_Light 1
+bool InsideGanonCastle_IsAllBarrierClear 1
+seen Dm_InsideGanonCastle_0000 Dm_InsideGanonCastle_0003 Dm_InsideGanonCastle_0090
+seen Dm_InsideGanonCastle_BossIn Dm_InsideGanonCastle_BossOut
+step Defeat_Ganon Step06

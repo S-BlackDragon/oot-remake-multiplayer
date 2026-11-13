@@ -1,0 +1,43 @@
+# jefe-bongo-bongo-derrota (D-R14, D-R17): both in the boss room of ShadowTemple; past the
+# intro, A's life to 0, B's 2 s later: GROUP_DEFEAT, the game over, Continue (A's top choice). After
+# the reload each game is back in the boss room: either Continue put it there (the remake's own
+# retry, J1) or the respawn rule moves it back in (coop::host::BossRespawn). The room starts over,
+# and nobody's boss is beaten.
+# Run with --transport ws --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1
+# --env LICHII_COOP_DEBUG_BOSS=1 --timeout 400 (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja):
+#! expect A coop: downed: alive -> downed within dying..over
+#! expect A group defeat: GROUP_DEFEAT from the server \(2 down
+#! expect A coop: boss: respawn: game over in the boss room of ShadowTemple
+#! expect A coop: boss: loaded again after the game over: the boss room starts over within pressed..end
+#! expect A coop: boss: respawn: (Continue left us in the boss room|back in the boss room of ShadowTemple) within pressed..end
+#! never A coop: boss: boss beaten
+#! noload
+#! start coop: test warp done
+#! saves 17-sombra
+#! switches LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 400
+mark start
+warp ShadowTemple StartPos_SageOfShadow
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 2400               # the intro and into the fight
+mark dying
+life 0
+wait 1200               # B down at +2 s, the defeat at +4 s, the screen takes A 10 s later
+mark over
+press A 12              # the top choice (Continue)
+mark pressed
+wait 2400               # the reload
+mark after
+wait 900
+mark end

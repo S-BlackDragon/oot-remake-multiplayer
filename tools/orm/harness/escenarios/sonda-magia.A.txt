@@ -1,0 +1,65 @@
+# sonda-magia (ORM, docs/SONDAS.md rounds 4 to 6), A: the three spells inside a dungeon (Ganon's Castle's entrance
+# hall), B watches the copies. Din's Fire and Nayru's Love played ItemEmpty in every run so far (sondas7 to sondas19r6)
+# with 20-ganon, a save whose meter is impossible: MPMax 48 with only the single blessing (its ExpansionAbilityActor
+# gives 24), and the script then wrote MPMax 96 and MP 96 on top. Round 7: the save 20-magia (tools/partidas/recetas),
+# the first with a real double meter (both blessings, MPMax 48, MP 48) and the three spells owned, and NO writes before
+# Din's first cast: the cast runs on the save exactly as loaded. The 'int PlayerStatus.MP 48' lines only log the
+# magic left (it read N; 48 is the meter's own max, so the write changes nothing).
+# Not the co-op layer (read in the code, round 7): nothing of ours writes PlayerStatus.AssignableItem.* (the bottles
+# only), PlayerStatus.MP is per player and only the test 'int' writes it, the 'fill' rule moves MP only when another
+# player's MPMax grows. 'assign DinFire' writes the Enum value 0x16870ea0, the AssignableItem of Item_DinFire's own
+# AssginableItemParam in the romfs (FaroreWind and NayruLove match too).
+# Control without the puppet (its ELink user is the player's own 'Player'): sonda-magia-sin-marioneta.
+#! noload
+#! start coop: test warp done
+#! saves 20-magia
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_DEBUG_ANIM=1
+#! expect A coop: test int PlayerStatus\.MP \(0x76b18200\) = 48: queued
+#! never A coop: you play 'ItemEmpty'
+#! expect A coop: you play '\w*Din
+#! expect A coop: spawn: sent ExpandFireField #
+#! expect A coop: you play '\w*Nayru
+#! expect A coop: spawn: sent FaroreWindWarpPoint #
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark after
+await mate
+wait 600
+stick 0 0.6 60          # a few steps into the hall, away from B's puppet
+wait 60
+mark din
+assign DinFire
+wait 30
+press ZR                # a tap, on the save as loaded
+wait 200
+int PlayerStatus.MP 48  # what Din took (it read N)
+mark din-hold
+press ZR 120            # held 2 s, then let go
+wait 200
+int PlayerStatus.MP 48  # what the held Din took
+mark nayru
+assign NayruLove
+wait 30
+press ZR
+wait 200
+press ZR 120
+wait 200
+int PlayerStatus.MP 48  # what Nayru's took
+mark farore
+assign FaroreWind
+wait 30
+press ZR
+wait 200
+talkthrough 900
+int PlayerStatus.MP 48  # what Farore's took
+mark end

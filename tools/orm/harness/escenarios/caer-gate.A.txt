@@ -1,0 +1,20 @@
+# caer-gate (ORM "downed, not dead", P1, docs/CAIDO_REVIVIR.md): the downed gate closed before
+# Link's life goes to 0, held 10 s (no game over event may start), then opened (the game over
+# starts on its own: the game asks every frame), A for its top choice, and the reload.
+# Run with --env LICHII_COOP_DOWNED=1 --env LICHII_COOP_DEBUG_LIFE=1 --env LICHII_COOP_DEBUG_ANIM=1
+# (one game, no bots). Expect: 'Applying "coop downed gate"', "coop: test gate 1: written",
+# death word 0x43af and DeadRagdoll with no "coop: event running" up to "mark held"; after
+# "gate 0", "coop: event running" and the game over flow.
+mark start
+wait 60
+gate 1
+life 0
+mark dead
+wait 600
+mark held
+gate 0
+wait 600                      # 5 s was too short: the top choice does not take A yet (run 1)
+mark opened
+press A 12                    # the game over's top choice
+wait 900
+mark end

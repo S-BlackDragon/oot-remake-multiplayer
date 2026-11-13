@@ -1,0 +1,19 @@
+# sonda-magia-sin-marioneta (ORM, docs/SONDAS.md round 7), B: as sonda-magia.B.txt (B's own puppet of A stays on).
+#! saves 20-magia
+#! expect B coop: spawn: got ExpandFireField #
+#! expect B coop: spawn: got FaroreWindWarpPoint #
+mark start
+warp InsideGanonCastle Entrance adult
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 3600               # A waits to see us, then about 30 s of spells
+mark end

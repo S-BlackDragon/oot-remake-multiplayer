@@ -1,0 +1,38 @@
+# adulto-agua (ORM, docs/CONTENIDO_ADULTO.md, block 15, Templo del Agua), A: both adult at the Water Temple's entrance from Lake Hylia. A sets room 05's 'in the room' sensor (WaterTemple_Room05_InRoom: taken off), then asks the game for the first level change (WaterTemple_WaterLevelChange01, the event the triforce plays). EXPLORATORY for the level: whether the event alone moves WaterTemple_Room00_WaterLevel (Int 0xbeb09982) is not known; if A's int line is missing the event does not move it by itself and the family F6 needs the lullaby (docs/CONTENIDO_ADULTO.md). Run also with --env LICHII_COOP_GIMMICK_PROBE=1 to see whether B's water planes step.
+# Run with --transport ws --env LICHII_COOP_PUPPET=1 --env LICHII_COOP_DEBUG_FLAGS=1
+# --env LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt (the adult branch's kit file, next to the emulator as
+# shared_story.txt is; its reader comes with the child-dungeon branch). Mutant: the same run without
+# LICHII_COOP_DUNGEON_LISTS turns the 'never' lines red (the built-in list still shares those flags) and the
+# lines of a flag only the adult list shares.
+#! noload
+#! start coop: test warp done
+#! saves 15-agua
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! expect B coop: puppet: P\d: create CoopPuppet_Adult
+#! expect A coop: test flag WaterTemple_Room05_InRoom \(0x9067d036\) = 1 within sensor..end
+#! expect A coop: test event WaterTemple_WaterLevelChange01: Link within level..end
+#! expect A coop: flags debug: int 0xbeb09982 \(entry \d+\) \d+ -> \d+ within level..end
+#! expect B coop: flags debug: int 0xbeb09982 \(entry \d+\) \d+ -> \d+ within level..end
+#! never B coop: flags debug: bool 0x9067d036 
+mark start
+warp WaterTemple WaterTemple_FromLakeHylia adult
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark sensor
+flag WaterTemple_Room05_InRoom 1
+wait 300
+mark level
+event WaterTemple_WaterLevelChange01
+wait 900
+wait 300
+mark end

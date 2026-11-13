@@ -1,0 +1,36 @@
+# kakariko-pozo (A): Kakariko: the well drained with the Song of Storms is dry in every game (F6, once:).
+# docs/CONTENIDO_NINO.md; families of PLAN_100 section 4.
+# A queues the two flags the windmill man's flow sets after the Song of Storms (the water plane deleted, the dummy
+# ladder deleted); B, by the well, gets both live. Por comprobar en juego: B's water plane goes at once (capture at
+# `visto`) or on a reload (ZMP W4: the late player must see it dry).
+# Run with --transport ws --env for each of LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=<kit>/shared_dungeon_child.txt (r03_pareja; run.ps1 reads #! switches).
+# Content checks (r03_pareja; player numbers vary: P\d):
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added, 13 taken off, 19 once, 4 held in their area, 105 one-time keys within boot..
+#! expect A coop: test flag KakarikoVillage_Npc_Hylia_009_Child_DeleteWaterPlane \(0x61960b30\) = 1
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=tools/release/kit/shared_dungeon_child.txt
+#! timeout 400
+mark start
+warp KakarikoVillage_Child Kakariko_WellSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 300
+mark flag
+flag KakarikoVillage_Npc_Hylia_009_Child_DeleteWaterPlane 1
+wait 60
+flag KakarikoVillage_DeleteDummyLadder 1
+wait 120
+wait 600
+mark visto
+wait 600
+mark end

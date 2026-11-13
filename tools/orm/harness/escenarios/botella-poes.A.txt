@@ -1,0 +1,47 @@
+# botella-poes (A: beats a Big Poe, sells it, completes the collector): the Poe collector: a Big Poe of the field beaten in A is gone in B, and back in B when A's game puts it back; the points (an Int) and the collector's step reach B; the soul stays in A's bottle.
+# docs/BOTELLAS_TRUEQUES.md (the bottle and trade list, tools/release/kit/shared_dungeon_trades.txt).
+# Run with --transport ws and an --env for each #! switches item (r03_pareja; run.ps1 reads #! switches);
+# the list files next to the emulator, as the kit puts them (an emulator from orm/t9-integrado + orm/botellas2:
+# the `int` and `enum` test commands). Written 2026-11-11, not run yet (no games that day).
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS turns B's expect lines red (no list shares them).
+# 370 is a test value (the game adds 100 or 50 per soul); a save with 370 points already logs no change.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_trades.txt
+#! expect A coop: lists: .*shared_dungeon_trades\.txt: 28 flags and keys added, 3 taken off, 5 once, 0 held in their area, 0 one-time keys within boot..
+#! expect A coop: test flag HyruleField_Defeat_BigPoe_01 \(0xacdfefef\) = 1: queued
+#! expect A coop: test int GhostShop_CouponNum \(0xe3407cee\) = 370: queued
+#! expect A coop: test enum Step_SubEvent_GhostShop = 0xffa8da63 \(no listed name\): queued
+#! expect A coop: test enum Step_SubEvent_GhostShop = 0x4c0a63f4 \(no listed name\): queued
+#! expect A coop: test bottle A BigPoe: written \(now BigPoe within control..sold
+mark start
+warp Market_Adult LightPrelude
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+bottle A BigPoe                                          # the soul: in A's bottle only
+flag HyruleField_Defeat_BigPoe_01 1                      # beaten: gone in every game
+enum Step_SubEvent_GhostShop Playing                     # the collector asked for souls
+wait 900
+mark sold
+int GhostShop_CouponNum 370                              # the points: the group's
+bottle A Empty                                           # sold: A's bottle empty again
+wait 900
+mark back
+flag HyruleField_Defeat_BigPoe_01 0                      # as the game puts a Big Poe back: back in all
+enum Step_SubEvent_GhostShop Complete                    # the bottle given: once for the group
+wait 600
+bottle A restore
+wait 120
+mark end

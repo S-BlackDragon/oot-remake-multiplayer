@@ -1,0 +1,63 @@
+# pesca-sedal (ORM, docs/DETALLES_MARIONETA.md "Mascaras, sedal y cadena"), A: child at the fishing pond (warp as
+# daurosk's fishing scenario). A talks to the pond owner and says yes through his talk (the rod comes only from
+# him: the cheats do not know it), then casts and reels in twice. B (pesca-sedal.B.txt) must see the line from the
+# tip of the rod in A's puppet's hands to the lure copy: tense and a little sagging, shorter as it is reeled in,
+# gone with the lure. The game's line is a Phive rope of its own (Weapon_FishingLine); the copy is CoopShot_FishingLine
+# (the rope's model only) beside the lure copy, its 71 bones laid each frame from the lure to the puppet's Rod_4.
+# EXPLORATORY: the remake's fishing buttons are not known (cast here as the other items: assign, hold ZR; reel: A),
+# and the owner's talk may need more presses. Emulator: orm/t9-integrado + orm/mascaras; puppet pack rebuilt with
+# this tool (CoopShot_Lure, CoopShot_FishingLine in coop_puppet.json). Written 2026-11-11, not run yet.
+# Mutant: LICHII_ORM_TETHERS=0 on B turns B's CoopShot_FishingLine lines red (the lure alone, no line).
+#! noload
+#! start coop: test warp done
+#! saves 10-jabu
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_SPAWN=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_OBJECTS_RELEASE=1,LICHII_COOP_DEBUG_ANIM=1,LICHII_ORM_TETHERS=1
+#! timeout 420
+#! expect A coop: spawn: sent Weapon_(Sinking)?Lure #
+mark start
+warp HyruleField_Child MiniGame_Fishing_PlayerStart
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+stick 0 1 60            # to the owner's counter
+wait 60
+press A 12              # talk
+wait 240
+mark a-talk
+press A 12              # through his talk: yes, pay, take the rod
+wait 120
+press A 12
+wait 120
+press A 12
+wait 120
+press A 12
+wait 240
+mark a-rod
+stick 0 -1 40           # turn back toward the water, B in view
+stick 0.6 0 20
+wait 60
+assign FishingRod
+wait 30
+hold ZR 60 cast         # cast: the lure flies out on its line
+wait 180
+mark cast_out
+hold A 90 reel          # reel in a bit: the line shortens
+wait 60
+mark reel_half
+hold A 240 reel_in      # all the way in
+wait 120
+mark reeled
+hold ZR 60 cast2        # a second cast, the other way
+wait 180
+mark cast2_out
+hold A 360 reel2_in
+wait 120
+mark end

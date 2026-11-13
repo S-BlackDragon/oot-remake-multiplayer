@@ -1,0 +1,66 @@
+# charla-tienda-dos (A), ORM F12 charlas, two talkers (NPC_COMPARTIDOS.md section 10; the charla-dos pattern with a warp):
+# A talks to the Kokiri shopkeeper (Npc_Kokiri_001_Shop_Child) and keeps the first text open about 50 s; B, 1.5 m to A's side, talks to the
+# same NPC inside that time (B starts about 115 s after A, so its press lands 5 to 45 s into A's talk). A's talk
+# claims the NPC and keeps it; B's plays on B's copy only and blends back over 600 ms. A's claim limit is
+# 5 min (a shopkeeper: `_Shop` in the name).
+# Precondition: a child save; Link's house start, then `place` inside the shop (the counter faces +z). The shop's flags (the Deku Shield bought, its greeting) stay each player's own: none may reach B.
+# Run (emulator from orm/test8 + a patch file + a patch file), with an --env for
+# each item of the #! switches line (run.ps1 reads it; r03_pareja needs the --env):
+#   python -I tools/orm/harness/r03_pareja.py --scenario charla-tienda-dos --scen-dir tools/orm/harness/escenarios
+#     --transport ws --timeout 600 --capture-marks
+# Not run yet (written 2026-11-11, no game that day). Doc: docs/CHARLAS.md. Player numbers vary: P\d.
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! timeout 600
+#! expect A coop: talk: sharing \d+ talk flags within boot..
+#! expect A coop: npc: talking to Npc_Kokiri_001_Shop_Child\w* 0x[0-9a-f]+ \((ours|owner P\d, claimed)\) within talk..talked
+#! expect A coop: npc pose: sending Npc_Kokiri_001_Shop_Child\w* 0x[0-9a-f]+ \(id 0x[0-9a-f]+, epoch \d+\) within talk..talked
+#! expect A coop: npc: talk over, claim let go within talk..end
+#! never A coop: npc: Npc_Kokiri_001_Shop_Child\w* 0x[0-9a-f]+ talks with its owner P\d
+#! never A coop: npc: claim on .* held \d+ s, let go
+mark start
+warp KokiriForest_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 8400               # B starts 60 s after our warp and lands about 50 s after that
+place -2.1 110.3 -22.6     # 2.6 m from Npc_Kokiri_001_Shop_Child
+wait 90
+toward -2.1 -25.25 8          # face it
+wait 30
+mark talk
+press A 12              # talk, then leave the first text open
+wait 180
+mark talking-first
+wait 3000               # B talks to it meanwhile
+mark talking-both
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press A 12
+wait 90
+press B 12
+wait 60
+press B 12
+wait 120
+stick 0 -1 30
+wait 60
+mark talked
+wait 900                # B finishes its own talk; the NPC stays ours
+mark end

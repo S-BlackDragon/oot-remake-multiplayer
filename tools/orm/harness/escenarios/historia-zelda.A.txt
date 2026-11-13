@@ -1,0 +1,182 @@
+# historia-zelda (ORM, docs/HISTORIA_COMPLETA.md), A: the Temple of Time, adult: Sheik is Zelda, the Light Arrows (moves Step_AllSage to Complete).
+# Both games warp to Market_Adult; A asks for Market_Adult_Field_GetArrowLight with the test command `event` (the hook's
+# request by name, CINEMATICAS.md P1) and both press A every 2 s for 150 s to move the texts on.
+# Run with --transport ws --scen-dir tools/orm/harness/escenarios --timeout 600
+# --env LICHII_COOP_STORY=1 (built-in list). Not run yet (written 2026-11-11, no game that day).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_STORY=1
+#! expect A coop: story: owner: our game started 'Market_Adult_Field_GetArrowLight' in Market_Adult within asked..end
+#! expect A coop: event running 'Market_Adult_Field_GetArrowLight' within asked..end
+#! expect B coop: story: STORY_EVENT start received from P\d \('Market_Adult_Field_GetArrowLight' in Market_Adult\): starting within after..end
+#! expect B coop: event running 'Market_Adult_Field_GetArrowLight' within after..end
+#! expect A coop: story: HavePlayedEvent\.Market_Adult_Field_GetArrowLight 0 -> 1 within asked..end
+#! expect B coop: story: HavePlayedEvent\.Market_Adult_Field_GetArrowLight 0 -> 1 within after..end
+mark start
+warp Market_Adult LightPrelude
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too
+mark asked
+event Market_Adult_Field_GetArrowLight
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+wait 108
+press A 6
+mark end
+wait 600

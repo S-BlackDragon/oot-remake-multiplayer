@@ -320,6 +320,12 @@ if ($Mode -eq 'host') {
     }
     if ($serverUp) { Write-Host 'The server from this kit is already running.' }
     else {
+        # ORM: the server's ports (UDP, and TCP for WebSocket) are checked before its window opens; a port
+        # another program holds or Windows keeps is said in Spanish with what to do (orm-hosting.ps1).
+        . (Join-Path $PSScriptRoot 'orm-hosting.ps1')
+        $ormOptions = Read-OrmServerOptions (Join-Path $kit 'coop-options.ini')
+        if ($ormOptions.Problem) { Write-Host $ormOptions.Problem; exit 1 }
+        if ((Test-OrmHostPorts $serverExe ([int]$Port) $ormOptions) -ne 'free') { exit 1 }
         Write-Host "Starting the server in its own window (UDP port $Port). Keep that window open while you play."
         $serverArgs = @("$Port")
         $access = Read-KitServerAccess (Join-Path $kit 'coop-options.ini')
@@ -335,12 +341,17 @@ if ($Mode -eq 'host') {
 # Switches from coop-options.ini (the lines without a '#' in front). They win over the AMD rule below.
 $options = Read-KitOptions (Join-Path $kit 'coop-options.ini')
 foreach ($key in $options.Keys) {
-    $value = $options[$key]
-    if ($value -and -not [System.IO.Path]::IsPathRooted($value) -and (Test-Path -LiteralPath (Join-Path $kit $value))) {
-        $value = [System.IO.Path]::GetFullPath((Join-Path $kit $value))
-    }
+    # A kit file, or a comma list of them, becomes full paths (kit-paths.ps1 Resolve-KitOptionValue).
+    $value = Resolve-KitOptionValue $kit $options[$key]
     Set-Item -Path "env:$key" -Value $value
     Write-Host "Option: $key=$value"
+}
+# ORM: the colour in coop.ini (the launcher writes one per player, from the name) counts as chosen when
+# coop-options.ini has none: passed as LICHII_COOP_COLOR, so your own Link's tunic (below) is the same
+# colour the others see, and the host-blue / joiners-red default does not override it.
+if (-not $env:LICHII_COOP_COLOR -and $Color) {
+    $env:LICHII_COOP_COLOR = $Color
+    Write-Host "Your colour: $Color (coop.ini)."
 }
 # No colour chosen: the colour of the player number you will most likely get, for your own Link too
 # (kit-paths.ps1). Before the pack step, which puts that tunic over the game's.

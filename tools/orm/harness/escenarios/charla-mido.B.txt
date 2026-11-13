@@ -1,0 +1,34 @@
+# charla-mido, B (charla-mido.A.txt): put about 11 m west of Mido first (so B's game may own him), B watches A talk
+# to him, then walks west more than 25 m from Mido and waits past the 120 s limit. B never talks.
+# The flag A's talk lowers (KokiriForest_Npc_Kokiri_Mido_Child_Blocker, 0x502f6cea) reaches B: either held
+# ("waits: in view here", B's own Mido 11 m away) and written later ("written: its actors are copies another game
+# moves" once A's talk claims him, "its actors are far away" after the walk, or "time ran out"), or written at once
+# when Mido is a copy already. Then B's game holds 0: "coop: talk: 0x502f6cea ... 1 -> 0".
+#! expect B coop: talk: sharing \d+ talk flags within boot..
+#! expect B coop: test place
+#! expect B coop: flags: talk flag 0x502f6cea KokiriForest_Npc_Kokiri_Mido_Child_Blocker = 0 (waits: in view here|written: )
+#! expect B coop: flags: talk flag 0x502f6cea KokiriForest_Npc_Kokiri_Mido_Child_Blocker = 0 written:
+#! expect B coop: talk: 0x502f6cea KokiriForest_Npc_Kokiri_Mido_Child_Blocker 1 -> 0
+# F12 (2026-11-11, docs/CHARLAS.md): B's Mido follows A's pose while A talks, never jumps (no 'worst copy' line
+# for him, no flag forced by the 120 s limit while he is in view) and A's puppet never hides. Plain lines
+# (no A/B, no `within`): r03_pareja reads them today; a 'written: time ran out' for Mido before
+# `leaving` (B still 11 m from him) is the jump, checked by hand (after `leaving` it is the fallback).
+#! switches LICHII_COOP_NPC=1,LICHII_COOP_NPC_POSE=1,LICHII_COOP_PUPPET=1,LICHII_COOP_CHEATS=1,LICHII_COOP_TALK=tools/release/kit/shared_talk.txt
+#! expect B coop: npc pose: copies following their owner's pose: P\d 0x[0-9a-f]+
+#! never B coop: npc: talking to
+#! never B (?<!fairy )coop: puppet: P\d show -> hide
+#! never B coop: objects: share worst copy 0x[0-9a-f]+ 'Npc_Kokiri_Mido_Child' off
+mark start
+wait 30
+# Round 5 (sondas12): at 11.3 m B's Mido left B's actor list 0.4 s after the place (unloaded): no copy to follow,
+# and the talk flag went in at once ('its actors are not loaded'). 6.8 m now, off A's way to him.
+place 19.5 111.7 4.0          # 6.8 m west of Mido, before A comes
+wait 90
+toward 25.5 0.84 8            # face Mido
+mark watching
+wait 1500                     # A gives itself the gear, comes, talks, and later writes the fallback
+mark leaving
+goto -8.0 4.0 1.5 900         # west, more than 25 m from Mido
+mark away
+wait 7800                     # past the 120 s limit, should the walk fail
+mark end

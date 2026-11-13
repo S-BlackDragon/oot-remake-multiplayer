@@ -1,0 +1,14 @@
+# choque-encima, B: turns /choque on and stands still at the start; A lands on his head (choque-encima.A.txt).
+# B's game sees A's body over his head: B's Link should not be pushed out from under it (a run tells: if B's log
+# shows him moving, his own cct meets A's body from below; see docs/CHOQUE.md, "Lo que falta ver").
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect B coop: test chat '/choque on': sent within start..end
+#! expect B bodies: P\d's body solid within on..end
+#! never B coop: check: bodies: collider fallback
+#! never B moved Link to
+mark start
+wait 60
+chat /choque on
+mark on
+wait 1500
+mark end

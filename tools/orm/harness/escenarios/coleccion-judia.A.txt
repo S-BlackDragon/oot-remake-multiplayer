@@ -1,0 +1,51 @@
+# coleccion-judia (A: a child in Kokiri Forest plants a bean, the soil's Bool set as the game's setter; B's checks are in B's file): a bean one child plants is planted for the group, so the adult's platform is there in every game.
+# docs/COLECCIONABLES.md (the collectible list, tools/release/kit/shared_dungeon_collectibles.txt, written by tools/romfs/collectible_list.py).
+# The soil is Kokiri Forest's with bugs (Obj_SmallFarm_A_01 548d80c51011dd32 at 8.24 112.36 -23.31, Banc
+# KokiriForest_Child_Static; its adult platform Obj_SmallFarm_A_03 7dafcfc1694ac1d7 is linked to it as Plant). Its saved
+# Bool 0xb55acadd is the one GameData struct 0x820c6b5e gives the soil (Murmur3 of the placement key in decimal), a
+# once: line of the list. A plants right after landing, so B (adult, its script 60 s later) loads Kokiri Forest with the
+# soil planted; both watch the Bool with LICHII_COOP_DEBUG_BOOL (logged every 5 s).
+# Por comprobar: that this Bool is "planted" (deduced from the romfs, not seen: A's capture "plantada" should show the
+# sprout; the adult's platform in B's game is a look in a game, the harness captures A's window only); a real plant (the
+# bean from the inventory on the soil) instead of the flag.
+# Run with --transport ws --capture-marks (r03_pareja; run.ps1 reads #! switches); the list files next to the emulator,
+# as the kit puts them. Mutant: the same run without LICHII_COOP_DUNGEON_LISTS turns B's get_bool line red (B reads 0).
+#! noload
+#! start coop: test warp done
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_collectibles.txt,LICHII_COOP_DEBUG_BOOL=0xb55acadd
+#! timeout 600
+#! expect A coop: lists: .*shared_dungeon_collectibles\.txt: 30 flags and keys added, 0 taken off, 16 once, 0 held in their area, 14 one-time keys within boot..
+#! expect A coop: test flag 0xb55acadd \(0xb55acadd\) = 1: queued
+#! expect A coop: flags debug: get_bool\(0xb55acadd\) = 1 \(was 0\) within planta..end
+#! never A coop: flags debug: get_bool\(0xb55acadd\) = 0 \(was 1\) within planta..end
+# RIESGOS_RESUELTOS.md "Mundo e historia" (orm/riesgos-mundo, coop/host/beans.hpp): the bean check compares the soil's
+# Bool with its platform's placement in the actor walk (LICHII_COOP_OBJECTS=1 for the walk). A planted while there:
+# the line says whether the platform came live or not (both are answers; COLECCIONABLES.md takes the one seen).
+#! expect A coop: riesgos: trade step guard \S+, bean check on
+#! expect A coop: beans: Kokiri Forest's soil with bugs \(Bool 0xb55acadd = 1, KokiriForest_Child\): the bean came while we are here and (its platform came live|no platform came in 10 s: not live, it should come on the next load) within planta..end
+mark start
+warp KokiriForest_Child
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark a-in
+wait 600
+mark planta
+flag 0xb55acadd 1       # Kokiri Forest's soil (with bugs): a bean planted, once for the group
+wait 600
+place 9.80 112.60 -21.60  # by the soil, for the capture
+wait 120
+toward 8.24 -23.31 10
+wait 300
+mark plantada
+wait 3600               # B loads Kokiri Forest as adult in this time
+wait 3600
+wait 1800
+mark end

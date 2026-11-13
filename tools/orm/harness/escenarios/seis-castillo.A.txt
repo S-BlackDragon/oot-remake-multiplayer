@@ -1,0 +1,163 @@
+# seis-castillo (PLAN_100 F14, box 6 of block 5, Castillo de Hyrule y Zelda; docs/BOTS.md, docs/SEIS_BLOQUES_1_10.md):
+# one game and five bots. A walks the rooms of recorrido-castillo (leg 1) in one run from the entrance save; the bots
+# (seis-castillo.bots.txt) follow it room to room. In r01-entrada A falls (life 0) and bots 2 and 3 revive it; then
+# bot1 goes down 1 m from A and A holds A beside it. bot1 sends one of the block's shared flags
+# (HyruleCastle_IsBoxMoveCorrectPos) and A's game shows it 0 -> 1; bot5 goes to another scene and follows A back.
+#   python -I tools/orm/harness/r03_pareja.py --scenario seis-castillo --scen-dir tools/orm/harness/escenarios
+# 1 game, 5 bots, puppets and min-fps 25 come from the name (seis-*); transport and bot-arg are in the .bots.txt.
+#! noload
+#! start coop: test warp done
+#! saves entrada-castillo
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_OBJECTS=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DEBUG_BOSS=1,LICHII_COOP_STORY=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_child.txt,LICHII_COOP_DOWNED=1,LICHII_COOP_DEBUG_LIFE=1
+#! timeout 1800
+#! expect A coop: test warp done
+#! never A coop: test goto timed out
+#! never A coop: test place .*: failed
+#! never A coop: server refused
+#! count A coop: player \d+ 'bot\d' joined >= 5 within boot..
+#! count A coop: puppet: P\d+ CoopPuppet_\w+ spawned >= 5
+#! expect A coop: lists: .*shared_dungeon_child\.txt: \d+ flags and keys added within boot..
+#! expect A coop: flags debug: \w+ 0x723c2faf \(entry \d+\) 0 -> 1
+#! never A coop: flags debug: \w+ 0x723c2faf \(entry \d+\) 1 -> 0
+#! expect A coop: downed: alive -> downed within caida..levanta
+#! expect A downed -> reviving: revive requested by P\d within caida..levanta
+#! expect A reviving -> alive: revived \(by P\d within caida..levanta
+#! expect A coop: downed: P\d is down \(PLAYER_STATUS dead\) within caida..levanta
+#! expect A REVIVE sent to P\d within levanta..levantado
+#! expect A coop: downed: P\d is up again within levanta..fin
+#! never A -> game_over
+#! expect A coop: test place 13\.35 105\.54 \-13\.18: done within r01-entrada..r02-guardias
+#! expect A coop: test place 26\.00 108\.40 \-60\.00: done within r02-guardias..r03-talon
+#! expect A coop: test place 28\.33 117\.34 \-140\.83: done within r03-talon..r04-patio
+#! expect A coop: test flag Talon_AfterWakeUp \(0x31060ce0\) = 1 within r03-talon..r04-patio
+#! expect A coop: test place 5\.13 127\.14 \-229\.41: done within r04-patio..fin
+#! expect A coop: event running 'HyruleCastle_Goto_HyruleCastle_MeetZelda' within r04-patio..fin
+#! expect A coop: story: owner: our game started 'HyruleCastle_Goto_HyruleCastle_MeetZelda' in HyruleCastle within r04-patio..fin
+mark start
+warp HyruleCastle HyruleCastle_Entrance
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark llegada
+wait 1200               # the bots follow A into its scene (they joined at the title)
+mark r01-entrada            # la entrada (Malon)
+place 13.35 105.54 -13.18
+wait 120
+goto 17.63 -22.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark caida              # A falls here (life 0): bots 2 and 3 come and hold A beside it
+life 0
+wait 2400               # their 3.5 s and the game's 6 s revive; then bot1 goes down 1 m from A
+mark levanta
+hold A 300              # A revives bot1 (reach 1.5)
+mark levantado
+wait 900                # bot1 gets up 6 s after the request
+mark r02-guardias            # el camino de los guardias
+place 26.00 108.40 -60.00
+wait 120
+goto 20.00 -70.00 1.5 900
+wait 300                # the bots catch up (4 m/s)
+mark r03-talon            # Talon dormido y las cajas
+place 28.33 117.34 -140.83
+wait 120
+goto 28.00 -146.00 1.5 900
+flag Talon_AfterWakeUp 1
+wait 60
+# (flag HyruleCastle_IsBoxMoveCorrectPos: bot1 sends it, docs/BOTS.md)
+wait 60
+wait 300                # the bots catch up (4 m/s)
+mark r04-patio            # el patio: Impa y Zelda
+place 5.13 127.14 -229.41
+wait 120
+goto 5.13 -236.39 1.5 900
+event HyruleCastle_Goto_HyruleCastle_MeetZelda
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 120
+press A
+wait 300                # the bots catch up (4 m/s)
+mark fin
+wait 600

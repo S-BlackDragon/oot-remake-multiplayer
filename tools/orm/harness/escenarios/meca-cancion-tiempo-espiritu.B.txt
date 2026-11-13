@@ -1,0 +1,39 @@
+# meca-cancion-tiempo-espiritu (ORM, docs/CANCIONES.md), B: lands where A does and stands 3 m to +x of the two room 15
+# blocks, facing them (captures "despues1" and "despues2": what B's blocks show after each of A's songs). The checks
+# are in A's file.
+#! noload
+#! start coop: test warp done
+#! saves 19-espiritu-adulto
+# run.ps1 splits #! switches at every comma, so a list of files cannot be a value there: '.' is the
+# emulator's folder (where the list files are), and the hook loads every shared_dungeon_*.txt in it.
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=.,LICHII_COOP_OBJECTS=1
+mark start
+warp SpiritTemple SpiritTemple_Entrance adult
+wait 1200
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A
+wait 2400
+mark after
+wait 600
+place 43.5 103.0 -58.6
+wait 120
+mark placed
+toward 40.4 -58.6 8
+wait 360
+mark antes
+wait 600
+mark first
+wait 900
+mark despues1
+wait 2400
+mark second
+wait 900
+mark despues2
+wait 420
+mark end

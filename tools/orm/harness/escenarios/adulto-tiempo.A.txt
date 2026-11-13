@@ -1,0 +1,32 @@
+# adulto-tiempo (ORM, docs/CONTENIDO_ADULTO.md, block 11, Templo del Tiempo), A: both adult in the Temple of Time (Market_Adult LightPrelude, where the adult Link wakes). A opens the Door of Time's flag (Market_Child_TimeTempleDoor_Opened, a shared line of the adult list): B takes it live.
+# Run with --transport ws --env LICHII_COOP_PUPPET=1 --env LICHII_COOP_DEBUG_FLAGS=1
+# --env LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt (the adult branch's kit file, next to the emulator as
+# shared_story.txt is; its reader comes with the child-dungeon branch). Mutant: the same run without
+# LICHII_COOP_DUNGEON_LISTS turns the 'never' lines red (the built-in list still shares those flags) and the
+# lines of a flag only the adult list shares.
+#! noload
+#! start coop: test warp done
+#! saves 12-bosque
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_adult.txt
+#! expect B coop: puppet: P\d: create CoopPuppet_Adult
+#! expect A coop: test flag Market_Child_TimeTempleDoor_Opened \(0x727c2cbd\) = 1 within control..end
+#! expect B coop: flags debug: bool 0x727c2cbd \(entry \d+\) 0 -> 1 within control..end
+mark start
+warp Market_Adult LightPrelude
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400               # the save loads, then the warp lands (about 30 s)
+mark after
+wait 600                # the other game lands too: puppets made
+mark control
+flag Market_Child_TimeTempleDoor_Opened 1
+wait 600
+wait 300
+mark end

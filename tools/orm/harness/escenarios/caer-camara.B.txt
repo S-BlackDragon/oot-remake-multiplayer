@@ -1,0 +1,28 @@
+# caer-camara, B (ORM spectator camera, C1 step 6): waits until A is down (A falls 7 s in), then walks round A's body
+# (-82 33.65) at about 3.5 m on the platform of the Kokiri start (y 122; it ends about 4 m to the south: B's earlier
+# routes at 4-5 m south dropped to y 118.6 and could not climb back): south-east, east, south-east, stopping 2 s at
+# each, then back to 1 m east of A, faces him and holds A 4 s (3 s needed) to revive him.
+# Expect in B's log: "P1 is down", "A held 3.0 s beside P1: revive request", "REVIVE sent to P1", "P1 is up again".
+# Content checks (r03_pareja: each must hold in that game's log after the scenario started):
+#! expect B coop: downed: P\d is down
+#! expect B beside P\d .*: revive request within beside..end
+#! expect B coop: downed: REVIVE sent to P\d
+#! expect B coop: downed: P\d is up again
+mark start
+wait 600
+mark walk
+goto -78.9 31.6 0.5 600     # 3.7 m south-east (y 121.9: still on the platform)
+wait 120
+goto -78.6 33.6 0.5 600     # 3.4 m east
+wait 120
+goto -78.9 31.6 0.5 600
+wait 120
+mark round
+goto -81.0 33.3 0.4 900     # beside A, 1 m to his east
+toward -82.0 33.65 8
+wait 60
+mark beside
+hold A 240
+mark held
+wait 600
+mark end

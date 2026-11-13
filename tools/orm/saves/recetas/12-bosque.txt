@@ -1,0 +1,27 @@
+# Block 12, the Forest Temple and Phantom Ganon (adult): seven years later. The Master Sword, the Ocarina of Time
+# and the Song of Time, Sheik met in the Temple of Time, the Hookshot (Dampe), the Minuet of Forest. Starts in the
+# Sacred Forest Meadow at the temple. The child's gear goes to the other era's slots.
+include 11-tiempo.txt
+age adult
+scene SacredForestMeadow_Adult OutsideOfForestTemple
+item Item_Ocarina_Time
+item Weapon_Sword_Master
+item Weapon_Shield_Hylian
+item Armor_Adult_Normal
+item Item_Medal_Light
+item Item_Hookshot
+song TimeSong
+song ForestMinuet
+equip weapon Weapon_Sword_Master
+equip shield Weapon_Shield_Hylian
+equip armor -
+other-era weapon Weapon_Sword_Kokiri
+other-era shield Weapon_Shield_Deku
+seen Dm_HrlField_0020 Dm_HrlField_0060 Dm_MelodyGet_Time Dm_TimeTemple_0010 Dm_SageRoom_0000 Dm_SageRoom_0005
+seen Dm_TimeTemple_0050 Dm_TimeTemple_0055 Dm_MelodyGet_Forest
+step DoorOfTime Complete
+step SageOfLight Complete
+step AllSage Step01
+step SageOfForest Step01
+# The Ocarina of Time on its button
+equip ocarina Item_Ocarina_Time

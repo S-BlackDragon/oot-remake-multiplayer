@@ -1,0 +1,46 @@
+# templo-goron (ORM, docs/TEMPLOS.md sections 2 and 3, Templo del Fuego), A: both ADULT (13-fuego). A waits in
+# Goron City (no heat: our Link has no Goron Tunic on in this save); B stands in the Fire Temple by Goron 010's cell
+# (Npc_Goron_010_Adult_FireTemple at -5.73 100.0 -9.92, Banc). Once B is in, A rescues Goron 010 as the game would:
+# the cell open (Npc_Goron_010_ShutterisOpen, shared by daurosk: the control), then both 'gone' flags
+# (Npc_Goron_010_Delete, Npc_Goron_010_Adult_FireTemple_Delete). Rule (TEMPLOS.md): one world, a rescued Goron is
+# rescued for all ('once:' lines of shared_dungeon_temples.txt). By hand, B's screen at 'freed': no Goron in the cell.
+# NEEDS tools/release/kit/shared_dungeon_temples.txt (TEMPLOS.md section 3.2, not written yet): until it exists the
+# hook says 'the lists are not used' and B's two Delete lines are red. (The kit loads it after the child and adult
+# lists; one switch value here, as '#! switches' splits at commas.)
+# Mutant: the same run without LICHII_COOP_DUNGEON_LISTS: the Delete lines turn red, the ShutterisOpen control
+# (daurosk's built-in list) stays green.
+# Heat: B is in the Fire Temple about 90 s without the tunic; if its heat timer runs out first the flag lines still
+# count, the capture does not.
+# Run: python -I tools/orm/harness/r03_pareja.py --scenario templo-goron --scen-dir tools/orm/harness/escenarios
+#   --transport ws. Not run yet (written 2026-11-11).
+#! noload
+#! start coop: test warp done
+#! saves 13-fuego
+#! switches LICHII_COOP_PUPPET=1,LICHII_COOP_DEBUG_FLAGS=1,LICHII_COOP_DUNGEON_LISTS=shared_dungeon_temples.txt
+#! timeout 600
+#! never A coop: lists: LICHII_COOP_DUNGEON_LISTS .*the lists are not used
+#! expect A coop: test flag Npc_Goron_010_ShutterisOpen \(0x6948b592\) = 1: queued within freed..end
+#! expect A coop: test flag Npc_Goron_010_Delete \(0x20dc1f8a\) = 1: queued within freed..end
+#! expect A coop: test flag Npc_Goron_010_Adult_FireTemple_Delete \(0xa4e7353f\) = 1: queued within freed..end
+mark start
+warp GoronCity_Adult GoronCity_CraterSide
+wait 1200               # the title screen
+mark title
+press A
+wait 180
+press A
+wait 180
+press A
+wait 300
+press A                 # loads the save, then the warp
+wait 2400
+mark a-in
+wait 9000               # B starts 60 s after our warp and lands about 60 s after that
+mark freed
+flag Npc_Goron_010_ShutterisOpen 1
+wait 120
+flag Npc_Goron_010_Delete 1
+wait 30
+flag Npc_Goron_010_Adult_FireTemple_Delete 1
+wait 600
+mark end
