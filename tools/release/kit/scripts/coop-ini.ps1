@@ -36,12 +36,12 @@ function Test-CoopColor([string]$Value) {
     return ($v -match '^#?[0-9A-Fa-f]{6}$')
 }
 
-# Returns @{ server; port; name; password } from an existing coop.ini (missing keys are empty).
+# Returns @{ server; port; name; password; color } from an existing coop.ini (missing keys are empty).
 function Read-CoopIni([string]$Path) {
-    $values = @{ server = ''; port = ''; name = ''; password = '' }
+    $values = @{ server = ''; port = ''; name = ''; password = ''; color = '' }
     if (Test-Path $Path) {
         foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
-            if ($line -match '^\s*(server|port|name|password)\s*=\s*(.*?)\s*$') { $values[$Matches[1]] = $Matches[2] }
+            if ($line -match '^\s*(server|port|name|password|color)\s*=\s*(.*?)\s*$') { $values[$Matches[1]] = $Matches[2] }
         }
     }
     return $values
@@ -49,9 +49,10 @@ function Read-CoopIni([string]$Path) {
 
 # Writes coop.ini from the template. An empty server, name or password leaves that line
 # commented out, so co-op is off without an error in the log.
-function Write-CoopIni([string]$Template, [string]$Path, [string]$Server, [string]$Port, [string]$Name, [string]$Password = '') {
+# $Color (ORM, #RRGGBB) is optional: empty leaves the color line commented out.
+function Write-CoopIni([string]$Template, [string]$Path, [string]$Server, [string]$Port, [string]$Name, [string]$Password = '', [string]$Color = '') {
     $out = foreach ($line in [System.IO.File]::ReadAllLines($Template)) {
-        foreach ($pair in @(@('@SERVER@', $Server), @('@PORT@', $Port), @('@NAME@', $Name), @('@PASSWORD@', $Password))) {
+        foreach ($pair in @(@('@SERVER@', $Server), @('@PORT@', $Port), @('@NAME@', $Name), @('@PASSWORD@', $Password), @('@COLOR@', $Color))) {
             if ($line.Contains($pair[0])) {
                 $line = if ($pair[1]) { $line.Replace($pair[0], $pair[1]) } else { '# ' + $line.Replace($pair[0], '').TrimEnd() }
             }

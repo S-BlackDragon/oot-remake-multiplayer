@@ -274,10 +274,10 @@ Components, as in `PLAYER_SAMPLE` (id, length, data; unknown ids skipped, a know
 |---|---|---|---|
 | 1 | `weapon` | string, up to 64 characters | `PlayerStatus.EquipWeapon` |
 | 2 | `shield` | string | `PlayerStatus.EquipShield` |
-| 3 | `armor` | string (the tunic) | `PlayerStatus.EquipArmor` |
-| 4 | `boots` | string | `PlayerStatus.EquipBoot` |
-| 5 | `head` | string (a mask, or head armor) | `PlayerStatus.EquipHeadArmor` |
-| 6 | `hand` | string (gauntlets) | `PlayerStatus.EquipHandArmor` |
+| 3 | `armor` | string (the tunic) | the piece in armor link 1, else `PlayerStatus.EquipArmor` (ORM, below) |
+| 4 | `boots` | string | the piece in armor link 2, else `PlayerStatus.EquipBoot` |
+| 5 | `head` | string (a mask, or head armor) | the piece in armor link 0 or hand slot 7 (Helmet), else `PlayerStatus.EquipHeadArmor` |
+| 6 | `hand` | string (gauntlets) | the piece in armor link 3, else `PlayerStatus.EquipHandArmor` |
 | 7 | `ocarina` | string | `PlayerStatus.EquipOcarina` |
 | 8 | `arrow` | string | `PlayerStatus.EquipArrow` |
 | 9 | `drawn` | `u8`: bit *i* set when the player's equipment slot *i* is drawn (in hand), clear when sheathed or empty | the EquipmentUser component |
@@ -394,7 +394,7 @@ The server's rules today (`server/session.cpp`):
 
 An **object id** is 10 bytes: `u8` kind (0 placed, 1 made), `u8` maker (0 for placed, 1 to 4 for made), `u64` value (the placement hash, or the maker's own counter). Any other kind, or a maker that does not fit the kind, is refused.
 
-Object components use the same scheme as `PLAYER_SAMPLE` (`u16` id, `u16` length, unknown ids skipped, each known id at most once, `time` required): 1 `time` (12), 2 `position` (12), 3 `velocity` (12), 4 `rotation` (16), 7 `animation` (as in `PLAYER_SAMPLE`), 16 `life` (`s32` life, `s32` max, 8), 17 `fuse` (f32 seconds left, 4), 18 `state` (`u8`: bit 0 in a fight, bit 1 held, bit 2 asleep, 1), 19 `slots` (protocol 10, branch gohma-sync, issue 150: a boss's AS slots after slot 0, such as Gohma's eye guard and eyelids: `u8` count up to 8, then per slot `u8` slot 1 to 31, name as in `animation` (empty: the slot plays nothing), `f32` frame, `f32` rate; no slot twice; sent only for bosses, older builds skip it). Floats must be finite. Types 370 to 374 were kept for gohma-sync and are not used: the slots ride in the samples, so no new message was needed.
+Object components use the same scheme as `PLAYER_SAMPLE` (`u16` id, `u16` length, unknown ids skipped, each known id at most once, `time` required): 1 `time` (12), 2 `position` (12), 3 `velocity` (12), 4 `rotation` (16), 7 `animation` (as in `PLAYER_SAMPLE`), 16 `life` (`s32` life, `s32` max, 8), 17 `fuse` (f32 seconds left, 4), 18 `state` (`u8`: bit 0 in a fight, bit 1 held, bit 2 asleep, 1), 19 `slots` (protocol 10, branch gohma-sync, issue 150: a boss's AS slots after slot 0, such as Gohma's eye guard and eyelids: `u8` count up to 8, then per slot `u8` slot 1 to 31, name as in `animation` (empty: the slot plays nothing), `f32` frame, `f32` rate; no slot twice; sent only for bosses, older builds skip it). Floats must be finite. Types 370 to 374 were kept for gohma-sync and are not used: the slots ride in the samples, so no new message was needed. ORM: 29 `carry` (59; ORM components are 24 to 31, oot-remake `docs/TIPOS_MENSAJE.md`): `u8` holder (the player whose Link holds it, 1 to 6), `u16` bone (`0xffff` none), then f32 x 3 place and x 4 turn (unit quaternion) in the frame of the holder's actor, and f32 x 3 and x 4 in that bone's frame; sent by the owner with every sample while its Link holds the object (oot-remake `docs/DETALLES_MARIONETA.md`, "Levantar"; `lichii/hook/coop_carry.h`). An older reader skips it: no new protocol version.
 
 The player field follows the `PLAYER_SAMPLE` rule (0 from a client, the sender's number when relayed).
 
@@ -450,6 +450,61 @@ Players hurting each other ([play-online.md](play-online.md), "PvP"; `lichii/hoo
 - **Hits go to their victim only, and only while PvP is on.** The server passes a `PVP_HIT` to the victim alone, with the attacker's number written in, and drops it while PvP is off (counted in `pvp_hits_dropped`), so a game with PvP off never gets one, whatever an attacker's game believes.
 - **The victim decides.** Its game takes the hit (or not, by the rules in play-online.md) and sends `PVP_HURT`, which the server relays to everyone else. A `PVP_HURT` naming its own sender as the attacker is dropped.
 
+### Revive (`REVIVE`, ORM)
+
+"Downed, not dead" (oot-remake `docs/CAIDO_REVIVIR.md`, `coop/host/downed.hpp`; only with `LICHII_COOP_DOWNED=1`): a player whose life ran out stays down, with bit 4 (dead) in its `PLAYER_STATUS`, until a mate holds A beside it. On channel 0. A client names the downed player in the second byte; the server passes it to that player only, with the sender's number in the player field, and drops it (`revive_dropped`) when that player's last `PLAYER_STATUS` is not dead, when the two are in different scenes (both known), or when it names the sender or a player not there.
+
+| Type | Name | Channel | Sent by | Body |
+|---|---|---|---|---|
+| 0xF000 | `REVIVE` | 0 | both | `u8` player field, `u8` the downed player (1 to 6, never the sender), `u8` progress: 255 the request (A held 3 s within 1.5); 0 to 100 the hold so far in percent, sent about every 250 ms while A is held, for the downed player's screen; 101 to 254 refused |
+| 0xF002 | `GROUP_DEFEAT` | 0 | server | `u8` players down (1 to 6), `u32` the server's time in ms (wraps) |
+
+`GROUP_DEFEAT`: when every player in the session, two or more, has had `PLAYER_STATUS` dead for 2 s running (`group_defeat_us`), the server sends it once to everyone (`group_defeats`); it can come again only after a player was not dead between (the reload after the game over brings everyone up) or a joiner that has not said it is dead yet. A player alone is left to its own game, which lets its game over run by itself (10 s after the last mate left). A game with the downed rules on that is down lets its game over run when it gets it: the player presses Continue and the game reloads its save, which the launcher's room save made the room's at the session start.
+
+Type 0xF001 is kept (the server's "revived") and not used. The ORM types were 60 to 65 up to protocol 108 and 240 to 254 in 109; test10 took 241 to 255 (PvP, the co-op HUD), so from 110 they are 0xF000 to 0xF00E (block 0xF000 to 0xF0FF, new = 0xF000 + old - 240), far above every upstream block. Upstream's `OCARINA_NOTE` (140, notes only) is not ours: ours is ORM `OCARINA_NOTE` 0xF007 (`OrmOcarinaNote`, notes, instruments and songs).
+
+### Story event (`STORY_EVENT`, ORM)
+
+"Story cutscenes for everyone" (oot-remake `docs/CINEMATICAS.md`, `coop/host/story.hpp`; only with `LICHII_ORM_STORY_EVENTS=1`): a listed story event (a cutscene, by the name the game gives it) that one player's game starts by itself plays on every game in the same scene. On channel 0.
+
+| Type | Name | Channel | Sent by | Body |
+|---|---|---|---|---|
+| 0xF003 | `STORY_EVENT` | 0 | both | `u8` player field, `u8` kind (1 start, 2 end, 3 played, 4 skipped; others refused), scene (string, 1 to 64), the event's name (string, 1 to 127 of `A-Z a-z 0-9 _`), position (3 `f32`, finite: the owner's Link when it started), `u32` the server's time in ms (wraps) when it started |
+
+The first `start` of a (scene, name) in the room makes its sender the owner: the server writes its own time in, keeps the pair and sends it to everyone else (`story_relayed`); a later `start` of the same pair is not relayed (`story_repeats`). The owner's `end` goes to the others too, or his `skipped` (ORM, ZMP D-048: an end whose owner skipped the cutscene; the others skip what is left of theirs, a plain `end` never cuts anyone); an `end` from anyone else or of a pair never started, and a `played` from a client, are dropped (`story_dropped`). A player who joins gets each pair the room has started as `played`, with the owner's number and the start time, after the flag snapshot, and, for a pair whose owner's last word came, that `end` or `skipped` right after its `played` (a joiner whose own game starts a cutscene the room skipped skips it, `coop/host/story.hpp` "Skipping"). The pairs are forgotten when the session empties. Each game decides by its own scene whether to play a `start`; the server knows nothing of the events.
+
+A cutscene's end state is not in this message: the story list names the flags it sets (its `HavePlayedEvent`, the Bools it sets at its end, and its story steps as `step:` Enum flags, sent as `uint32` value hashes, [flags.md](flags.md) "Enum flags"), and they travel as shared flags (`FLAG_SET`, `FLAG_STATE`, `FLAG_SNAPSHOT`), so a player who did not play it (a latecomer, or one who had played it before) ends with the same world. A story step never goes back.
+
+### Player look (`PLAYER_LOOK`, ORM)
+
+"A name and a colour per player" (oot-remake `docs/COLOR_JUGADOR.md`): the colour a player chose (`color = #RRGGBB` in `coop.ini`, written by the launcher), for its name tag and its line in the co-op panel; later its puppet's tunic. On channel 0.
+
+| Type | Name | Channel | Sent by | Body |
+|---|---|---|---|---|
+| 0xF004 | `PLAYER_LOOK` | 0 | both | `u8` player field, `u8` red, `u8` green, `u8` blue, `u8` name tag style (reserved: 0; a reader keeps another value and draws as for 0) |
+
+A game with a colour set sends it after every `WELCOME` and whenever it changes. The server keeps each player's last look, writes the sender's number in and relays it to the others (`look_relayed`); the same look again is not relayed (`look_repeats`). A player who joins gets every other player's look right after its `WELCOME` (after the story events), lowest number first. A leaver's look is forgotten with it, so a rejoiner sends its own again. A player with no look is drawn in its number's default colour (`coop/overlay` `kPalette`, six colours).
+
+### Townsperson pose (`OBJECT_POSE`, ORM)
+
+The townsperson a player talks to, bone by bone (oot-remake `docs/NPC_COMPARTIDOS.md`, steps 5 to 7; `LICHII_COOP_NPC_POSE=1`, off by default): its head turned to the talker and its face, which the AS slot 0 command of `OBJECT_SAMPLE` does not carry. On channel 4, unreliable.
+
+| Type | Name | Channel | Sent by | Body |
+|---|---|---|---|---|
+| 0xF005 | `OBJECT_POSE` | 4 | both | `u8` player field, object id (10 bytes), `u16` epoch, `u64` server time, `u32` sequence, `u32` skeleton, `u8` part (0 to 3), `u8` parts (the mask of the pose's parts, the part's own bit set), `u16` bone count (at most 128), then the bones as in `PLAYER_POSE`, all in the part's range (part p: bones 128 p to 128 p + 127) |
+
+Only the object's owner sends it, for one object at a time (the `Npc_` its own player talks to, `LICHII_COOP_NPC=1`). A pose goes in parts of 128 bones (Ruto's 300 are three; oot-remake `docs/NPC_COMPARTIDOS.md`, "PNJ con muchos huesos"), all with the pose's time and mask; a part that has nothing to send is not sent and is not in the mask. A part lists the bones that changed since they were last sent (rotation, and the translation and scale of the bones that moved since the first read), each again in the two poses after its last change, and every bone of the part every 500 ms. At most 20 poses a second, and no more than 3,200 bones a second (a pose of 300 bones that all move: about 10 a second); an unchanged pose only at the refresh. Any skeleton up to 511 bones is sent. The server relays it like an `OBJECT_SAMPLE`: only from the owner of the current epoch, to the object's scene, with the sender's number (`object_pose_relayed`; `object_pose_refused` otherwise). It keeps nothing, and holds each player to one pose every 25 ms and to one object at a time (a pose of another object within 500 ms of the last one relayed is dropped, `object_pose_dropped`); the other parts of the pose last relayed (same object, time and mask) pass with it, each once. A receiver keeps, per object, the newest bones that came (an older epoch, or the same epoch with an earlier server time and sequence, or a part of the same pose again, is dropped; a newer pose replaces one whose parts did not all come, keeping the bones that did), shows them once every part in the pose's mask came, writes the last two shown blended onto its copy of that object while they come (within 1 s), and only when the copy's skeleton id is the pose's. A part past its skeleton's bone count (the skeleton id's low 9 bits) is dropped.
+
+### Ocarina note (`OCARINA_NOTE`, ORM)
+
+Issue 152 (oot-remake `docs/OCARINA.md`, section 7): the note or song a player plays on the Ocarina, so the others hear it at that player's puppet. On channel 0. Only sound: a song played by another player changes nothing in a game (what it changes in the world travels as shared flags).
+
+| Type | Name | Channel | Sent by | Body |
+|---|---|---|---|---|
+| 0xF007 | `OCARINA_NOTE` | 0 | both | `u8` player field, `u8` kind (1 note, 2 release, 3 song; others refused), `u8` instrument (0 Ocarina, 1 Piccolo, 2 Malon, 3 Harp), `u8` note (1 `LowB` to 19 `HighF` with kind 1, the game's note enum; 0 otherwise), `u8` song (0 `ZeldaLullaby` to 12 `ScarecrowSong` with kind 3, the game's song enum; 0 otherwise), `u8` serial (steps with each of the sender's messages, wraps) |
+
+A game sends it while its Link plays the Ocarina freely: kind 1 when the sounding note changes, 2 when it is let go, 3 when the game recognises a song (the same song not again within 3 s), at most 12 a second (what does not fit is merged and the last state goes out). The server writes the sender's number in and relays it to the others (`ocarina_note_relayed`); it keeps nothing, and holds each player to a bucket of its own, 20 a second with bursts of 20 (`ocarina_note_per_second`, `ocarina_note_burst`; the rest is dropped, `ocarina_note_dropped`). A receiver drops a message with the same serial as that player's last one, and forgets the serial when the player leaves or joins.
+
 ## Later stages (outline only)
 
 - **Stage 3:** `PLAYER_STATUS` decides whether puppets show during cutscenes. `JOIN_PARTNER` (above) asks for a warp to another player's scene.
@@ -469,6 +524,12 @@ Players hurting each other ([play-online.md](play-online.md), "PvP"; `lichii/hoo
 - Version 2 (2026-11-09): `OBJECT_SPAWN` may carry a placed id, sent by that object's owner to name its actor for games that lack it. Version 1 readers refuse such a spawn, so the version went up.
 - Version 3 (2026-11-09): `TIME_OF_DAY` (type 27). No layout changed; the version went up so that the first release, which never sends the host's clock, and this build refuse each other at `HELLO` instead of showing different skies.
 - Version 4 (2026-11-09): one bump for all the messages of types 28 to 38: `GRASS_CUT` (28), `OBJECT_GROUP` (29), `WORLD_BREAK`, `WORLD_MOVE`, `WORLD_PLACE`, `WORLD_HIT` (32 to 35), `DROP_SPAWN`, `DROP_TAKE`, `DROP_ASK` (36 to 38); 30, 31 and 39 are kept free. No earlier layout changed. The version went up because the server now sends `HANDOVER_ASK` and moves objects between players, which a version 3 game does not answer, and so that a version 3 server, which would not relay the new types, is refused at `HELLO`: every game in a session shares grass, breaks and drops, or none does.
+- `REVIVE` (0xF000, ORM) was added without a version: a build without it skips it, and its players cannot be revived by a mate (a server without it does not relay it).
+- `STORY_EVENT` (0xF003, ORM) the same way: a build without it skips it and plays only its own cutscenes; a server without it does not relay it.
+- `PLAYER_LOOK` (0xF004, ORM) the same way: a build without it skips it and draws everyone in the default colours; a server without it does not relay it.
+- `OCARINA_NOTE` (0xF007, ORM) the same way: a build without it skips it and hears no notes from the others (or only those its puppets' commands name); a server without it does not relay it.
+- `OBJECT_POSE` (0xF005, ORM) the same way: a build without it skips it and its copies of a talked-to townsperson show the samples only (their own head and face); a server without it does not relay it.
+- `GROUP_DEFEAT` (0xF002, ORM) and the `REVIVE` progress were added the same way: a build without them skips them (an unknown type; an older reader takes a progress as a request only when it is 255), and a server without `GROUP_DEFEAT` never sends it, so a group all down stays down.
 - Version 5 (chunk 2): `BOSS_ROOM` (50). No earlier layout changed. The version went up so that a version 4 game, which would never move into the boss room or leave the intro with the others, is refused at `HELLO`.
 - Version 6 (chunk 4): `SIGN_CUT` (80; 80 to 84 kept for signs). No earlier layout changed. The version went up so that a version 5 server, which would not relay it, is refused at `HELLO`.
 - Version 7 (chunk 5): `WORLD_BREAK` flags bit 1, `kept` (branch `locked-doors`). A version 6 game or server refuses a break with that bit, and a version 6 server would forget a lock's break when its scene empties, so every game and the server must be 7.

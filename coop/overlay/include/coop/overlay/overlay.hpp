@@ -74,6 +74,29 @@ struct Settings {
 // negative), and edge_min_alpha is 0 to 1.
 bool valid(const Settings& settings);
 
+// ORM: player colours (oot-remake docs/COLOR_JUGADOR.md). kPalette: the six
+// hues of oot-64's tunics, brighter so a name tag in them reads over the game;
+// the launcher picks a player's own colour from them (by name). A player who
+// sent no PLAYER_LOOK is drawn in upstream's protocol::slot_color(number)
+// since test10, the colour upstream tints that player's puppet with when it
+// chose none, so tag and tunic agree (docs/PIN_TEST10.md).
+using protocol::Rgb;
+inline constexpr std::array<Rgb, 6> kPalette{{
+    {0x2e, 0xb8, 0x3c},  // green
+    {0xa0, 0x5c, 0xe0},  // purple
+    {0xf0, 0x9a, 0x28},  // orange
+    {0x22, 0xb8, 0xc4},  // teal
+    {0xe8, 0x50, 0x90},  // pink
+    {0xb4, 0xb4, 0xb4},  // silver
+}};
+
+// The default colour of player `number` (1 to kMaxPlayers): slot_color's;
+// player 1's for 0.
+Rgb default_color(std::uint8_t number);
+// What to draw `number` in: its PLAYER_LOOK colour, else its default. `player`
+// may be null (not in presence).
+Rgb color_of(const presence::Player* player, std::uint8_t number);
+
 // One player to draw, as presence shows it.
 struct Shown {
   std::uint8_t number = 0;
@@ -129,6 +152,10 @@ struct DrawItem {
   // space: 0 right, pi/2 down).
   bool edge = false;
   float arrow_angle = 0.0f;
+  // ORM: the colour for the marker and the name tag (Shown::color, else the
+  // number's default).
+  Rgb color{};
+  bool urgent = false;  // ORM: Shown::urgent (drawn in a warning colour)
 };
 
 // Why a player is not in the draw list.

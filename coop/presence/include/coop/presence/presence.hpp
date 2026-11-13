@@ -4,7 +4,7 @@
 //
 // Game-free: no sockets, no ENet, no game addresses. Feed it the messages
 // decoded by coop/protocol (PLAYER_SAMPLE, PLAYER_STATUS, PLAYER_JOINED,
-// PLAYER_LEFT, WELCOME) and ask it each frame what to draw for each player.
+// PLAYER_LEFT, WELCOME, and ORM's PLAYER_LOOK) and ask it each frame what to draw for each player.
 // See docs/presence.md for the defaults and how to tune them.
 
 #include <array>
@@ -101,6 +101,10 @@ class Player {
   std::uint8_t flags() const { return flags_; }
   bool has_flag(std::uint8_t bit) const { return (flags_ & bit) != 0; }
 
+  // ORM: the colour from the player's last PLAYER_LOOK; nothing before one
+  // (draw it in its number's default, coop/overlay default_color).
+  const std::optional<protocol::Rgb>& color() const { return color_; }
+
   // Scene and age from the newest sample that carried them, by sequence
   // (allowing for its wrap), even one too late to be drawn. A late, older
   // sample does not overwrite them. Sequence, not server time, so a jump in
@@ -125,6 +129,7 @@ class Player {
   std::uint8_t number_;
   std::string nickname_;
   std::uint8_t flags_ = 0;
+  std::optional<protocol::Rgb> color_;
   std::optional<std::string> scene_;
   std::optional<std::uint32_t> scene_sequence_;
   std::optional<Age> age_;
@@ -155,6 +160,9 @@ class Presence {
   bool on_joined(const protocol::PlayerJoined& joined);
   bool on_left(const protocol::PlayerLeft& left);
   bool on_status(const protocol::PlayerStatus& status);
+  // ORM PLAYER_LOOK: the player's colour. False for a number not in (the
+  // server sends a joiner the looks after WELCOME, so none is lost) or our own.
+  bool on_look(const protocol::PlayerLook& look);
   // A sample for a number with no PLAYER_JOINED is dropped: samples come on
   // an unreliable channel and may arrive after PLAYER_LEFT.
   SampleResult on_sample(const protocol::PlayerSample& sample);

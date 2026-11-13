@@ -255,6 +255,7 @@ void Wings::Frame(CoopPuppet::Guest& guest, std::uint64_t main_base,
 #include "common/logging.h"
 #include "coop/host/session.hpp"
 #include "coop/presence/presence.hpp"
+#include "coop_epona.h"
 #include "coop_svc.h"
 
 namespace CoopFairy {
@@ -336,6 +337,8 @@ struct Glue {
         // actor name is not used, the fairy has its own.
         CoopPuppet::PlannerSettings puppet_settings;
         puppet_settings.debug = EnvOn("LICHII_COOP_TEST_PUPPET");
+        puppet_settings.riders = CoopEpona::HorsesOn();  // ORM D-R19: she stays by a rider on his horse
+        puppet_settings.passages = Env("LICHII_COOP_PASSAGES") != "0";  // ORM: as the puppets'
         LOG_INFO(Core, "coop: fairies on, actor {}, rooms {}", settings.actor, settings.rooms ? "on" : "off");
         director = std::make_unique<CoopPuppet::Director>(
             [](const std::string& line) { LOG_INFO(Core, "fairy {}", line); },

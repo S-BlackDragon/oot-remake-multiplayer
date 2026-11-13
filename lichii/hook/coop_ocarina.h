@@ -86,6 +86,35 @@ private:
     int lines_ = 0;
 };
 
+// The twelve songs, in the order of the SLink assets Melody_<name> (the
+// SLink user "Ocarina", ORM docs/OCARINA.md). Index 0 is "no song".
+const std::vector<std::string>& SongNames();
+std::uint8_t SongIndex(std::string_view name);
+
+// What one of Link's AS commands says about the ocarina (ORM, issue 152):
+// Link's AS has a node per note ("Ocarina_Child_A_lp", "..._Close_1st_lp",
+// "..._Rest") and per song ("Ocarina_Adult_ZeldaLullaby"). If the remote
+// player's command reaches us as that node's name, the note or song is in it.
+struct Cue {
+    std::uint8_t note = 0;  // NoteNames() index; 0 none
+    std::uint8_t song = 0;  // SongNames() index; 0 none
+    bool rest = false;      // "..._Rest": the note is let go
+};
+std::optional<Cue> CueOf(std::string_view command);
+// "note A", "rest A", "song ZeldaLullaby"; "" for none.
+std::string CueText(const Cue& cue);
+
+// ORM (oot-remake docs/SONDAS.md, 2026-11-12): whether a player's AS command is the Ocarina played
+// freely. The remake plays it taken out with the d-pad as "DemoOcarina" (slots 4-5
+// "DemoOcarinaFace"/"DemoOcarinaFinger"), not the "Ocarina..." nodes its AS file also has; both
+// count. A song taught ("DemoOcarinaMelodyGet", "DemoOcarinaWarp") is a cutscene, not play.
+// The same rule as coop::host::activity_of (scene.hpp), kept here so the note and sound code
+// need no protocol header.
+inline bool PlaysFreely(std::string_view command) {
+    return command.starts_with("Ocarina") || command == "DemoOcarina" || command == "DemoOcarinaFace" ||
+           command == "DemoOcarinaFinger";
+}
+
 class OcarinaProbe {
 public:
     using ReadWord = std::function<std::optional<std::uint64_t>(std::uint64_t)>;

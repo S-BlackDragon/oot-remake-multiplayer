@@ -29,6 +29,68 @@ std::uint8_t NoteIndex(std::string_view name) {
     return 0;
 }
 
+const std::vector<std::string>& SongNames() {
+    // The SLink assets Melody_<name> of the user "Ocarina" (and the AS song
+    // nodes Ocarina_<Child|Adult>_<name>).
+    static const std::vector<std::string> names{
+        "",           "ZeldaLullaby",  "EponaSong",      "SariaSong",     "SunSong",
+        "TimeSong",   "StormSong",     "ForestMinuet",   "FireBolero",    "WaterSerenade",
+        "ShadowNocturne", "SpiritRequiem", "LightPrelude"};
+    return names;
+}
+
+std::uint8_t SongIndex(std::string_view name) {
+    const auto& names = SongNames();
+    for (std::size_t i = 1; i < names.size(); ++i) {
+        if (names[i] == name) {
+            return static_cast<std::uint8_t>(i);
+        }
+    }
+    return 0;
+}
+
+std::optional<Cue> CueOf(std::string_view command) {
+    std::string_view rest;
+    for (const std::string_view prefix : {"Ocarina_Child_", "Ocarina_Adult_"}) {
+        if (command.starts_with(prefix)) {
+            rest = command.substr(prefix.size());
+            break;
+        }
+    }
+    if (rest.empty()) {
+        return std::nullopt;
+    }
+    Cue cue;
+    if (cue.song = SongIndex(rest); cue.song != 0) {
+        return cue;
+    }
+    // <note>_lp, <note>_Close_1st_lp (the first frames of a held note),
+    // <note>_Rest; the B, D, F and HighD nodes also have _Wait and _PlayWait,
+    // which are the idle fingers of the five buttons, not a note played.
+    for (const std::string_view suffix : {"_Close_1st_lp", "_lp", "_Rest"}) {
+        if (rest.size() > suffix.size() && rest.ends_with(suffix)) {
+            const std::string_view note = rest.substr(0, rest.size() - suffix.size());
+            cue.note = NoteIndex(note);
+            if (cue.note == 0) {
+                return std::nullopt;  // "Close_lp", "Blow_lp", "Face_lp", ...
+            }
+            cue.rest = suffix == "_Rest";
+            return cue;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string CueText(const Cue& cue) {
+    if (cue.song != 0 && cue.song < SongNames().size()) {
+        return "song " + SongNames()[cue.song];
+    }
+    if (cue.note != 0 && cue.note < NoteNames().size()) {
+        return std::string(cue.rest ? "rest " : "note ") + NoteNames()[cue.note];
+    }
+    return {};
+}
+
 std::optional<std::string> OcarinaProbe::ReadName(const ReadWord& read, std::uint64_t address) const {
     if (address == 0) {
         return std::nullopt;

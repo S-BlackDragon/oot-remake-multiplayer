@@ -7,13 +7,14 @@ How presence (plan stage 1 step 1) runs inside the patched emulator. The code is
 Co-op is off unless a server is set. Two places, the second wins:
 
 1. `coop.ini` in the emulator's config folder: `user\config\coop.ini` beside `lichii.exe` for a portable install, otherwise `%APPDATA%\eden\config\coop.ini`.
-2. Environment variables `LICHII_COOP_SERVER`, `LICHII_COOP_PORT`, `LICHII_COOP_NAME`.
+2. Environment variables `LICHII_COOP_SERVER`, `LICHII_COOP_PORT`, `LICHII_COOP_NAME`, `LICHII_COOP_COLOR` (ORM: `#RRGGBB`, as the `color` key).
 
 ```ini
 # coop.ini
 server = 192.168.1.20      # IP or host name; host:port also works
 port = 27510               # optional, the default
 name = Saria               # 1 to 16 characters, different for each player
+color = #2EB83C            # ORM: your name tag's colour, #RRGGBB (optional)
 ```
 
 A `#` or `;` starts a comment at the start of a line or after a space or tab; one with no space before it (`Link#2`) is part of the value.

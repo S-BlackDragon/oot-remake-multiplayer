@@ -262,7 +262,9 @@ elseif ($Mode -eq 'join' -or $ask) {
 }
 if ($Password -and -not (Test-CoopPassword $Password)) { Write-Host 'coop.ini: the join password has a space or is too long.'; exit 1 }
 
-Write-CoopIni $template $ini $Server $Port $Name $Password
+# ORM: a colour already in coop.ini (the launcher's, or typed in: a name or #RRGGBB) is kept.
+$Color = if ($current.color -and (Test-CoopColor $current.color)) { $current.color.Trim() } else { '' }
+Write-CoopIni $template $ini $Server $Port $Name $Password $Color
 Write-Host "Co-op: server $Server, port $Port, name $Name, join password $(if ($Password) { 'set' } else { 'not set: the server will refuse' })   (play.cmd change to change the name)"
 
 $user = Join-Path $emu 'user'

@@ -12,6 +12,7 @@
 // (the guest is AArch64), little-endian.
 
 #include <cstdint>
+#include <string_view>
 
 namespace coop::host::addr {
 
@@ -163,6 +164,16 @@ inline constexpr std::uint32_t kEquipSlotSubTool = 6;
 // there, in state 6 while it is put away.
 // [objects] An actor's name: a char* at +0x260 (docs/objects.md).
 inline constexpr std::uint64_t kActorName = 0x260;
+// [dump] The EquipmentUser's armor links (docs/puppet.md, "Taking a piece
+// off"): 13 links of the hand slots' shape after them, 0 head, 1 upper,
+// 2 lower, 3 hand (0x10aceb0 empties link `index`).
+inline constexpr std::uint64_t kArmorLinks = 0xe0;
+inline constexpr std::uint32_t kArmorLinkCount = 13;
+// [romfs] The Lens of Truth is worn as an armor piece while it is on
+// (Armor_GlassTruth, Armor_Child_GlassTruth, Armor_Adult_GlassTruth: a
+// MaskParam and PlayerEquipmentActor param; its pouch item is
+// PouchData.Armor_GlassTruth), not through a PlayerStatus.Equip* flag.
+inline constexpr std::string_view kLensMark = "GlassTruth";
 inline constexpr std::uint32_t kActorStateGoneFirst = 7;
 inline constexpr std::uint32_t kActorStateGoneLast = 11;
 

@@ -25,6 +25,8 @@
 
 #include "coop/protocol/messages.hpp"
 #include "coop_enemy_shots.h"
+#include "coop_effects.h"
+#include "coop_mascaras.h"
 #include "coop_projectiles.h"
 #include "coop_puppet.h"
 
@@ -46,6 +48,10 @@ using coop::protocol::Vec3;
 bool IsShared(std::string_view name);
 bool Explodes(std::string_view name);
 bool Flies(std::string_view name);  // shot or thrown: the projectile flag
+// An effect's copy (Din's Fire, the hammer's shock wave) is shown at most
+// this long after its spawn came, even while the owner's actor lives on: a
+// shooter may keep its next one ready on the list. 0: no limit.
+std::uint64_t ShowFor(std::string_view name);
 
 // One made actor of one walk.
 struct Seen {
@@ -102,6 +108,14 @@ struct Copy {
     // The owner's animation where the copy is shown (the bomb's fuse): played
     // on the copy when its slot 0 shows another, its frame set when off.
     std::optional<coop::protocol::Animation> animation;
+    // ORM (coop_mascaras.h): the player whose copy it is, and the chain or
+    // line the director lays from it to that player's puppet each frame.
+    std::uint8_t owner = 0;
+    CoopMascaras::Tether tether = CoopMascaras::Tether::none;
+    // ORM riesgos-visual: an arrow's element, from its owner's PLAYER_EQUIP
+    // arrow (Sync::SetArrow): made as CoopProjectiles::ElementStandIn when
+    // the puppet pack has it (one "coop: check: arrow element" line).
+    CoopProjectiles::Element element = CoopProjectiles::Element::none;
 };
 
 class Sync {
@@ -113,10 +127,19 @@ public:
     static constexpr float kClaimDistance = 1.5f;            // a fresh copy found on the list
     static constexpr unsigned kGoneWalks = 2;
     static constexpr std::uint64_t kExplodeMinUs = CoopProjectiles::kExplodeMinUs;
+    // ShowFor: Din's Fire's dome grows and fades in under 2 s, the shock
+    // wave in under 1 s (read from neither: room for a late remove).
+    static constexpr std::uint64_t kDinFireShowUs = 4'000'000;
+    static constexpr std::uint64_t kShockWaveShowUs = 2'000'000;
 
     // Network thread: OBJECT_SPAWN, OBJECT_SAMPLE, OBJECT_REMOVE. Applied on
     // the next Tick.
     void Receive(const coop::protocol::Message& message);
+    // ORM riesgos-visual. Any thread: player n's PLAYER_EQUIP arrow
+    // (PlayerStatus.EquipArrow, "Item_Arrow_Fire"...; "" none or left): his
+    // arrows' copies carry its element.
+    void SetArrow(std::uint8_t player, std::string arrow);
+    CoopProjectiles::Element ArrowOf(std::uint8_t player) const;
 
     // Present thread, once per walk. `copies_live` are the actors the
     // director made (key to address). Fills `send` and `copies`.
@@ -129,6 +152,12 @@ public:
     // Projectile copies get the game's setter after each place write
     // (Copy::setter). LICHII_COOP_SHOTS_SETTER=0 turns it off.
     void SetSetter(bool on) { setter_ = on; }
+    // ORM (coop_mascaras.h, LICHII_ORM_TETHERS, on by default): the hookshot
+    // tips' copies carry their chain, and each lure copy brings its line, a
+    // companion copy of CoopMascaras::kLineActor with the lure's key plus
+    // kLineKeyBit, at the lure, going with it.
+    void SetTethers(bool on) { tethers_ = on; }
+    static constexpr std::uint64_t kLineKeyBit = 1ULL << 59;  // 63 enemies, 62 drops, 61 chest finds, 60 status stand-ins
     // Issue 169: our Link's place, before each Tick (nothing: not known, so
     // none of our bombs is held).
     void SetLink(std::optional<Vec3> link) { link_ = link; }
@@ -268,6 +297,7 @@ private:
         CoopProjectiles::Track track;  // the owner's samples on the server clock
         std::optional<coop::protocol::Quat> rotation;
         std::uint64_t got_us = 0;     // our time of the latest message
+        std::uint64_t spawned_us = 0; // our time of its spawn (ShowFor)
         std::optional<coop::protocol::RemoveReason> removed;
         std::uint64_t address = 0;    // once the director made it
         // A bomb: when the owner's fuse runs out (server clock). Blown then
@@ -340,12 +370,15 @@ private:
     std::vector<Decided> decided_;
     ShotSettings shot_settings_;
     bool setter_ = true;
+    bool tethers_ = true;
     std::optional<Vec3> link_;
     std::optional<Vec3> link_before_;
     std::uint64_t link_before_at_ = 0;
     Vec3 link_velocity_{};
 
     std::mutex inbox_mutex_;
+    mutable std::mutex arrows_mutex_;
+    std::map<std::uint8_t, std::string> arrows_;  // guarded by arrows_mutex_ (SetArrow)
     std::vector<coop::protocol::Message> inbox_;
 };
 
@@ -361,6 +394,15 @@ std::string_view StandIn(std::string_view actor);
 // Issue 151: shared actors whose copy is only ever the stand-in. A lure made
 // as the game's own Weapon_Lure would be a lure the fish here can bite, so
 // with no stand-in in the pack (or after it failed) no copy is made at all.
+// The same for Din's Fire (ExpandFireField) and the hammer's shock wave
+// (PlayerShockWave): the game's own would burn and hit here too. Their
+// stand-ins (CoopShot_DinFire, CoopShot_ShockWave) are effect stand-ins:
+// the actor's effect user, no model. And ORM cofre: a chest's find
+// (coop/host/chest_open.hpp is_chest_find, Item_Dungeon_SmallKey ...),
+// shown over its finder's puppet as CoopGet_<find>: the game's own Item_*
+// actor would give the item here.
+// ORM efectos2: the status stand-ins
+// (CoopEffects::kFxStandIns) are their own stand-in, and only that.
 bool StandInOnly(std::string_view actor);
 // Issue 169: the stand-in a held copy is made as (Item_Bomb: CoopShot_Bomb,
 // its model and animations). Empty when the actor has none.
@@ -422,6 +464,10 @@ public:
     // Present thread: the stand-ins the installed puppet pack has
     // (StandInsIn). None (the default): every copy is the game's own actor.
     void SetStandIns(std::set<std::string> names);
+    // ORM (coop_mascaras.h): where a tether copy's chain or line ends, on its
+    // owner's puppet (CoopMascaras::PuppetAnchor in the game). None (the
+    // default, a test): tethers are left as they are.
+    void SetAnchors(CoopMascaras::AnchorSource source);
     // A stand-in that failed this many times in a row (create failed, timed
     // out or dropped, or no actor taken) is not asked for again this session.
     static constexpr int kStandInTries = 3;
@@ -505,6 +551,13 @@ private:
     std::size_t deleted_ = 0;                        // guarded
     std::optional<CoopPuppet::Call> NextDoomed(CoopPuppet::Guest& guest, std::uint64_t now_ms);
     std::map<std::string, int> stand_in_fails_;  // in a row, by shared actor
+    // ORM tethers: the source (guarded, copied for the calc thread when it
+    // changes) and what the calc thread knows of each laid copy.
+    CoopMascaras::AnchorSource next_anchors_;     // guarded
+    std::uint32_t next_anchors_serial_ = 0;       // guarded
+    CoopMascaras::AnchorSource anchors_;
+    std::uint32_t anchors_serial_ = 0;
+    CoopMascaras::Tethers tethers_;
 };
 
 Director& TheDirector();

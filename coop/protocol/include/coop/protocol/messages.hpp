@@ -28,7 +28,9 @@ namespace coop::protocol {
 // 2: OBJECT_SPAWN of a placed id; 3: TIME_OF_DAY; 4: the messages
 // (types 28 to 39) and the server sending HANDOVER_ASK; 9: the join password
 // (JOIN_CHALLENGE, JOIN_PROOF, REFUSED bad_password).
-inline constexpr std::uint16_t kProtocolVersion = 10;
+// ORM: ours is 100 + upstream's 10, so a stock build and this one refuse
+// each other as a wrong protocol version.
+inline constexpr std::uint16_t kProtocolVersion = 110;
 inline constexpr std::uint16_t kDefaultPort = 27510;
 inline constexpr std::uint8_t kMaxPlayers = 6;
 
@@ -158,6 +160,10 @@ enum class SampleComponent : std::uint16_t {
   scene = 5,
   age = 6,
   animation = 7,
+  // ORM (oot-remake docs/TEMPLOS.md): the moving floor the player stands on.
+  // High, away from the ids upstream adds next; a build without it skips it
+  // by its length.
+  ride = orm::sample_component::ride,  // 30 (orm_types.hpp)
 };
 // ORM: a new upstream component here must stay below ours (orm_types.hpp).
 static_assert(static_cast<std::uint16_t>(SampleComponent::animation) == orm::kUpstreamLastSampleComponent,
@@ -230,7 +236,7 @@ struct Hello {
   // server with a join password refuses a HELLO without it.
   std::optional<KeyShare> key_share{};
   // Since protocol 10 (this release's): the player number this game had in its last session
-  // (1 to 4), one byte after the key share (or after the nickname without
+  // (1 to kMaxPlayers), one byte after the key share (or after the nickname without
   // one). The server gives it back when it is free, so a server restart
   // does not swap the players' numbers (and with them their colours and
   // every object's owner). Nothing on a game's first join.
@@ -360,7 +366,7 @@ struct PlayerStatus {
 // under their own hearts (docs/overlay.md). Same player field rules as
 // PLAYER_STATUS. max_life 0: not known (the game's Link is not loaded).
 struct PlayerLife {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::uint16_t life = 0;
   std::uint16_t max_life = 0;
   bool operator==(const PlayerLife&) const = default;
@@ -411,13 +417,25 @@ inline constexpr std::uint8_t kRideRiding = 0x01;
 inline constexpr float kMaxRideOffset = 10.0f;  // each axis
 inline constexpr std::size_t kMaxRideHorseChars = 64;
 struct PlayerRide {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::uint8_t flags = 0;                     // kRideRiding; other bits refused
   std::string horse;                          // the horse's actor name; empty when off
   Vec3 offset{};
   Quat rotation{0.0f, 0.0f, 0.0f, 1.0f};
   std::optional<Animation> animation;
   bool operator==(const PlayerRide&) const = default;
+};
+
+// ORM PLAYER_SAMPLE component 30 (oot-remake docs/TEMPLOS.md, coop/host
+// ride.hpp): the moving floor (lift, rising or floating floor) that carries
+// the player, by its placement hash, which is the same in every game, and
+// where the player stands on it: the player's position minus the floor's, on
+// the world axes. 20 bytes: u64 platform, 3 x f32 offset. The platform is
+// never 0 and the offset finite.
+struct Ride {
+  std::uint64_t platform = 0;
+  Vec3 offset{};
+  bool operator==(const Ride&) const = default;
 };
 
 // PLAYER_SAMPLE. The time component is always sent; the others only when the
@@ -431,6 +449,7 @@ struct PlayerSample {
   std::optional<std::string> scene;
   std::optional<Age> age;
   std::optional<Animation> animation;
+  std::optional<Ride> ride;  // ORM: carried by a moving floor (component 30)
   bool operator==(const PlayerSample&) const = default;
 };
 
@@ -721,13 +740,17 @@ inline Equipment merge_equipment(const Equipment& before, const Equipment& now) 
 }
 
 // The colour of a player who chose none: one per player number (1 to 4),
-// far apart on the colour wheel. 0 (and anything above 4) gets white.
+// far apart on the colour wheel. 0 (and anything above kMaxPlayers) gets white.
+// ORM (six players, oot-remake docs/COLOR_JUGADOR.md): 5 and 6 get purple and
+// orange from our name-tag palette, not white.
 inline constexpr std::uint32_t slot_color(std::uint8_t player_number) {
   switch (player_number) {
     case 1: return 0x3070FF;  // blue
     case 2: return 0xFF3030;  // red
     case 3: return 0x30D040;  // green
     case 4: return 0xFFC020;  // yellow
+    case 5: return 0xA05CE0;  // ORM: purple
+    case 6: return 0xF09A28;  // ORM: orange
     default: return 0xFFFFFF;
   }
 }
@@ -768,6 +791,7 @@ enum class ObjectComponent : std::uint16_t {
   fuse = 17,
   state = 18,
   slots = 19,  // protocol 10, issue 150: a boss's other AS slots (below)
+  carry = orm::object_component::carry,  // ORM: 29 (oot-remake docs/TIPOS_MENSAJE.md)
 };
 // ORM: a new upstream component here must stay below ours (orm_types.hpp).
 static_assert(static_cast<std::uint16_t>(ObjectComponent::slots) == orm::kUpstreamLastObjectComponent,
@@ -791,6 +815,31 @@ inline constexpr std::uint8_t asleep = 1u << 2;
 inline constexpr std::uint8_t owner_keeps = orm::kObjectStateOwnerKeeps;
 inline constexpr std::uint8_t owner_keeps_near = orm::kObjectStateOwnerKeepsNear;
 }  // namespace object_state
+// ORM: our state bits count down from 7 (orm_types.hpp: kObjectStateOwnerKeeps...).
+static_assert(static_cast<unsigned>(object_state::asleep) == (1u << orm::kUpstreamLastObjectStateBit),
+              "ORM: upstream's object_state bits changed: update orm_types.hpp");
+
+// ORM "Levantar" (oot-remake docs/DETALLES_MARIONETA.md): an object in a
+// player's hands (a pot, a rock, a Cucco, a bomb flower), sent by its owner
+// with every sample while that player's Link holds it. `holder` is the
+// player whose Link holds it (1 to kMaxPlayers). `offset`/`rotation` place
+// it in the frame of that Link's actor (+0x31c place, +0x328 turn), so the
+// other games draw it in the hands of that player's puppet as drawn there;
+// `bone`, when not kCarryNoBone, is the Link skeleton bone it was nearest
+// when lifted, and `bone_offset`/`bone_rotation` place it in that bone's
+// frame (used when the receiver can read the puppet's bone). An old reader
+// skips the component (component ids are skipped by their length): no new
+// protocol version. 59 bytes: u8, u16, 3 + 4 + 3 + 4 f32; quaternions unit.
+inline constexpr std::uint16_t kCarryNoBone = 0xffff;
+struct ObjectCarry {
+  std::uint8_t holder = 0;
+  std::uint16_t bone = kCarryNoBone;
+  Vec3 offset{};
+  Quat rotation{0.0f, 0.0f, 0.0f, 1.0f};
+  Vec3 bone_offset{};
+  Quat bone_rotation{0.0f, 0.0f, 0.0f, 1.0f};
+  bool operator==(const ObjectCarry&) const = default;
+};
 
 // Issue 150 (protocol 10): one more AS slot of the owner's actor than slot 0
 // (Gohma's eye guard and eyelids play on their own slots). slot is 1 or more
@@ -815,6 +864,7 @@ struct ObjectState {
   std::optional<float> fuse;          // seconds left
   std::optional<std::uint8_t> state;  // object_state bits
   std::optional<std::vector<SlotAnimation>> slots;  // issue 150: bosses only
+  std::optional<ObjectCarry> carry;   // in a player's hands (ORM)
   bool operator==(const ObjectState&) const = default;
 };
 
@@ -973,6 +1023,43 @@ struct PlayerPose {
   bool operator==(const PlayerPose&) const = default;
 };
 
+// OBJECT_POSE (ORM, oot-remake docs/NPC_COMPARTIDOS.md, steps 5 to 7): one
+// shared object's skeleton, laid out as PLAYER_POSE's bones, for the
+// townsperson a player talks to: the head turned to the talker and the face,
+// which the AS slot 0 command in OBJECT_SAMPLE does not carry. Sent by the
+// object's owner only, for at most one object at a time, at most 20 a second,
+// on the object samples channel (unreliable). The server relays it to the
+// object's scene like an OBJECT_SAMPLE (owner and epoch checked), at most one
+// every 25 ms per player, and keeps nothing. A copy whose skeleton id differs
+// ignores it; a pose older than the newest one of that object is dropped.
+//
+// Townspeople with many bones (Ruto 300, Zelda 292; oot-remake
+// docs/NPC_COMPARTIDOS.md, "PNJ con muchos huesos"): one pose goes in up to
+// kMaxObjectPoseParts messages, part p carrying bones p * kObjectPosePartBones
+// to (p + 1) * kObjectPosePartBones - 1. All the parts of one pose have the
+// same time (server time and sequence) and the same `parts` mask, the parts
+// sent for that pose (bit p: part p); `part`'s own bit is in it. A part lists
+// only the bones its sender sends this time (those that changed, or all of
+// them on a refresh); the receiver keeps the others from earlier poses and
+// shows the pose once every part in the mask came. The server relays the
+// parts of one pose together (one pose every 25 ms, not one message).
+inline constexpr std::size_t kObjectPosePartBones = 128;
+inline constexpr std::size_t kMaxObjectPoseParts = 4;
+static_assert(kObjectPosePartBones * kMaxObjectPoseParts == kMaxPoseBones);
+inline constexpr std::size_t kMaxObjectPoseBones = kObjectPosePartBones;  // in one message
+
+struct ObjectPose {
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, the owner relayed
+  ObjectId id;
+  std::uint16_t epoch = 0;
+  SampleTime time;
+  std::uint32_t skeleton = 0;
+  std::vector<PoseBone> bones;  // increasing bone order, all in `part`'s range
+  std::uint8_t part = 0;        // below kMaxObjectPoseParts
+  std::uint8_t parts = 1;       // the parts of this pose, bit p for part p; part's bit set
+  bool operator==(const ObjectPose&) const = default;
+};
+
 // TIME_OF_DAY (docs/time.md): a game's clock, in seconds since midnight.
 // The host sends it about once a second; any player whose clock jumped (the
 // Sun's Song, a night's sleep, an event) sends it with `jump`, and every game
@@ -989,7 +1076,7 @@ inline constexpr std::uint8_t jump = 1u << 0;
 // Ocarina_HighF in that order), plus one.
 inline constexpr std::uint8_t kOcarinaNotes = 19;
 struct OcarinaNote {
-  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to 4 relayed
+  std::uint8_t player_number = kPlayerSelf;  // 0 from a client, 1 to kMaxPlayers relayed
   std::uint8_t note = 0;                     // 0 to kOcarinaNotes
   bool operator==(const OcarinaNote&) const = default;
 };
@@ -1257,7 +1344,7 @@ inline constexpr std::int32_t kMaxPvpLife = 80;
 // (the host) who changed it. From a player: the host asks for a change
 // (`set_by` 0; the server ignores it from anyone but the host).
 struct PvpMode {
-  std::uint8_t set_by = 0;  // 0 the server, 1 to 4 a player
+  std::uint8_t set_by = 0;  // 0 the server, 1 to kMaxPlayers a player
   bool on = false;
   bool operator==(const PvpMode&) const = default;
 };
@@ -1267,7 +1354,7 @@ struct PvpMode {
 // the victim's game decides whether it hurts (PVP_HURT).
 struct PvpHit {
   std::uint8_t player_number = kPlayerSelf;  // the attacker
-  std::uint8_t victim = 0;                   // 1 to 4, not the attacker
+  std::uint8_t victim = 0;                   // 1 to kMaxPlayers, not the attacker
   std::uint8_t cause = 0;                    // DamageCause; others kept
   std::int32_t amount = 0;                   // quarter hearts, 1 to kMaxPvpLife
   Vec3 at{};    // where the blow landed
@@ -1286,7 +1373,7 @@ inline constexpr std::uint8_t known = died | guarded;
 // Relayed to everyone else, so the attacker's screen shows it.
 struct PvpHurt {
   std::uint8_t player_number = kPlayerSelf;  // the victim
-  std::uint8_t attacker = 0;                 // 1 to 4, not the victim
+  std::uint8_t attacker = 0;                 // 1 to kMaxPlayers, not the victim
   std::int32_t amount = 0;                   // taken: 0 to kMaxPvpLife
   std::int32_t life = 0;                     // left after it: 0 to kMaxPvpLife
   std::uint8_t flags = 0;                    // pvp_hurt; other bits refused
@@ -1698,7 +1785,10 @@ using Message = std::variant<Hello, Welcome, Refused, PlayerJoined, PlayerLeft,
                              DropAsk, BossRoom, SignCut, FlagReset, FlagOrigin,
                              JoinChallenge, JoinProof, SaveAsk, SavePart, PlayerLife,
                              PvpMode, PvpHit, PvpHurt, FishLure, RejoinToken, RejoinClaim, DungeonEvent, PlayerRide,
-                             OcarinaNote, PlatformClock, PlatformCounter>;
+                             OcarinaNote, PlatformClock, PlatformCounter,
+                             Revive, GroupDefeat, StoryEvent, PlayerLook,
+                             ObjectPose, ChestOpen, OrmOcarinaNote, GroupSettings, LinkNotice,
+                             HostChoice, RoomSwitch, PlayerHit, PlayerCall, PlayerRename>;
 
 MessageType type_of(const Message& message);
 

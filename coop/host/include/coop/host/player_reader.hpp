@@ -91,6 +91,14 @@ class PlayerReader {
   // "" when the slot is empty or its piece is gone. Nothing when the slot
   // or the name could not be read.
   std::optional<std::string> read_slot_name(std::uint32_t slot_index);
+  // The actor name of the piece a {holder, id} link at `link` holds (a hand
+  // slot or an armor link), with read_slot_name's tests and results.
+  std::optional<std::string> read_link_name(std::uint64_t link);
+  // The name of the Lens of Truth piece in one of the armor links while the
+  // lens is on; nothing when it is off or a link could not be read.
+  std::optional<std::string> read_lens();
+  // The player's EquipmentUser component.
+  std::optional<std::uint64_t> equipment_user();
   GameMemory& memory_;
   DrawnState own_drawn_{};
   DrawnState& drawn_memo_;

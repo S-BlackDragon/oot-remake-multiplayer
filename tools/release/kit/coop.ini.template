@@ -5,9 +5,11 @@
 #         or 127.0.0.1 when it is this PC. Co-op is off while no server is set.
 # port:   the server's UDP port.
 # name:   1 to 16 characters, different for each player.
+# color:  your colour (tunic and name tag) for the others: a colour name or #RRGGBB (as #2EB83C); optional.
 server = @SERVER@
 port = @PORT@
 name = @NAME@
 # password: the join password, when the host set one (Join.bat asks for it). The
 #         password itself never goes over the network, only a proof of it.
 password = @PASSWORD@
+color = @COLOR@

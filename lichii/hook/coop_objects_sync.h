@@ -80,6 +80,9 @@ struct PlayWish {
     // (a chest shown open, issue 195: only over its closed idle "CloseWait",
     // never over its own opening when our Link opens it here).
     std::string only_over;
+    // ORM step 6 (LICHII_COOP_NPC_POSE): after the play, slot 0's command goes
+    // on the copy's partial slots too (a townsperson's face and upper body).
+    bool partial = false;
 };
 
 // The frame of an animation `age_us` after it showed `frame` at `rate`
@@ -113,6 +116,9 @@ struct LifeWrite {
     // With a hurt: where the player who hit stands, when known (the enemy is
     // knocked away from there).
     std::optional<coop::protocol::Vec3> from;
+    // Above 0: the max life is written too, first (the game keeps life at or
+    // under it: a life of 100 written alone read back 1 of 1, sondas12).
+    std::int32_t max = 0;
 };
 
 // Shared: enemies, animals (a cucco is Animal_Cucco), townspeople (Npc_, but
@@ -318,6 +324,15 @@ public:
     static constexpr std::uint64_t kBehindUs = 100'000;       // copies show the owner this late
     static constexpr std::uint64_t kExtrapolateUs = 150'000;
     static constexpr std::uint64_t kPoseStaleUs = 2'500'000;  // no sample this long: let it be
+    // A copy in another's hands (Object::held_life). Over the game's own break hit of 1,000,000,000 (read in
+    // a game, SONDAS.md round 6: the copy in the puppet's hands, whose physics body keeps falling between our
+    // places, took 100 -> 0 in one hit of 0x3b9aca00 as it landed on its own speed): one such hit leaves life,
+    // and the next walk puts it back.
+    static constexpr std::int32_t kHeldLife = 2'000'000'000;
+    static constexpr std::uint64_t kHeldEchoUs = 1'500'000;   // as CoopCarry::Lifter::kAfterUs
+    // ORM (SONDAS.md round 6): a copy thrown out of another's puppet's hands keeps kHeldLife this long (its own
+    // landing must not break it before the holder's WORLD_BREAK: 1.4 s after the throw in sondas18r6).
+    static constexpr std::uint64_t kThrownKeepUs = 3'000'000;
     static constexpr std::uint64_t kHurtWaitUs = 400'000;     // then write life directly
     static constexpr std::size_t kKeepSamples = 16;
     static constexpr std::uint64_t kSceneStaleUs = 5'000'000;  // a player's scene, from its samples
@@ -513,6 +528,126 @@ public:
     // is still on our walk this long after is deleted with the game's delete
     // request (its own death, if the life we wrote started one, is done).
     static constexpr std::uint64_t kDeadGraceUs = 3'000'000;
+    // ORM D-R12 (coop/host/npc_talk.hpp, LICHII_COOP_NPC=1): the townspeople
+    // our player talks to. Present thread, before Tick; kept until the next
+    // call. A claimed actor's OBJECT_PRESENT entry flags targeting our player
+    // whoever owns it: the server hands a copy to us after 500 ms (as for a
+    // chase) and keeps one we own with us (an owner's targeting is a fight,
+    // 12 s after the last). A freed copy gets no pose, animation or AI hold
+    // from its owner's samples, so our own game's talk plays undisturbed
+    // until the hand-over makes it ours.
+    // ORM "Dos jugadores con el mismo PNJ" (oot-remake docs/NPC_COMPARTIDOS.md):
+    // a copy that stops being freed at `now_us` does not snap back to its
+    // owner's pose; Poses blends it there from where our own talk left it
+    // over kRejoinUs (and RejoinWeight says how far, for the bones).
+    void SetTalk(std::set<std::uint64_t> claims, std::set<std::uint64_t> freed,
+                 std::uint64_t now_us = 0);
+    bool Freed(std::uint64_t address) const { return talk_freed_.contains(address); }
+    static constexpr std::uint64_t kRejoinUs = 600'000;
+    // How much of its owner's pose a copy that was freed shows at `now_us`,
+    // from 0 when it was let go to 1 kRejoinUs later (eased). Nothing: no
+    // blend runs for it (its owner's pose is written whole, or not at all).
+    std::optional<float> RejoinWeight(std::uint64_t address, std::uint64_t now_us) const;
+    // The copies blending back now (for the log).
+    std::vector<std::uint64_t> Rejoining(std::uint64_t now_us) const;
+
+    // ORM "Levantar" (coop_carry.h). Present thread, before Tick: what our own
+    // Link lifts (CoopCarry::Lifter::Claimed) and, for each object of those we
+    // own, the carry our samples of it carry (StateOf). A claimed actor's
+    // OBJECT_PRESENT entry flags targeting our player, as a townsperson we
+    // talk to: the server hands a copy to us after 500 ms and keeps one we own
+    // with us. Our copy of a claimed actor gets no pose, animation or AI hold
+    // from its old owner meanwhile (our own game lifts it); the hook leaves it
+    // out of the world sync's places too (CarryFreed).
+    void SetCarry(std::set<std::uint64_t> claims,
+                  std::map<std::uint64_t, coop::protocol::ObjectCarry> ours);
+    bool CarryFreed(std::uint64_t address) const { return carry_claims_.contains(address); }
+    // A copy that another player's Link holds now: the newest sample of its
+    // owner carries it, held by someone else than us. Our lift skips it.
+    bool CarriedByOther(std::uint64_t address, std::uint64_t now_us) const;
+    // One copy in another player's hands, for the calc thread's mover.
+    struct CarryPose {
+        std::uint64_t address = 0;
+        std::string name;
+        coop::protocol::ObjectCarry carry;  // at the shown time, between two samples
+        // How much of the hands' place is shown: 0 to 1 over kAttachBlendUs
+        // from the first carried sample of this hold (from where the
+        // samples put it), then 1.
+        float weight = 1.0f;
+        // The holder's puppet is not live here (he left, went to another
+        // scene, is parked): nothing places it, our game drops it.
+        bool fall = false;
+        PoseWrite fallback;  // where the samples put it at the shown time
+    };
+    // Present thread, every frame: each copy we do not own whose owner's
+    // sample at the shown time (kBehindUs late, as Poses) carries it, held by
+    // another player. `live`: CoopPuppet::LivePuppets(), bit n while player
+    // n's puppet is live here. A copy claimed by our own lift or talk is not
+    // in it.
+    void Carried(std::uint64_t now_us, std::uint32_t live, std::vector<CarryPose>& out) const;
+    static constexpr std::uint64_t kAttachBlendUs = 250'000;
+
+    // The other players' PLAYER_STATUS flags are not kept here: the NPC claim
+    // reads them from the session's presence (CoopObjects::Talk), the one
+    // store the downed, spectator and escape code read too.
+    // Another player's Link, from a PLAYER_SAMPLE at most kPlaceStaleUs old.
+    std::optional<coop::protocol::Vec3> PlaceOf(std::uint8_t player, std::uint64_t now_us) const;
+
+    // ORM steps 5 and 6 (oot-remake docs/NPC_COMPARTIDOS.md, LICHII_COOP_NPC_POSE=1):
+    // a townsperson copy we do not own is held like an enemy copy (Holds), so
+    // its own AI does not turn its head to our Link or pick its own idle, and
+    // its plays carry `partial` (PlayWish). A copy our own talk freed is
+    // neither (SetTalk). Off by default.
+    void SetNpcPose(bool on) { npc_pose_ = on; }
+    // Whether Holds lists enemy copies (on: as before; the hook turns it off
+    // when only the townspeople are held, LICHII_COOP_OBJECTS_AI_HOLD unset).
+    void SetHoldEnemies(bool on) { hold_enemies_ = on; }
+    // ORM endgame (oot-remake docs/FINAL.md, ZMP D-231; coop/host/final_rules.hpp owner_keep):
+    // our Link now, from the hook. Our samples of a boss the rule names (Twinrova's bodies and
+    // battle manager) carry object_state::owner_keeps while our Link is up and frozen, or
+    // owner_keeps_near while it holds a part charge; the server then waits with the hand-over.
+    struct Keep {
+        bool up = true;
+        bool frozen = false;
+        std::optional<unsigned> charge;  // the mirror shield's, 0 to 3; nothing: not read
+        bool charging = false;           // absorbing a witch's blast with the mirror shield
+        // ORM boss families (coop/host/boss_rules.hpp): our Link's main AS command is a held one.
+        bool held = false;
+        bool operator==(const Keep&) const = default;
+    };
+    void SetKeep(const Keep& keep) { keep_ = keep; }
+    // The owner_keeps bits our sample of an object named `name` at `at` carries now (0: none).
+    // The boss families (a grab, a volley) also need the place: without it an enemy that is its
+    // own grabber is not kept.
+    std::uint8_t KeepBits(std::string_view name,
+                          const std::optional<coop::protocol::Vec3>& at = std::nullopt) const;
+    // ORM boss families (oot-remake docs/JEFES.md section 9, coop/host/boss_rules.hpp): on by
+    // default (LICHII_ORM_BOSS_FAMILIES). Each Tick runs the FamilyWatch over the walk's objects
+    // of the table: what holds our Link (Keep::held and a grabbing part within reach) and
+    // whether a tennis ball is in our game; KeepBits keeps their groups. Off: neither.
+    void SetFamilies(bool on) { families_on_ = on; }
+    // Present thread, before Tick: the actors of the table this walk has that are not shared
+    // objects (the tennis balls: a boss's shot is not shared), by name and place.
+    void SetFamilyExtras(std::vector<std::pair<std::string, coop::protocol::Vec3>> extras) {
+        family_extras_ = std::move(extras);
+    }
+    // What the last Tick found: what holds our Link and whether a volley is on.
+    const coop::host::FamilyHold& FamilyNow() const { return families_.hold(); }
+    // Our Link on the part that holds it (for our samples' ride), and the walk's shared grabbing
+    // parts by family_key (for the others' rides): the last Tick's, in FamilyScene().
+    const std::optional<coop::protocol::Ride>& FamilyRide() const { return family_ride_; }
+    const std::vector<coop::host::RidePlatform>& FamilyParts() const { return family_parts_; }
+    const std::string& FamilyScene() const { return scene_; }
+    // The watcher's lines ("grab: ...", "tennis: ...", "check: ..."), taken and cleared.
+    std::vector<std::string> TakeFamilyLines() { return std::exchange(family_lines_, {}); }
+    // ORM step 7: the copy of `id` to write an OBJECT_POSE from `owner` at
+    // `epoch` onto: a loaded townsperson (Npc_) that `owner` owns at that
+    // epoch, not us, and not freed by our own talk. Nothing otherwise.
+    std::optional<std::uint64_t> CopyFor(const coop::protocol::ObjectId& id, std::uint8_t owner,
+                                         std::uint16_t epoch) const;
+    // The epoch we know for `id`'s owner (nothing: no owner known).
+    std::optional<std::uint16_t> EpochOf(const coop::protocol::ObjectId& id) const;
+
     // Present thread, every frame: where each copy we do not own should be.
     void Poses(std::uint64_t now_us, std::vector<PoseWrite>& out) const;
     // ORM: the hand-over hold. When a copy's owner changes, the old owner's
@@ -541,7 +676,9 @@ public:
     // Present thread: the enemy copies whose own AI is held (the AI hold,
     // coop_hold.h): an Enemy_ we do not own that its owner's samples place
     // right now, so exactly the enemies Poses moves. One that becomes ours
-    // (or whose owner fell silent) is not in the next list.
+    // (or whose owner fell silent) is not in the next list. With SetNpcPose
+    // the townspeople Poses moves are in it too (and with SetHoldEnemies(false)
+    // only they are).
     std::vector<std::uint64_t> Holds(std::uint64_t now_us) const;
 
     // Present thread: the enemy copies that became ours since the last ask
@@ -706,6 +843,19 @@ private:
         // due), and when that last went out.
         bool stun_due = false;
         std::uint64_t stun_at = 0;
+        // ORM "Levantar": a copy another player's puppet holds here
+        // (CarriedByOther). Its life is kept at kHeldLife while held, so a
+        // bump of the hands that place it is no break (seen in a game: the
+        // copy in the puppet's hands broke as the puppet started walking, and
+        // that break went to the holder's pot); a fall of it while held or
+        // kHeldEchoUs after is no hit of ours (the holder's game decides).
+        std::uint64_t held_other_at = 0;  // the last walk that saw it held
+        bool held_life = false;           // its life is raised to kHeldLife
+        bool held_raise_failed = false;   // the raise read back lower: not written again
+        std::int32_t owner_life = 0;      // the owner's life meanwhile (put back after)
+        std::int32_t owner_max = 0;       // its max before the raise (put back after)
+        std::uint8_t held_holder = 0;     // ORM: the player whose puppet held it last (0: not known)
+        bool held_thrown_said = false;    // ORM: the kThrownKeepUs line was said for this throw
     };
     static void PlaceAt(const std::deque<Received>& received, std::uint64_t t,
                         coop::protocol::Vec3& position,
@@ -713,6 +863,14 @@ private:
 
     // One step of `o` towards our Link at `now_us` (NoteDrift).
     static void ChaseStep(Object& o, std::uint64_t now_us);
+
+    // ORM boss families: the watcher over this walk's objects of the table (Tick, after Apply).
+    void FamilyWalk(std::uint8_t self, std::uint64_t now_us);
+
+    // ORM "Levantar": the life of a copy another player's puppet holds
+    // (Object::held_life). True when it decided this walk's life of `o`.
+    bool HeldLife(Object& o, const coop::protocol::ObjectLife& life, std::uint64_t now_us,
+                  std::vector<LifeWrite>& writes);
 
     // Takes `o` down to `life`: a hurt when hurt is on, else a write.
     void Lower(Object& o, std::int32_t life, std::uint64_t now_us, std::vector<LifeWrite>& writes,

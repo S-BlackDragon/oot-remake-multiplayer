@@ -5,6 +5,11 @@
 
 Writes, under <mod folder>/romfs:
   Pack/Actor/CoopPuppet_Child.pack.zs, Pack/Actor/CoopPuppet_Adult.pack.zs
+  Pack/Actor/CoopShot_*.pack.zs (the shots' stand-ins), Pack/Actor/CoopPuppet_Horse.pack.zs (the
+  riders' horse: Epona's model, ORM D-R19), Pack/Actor/CoopFx_*.pack.zs (the status stand-ins put on
+  the puppets: burning, frozen, shocked, Nayru's Love; ORM efectos2), each when its source is in the romfs
+  Pack/Actor/CoopPuppet_Child_Body.pack.zs, _BodySide, and the adult's (each puppet's body in the others'
+  games: kinematic, Link-sized, hitting only the player; ORM choque, oot-remake docs/CHOQUE.md)
   RSDB/ActorInfo.Product.<v>.rstbl.byml.zs        (game table plus two rows)
   RSDB/GameActorInfo.Product.<v>.rstbl.byml.zs    (game table plus two rows)
   System/Resource/ResourceSizeTable.Product.<v>.<platform>.rsizetable.zs (plus new entries)
@@ -13,6 +18,9 @@ where each dungeon room's placements stand (dungeon_rooms.py; the hook guesses a
 from it, issue 145).
 
 The puppets keep Link's sound components (docs/puppet.md, Sound); --no-sound leaves them out.
+They also keep Link's effect user (oot-remake docs/OBJETOS_EN_USO.md, DETALLES_MARIONETA.md "Efectos 2"), so
+the effects of the commands the hook plays on them (spell casts, swimming, landing) play on the puppet
+too; --no-effects leaves it out (the pack before ORM efectos2; --effects is the default and still accepted).
 
 Everything is made from the files in --romfs; nothing from the game is in this tool.
 The input is never changed, and the tables are always rebuilt from the game's own
@@ -63,6 +71,18 @@ KEEP_COMPONENTS = (
 # puppet. `--no-sound` leaves them out (the pack as before).
 SOUND_COMPONENTS = ("SLinkRef", "SoundFootStepRef")
 
+# Effects (ORM objetos-uso, test switch `--effects`): the player's AS node events also hold
+# `EmitEffect` events (Din's Fire, Farore's Wind and Nayru's Love casts, the hammer's swings:
+# names such as DinsFire_01_Charge in AnimationEvent/AsNode/Player_Adult.root.baev), and the
+# per-animation events `WeaponBlur`. They fire on the actor's ELink user (ActorInfo
+# `ELinkUserName` Player / Player_Adult), which the puppet had no more than it had a sound user.
+# With these the puppet's own animation plays those effects at the puppet. Effects the player's
+# own code starts (not from the AS) still do not play. ORM efectos2: on by default, as the hook now
+# plays an allow-list of harmless commands under the copied pose (lichii/hook/coop_effects.h);
+# `--no-effects` builds without.
+EFFECT_COMPONENTS = ("ELinkRef",)
+EFFECT_INFO_FIELDS = ("ELinkUserName",)
+
 # The player's footstep param has `ProcType` Player (murmur3 hash 145979025): the steps are
 # worked out by the player's own code, which the puppet does not run, and `IsUseRayCast` casts
 # from the leg bones for the floor. Dark Link (Enemy_MiddleBoss_DarkLink), the game's own copy of
@@ -104,7 +124,7 @@ FIXED_COMPONENTS = {
 
 # ActorInfo fields of the player row that belong to the player only. SLinkUserName names the
 # sound user and is kept unless the pack is built without sound.
-DROP_INFO_FIELDS = ("ActorName", "ELinkUserName")
+DROP_INFO_FIELDS = ("ActorName",)  # and EFFECT_INFO_FIELDS unless built with effects
 SOUND_INFO_FIELDS = ("SLinkUserName",)
 # Always calculated while loaded: the puppet is wherever its player is.
 INFO_OVERRIDES = {"CalcRadius": 100000.0, "CoreUsedLevel": byml.UInt(0)}
@@ -146,6 +166,10 @@ STAND_INS = (
     # made here would run on her own AI; the stand-in is her model and animations only, placed
     # and played by the hook (lichii/hook/coop_ride.h).
     ("Animal_Epona_Adult", "CoopRide_Epona"),
+    # ORM mascaras (oot-remake docs/DETALLES_MARIONETA.md): the fishing line beside another player's
+    # lure copy. Weapon_FishingLine is a Phive rope driven by the reel; the stand-in is its model
+    # (Item_FishingRod_Rope, 71 bones) only, and the hook lays its bones from the lure to the rod.
+    ("Weapon_FishingLine", "CoopShot_FishingLine"),
 )
 STAND_IN_COMPONENTS = ("ModelInfoRef", "LODRef")
 # Components some stand-ins keep beyond the model (by stand-in name): the animation set, so the
@@ -157,6 +181,120 @@ STAND_IN_EXTRA_COMPONENTS = {
     "CoopShot_HookLong": ("ASRef", "ASInfoRef", "AnimationRef"),
     "CoopRide_Epona": ("ASRef", "ASInfoRef", "AnimationRef"),
 }
+# Effect stand-ins (ORM objetos-uso): Din's Fire (ExpandFireField) and the Megaton Hammer's shock
+# wave (PlayerShockWave) are shootables of the player with no model: what they show is their
+# effect user. Their game actors burn and hit (chemical, attack), so the hook only ever copies them
+# as these (CoopSpawn::StandInOnly). An effect stand-in keeps the source's ELinkRef and ActorInfo
+# ELinkUserName (and a model and LOD if it has them), nothing else. Whether its effect plays with
+# no AI to start it is not known until a game run (oot-remake docs/OBJETOS_EN_USO.md).
+EFFECT_STAND_INS = (
+    ("ExpandFireField", "CoopShot_DinFire"),
+    ("PlayerShockWave", "CoopShot_ShockWave"),
+)
+# ORM efectos2 (lichii/hook/coop_effects.h): the status stand-ins the hook puts on a puppet while
+# its player burns, is frozen or shocked, or has Nayru's Love on. Link's own burn, ice, sparks and
+# crystal are assets of the player's effect user (ELink user Player: Chemical_Fire,
+# Condition_Frozen, Condition_ElectricShock, NayruLove) that the player's code turns on, which a
+# puppet does not run; so each stand-in is the effect user of an effect locator whose only asset is
+# `Always` (it plays from the moment it is made), read from ELink2/elink2.Product.110.belnk on
+# 2026-11-11. Which locator looks right on Link is for a game run to tell (oot-remake
+# docs/DETALLES_MARIONETA.md, "Efectos 2"); change the source here. Built as effect stand-ins.
+FX_STAND_INS = (
+    ("EftLoc_InsideGanonCastle_SageRoom_Fire_00", "CoopFx_Burn"),  # fire circle and embers
+    ("EftLoc_FairyFountain_DryIce_00", "CoopFx_Freeze"),           # cold mist
+    ("EftLoc_InsideGanonCastle_EnvSpark_00", "CoopFx_Shock"),      # sparks (nothing electric found)
+    ("EftLoc_SageRoom_Crystal_00", "CoopFx_Nayru"),                # the crystal's rainbow glow
+)
+EFFECT_STAND_IN_COMPONENTS = ("ELinkRef", "ModelInfoRef", "LODRef")
+# ORM riesgos-visual (oot-remake docs/RIESGOS_RESUELTOS.md): another player's fire, ice or light arrow.
+# The game's elemental arrow is NormalArrow with ShootableArrow_ArrowType on its blackboard, and its
+# trail (Wpn_ArrowFire_Trail_00 ...) is its effect user's, started by the arrow's own code: the plain
+# stand-in has neither. The shooter's element is read from his PLAYER_EQUIP arrow
+# (PlayerStatus.EquipArrow, CoopProjectiles::ElementOf) and the copy is made as one of these: the
+# arrow's model with the effect user of a locator whose only asset is `Always` (plays from birth), as
+# the status stand-ins. (model source, effect source, name, element).
+ARROW_ELEMENT_STAND_INS = (
+    ("NormalArrow", "EftLoc_InsideGanonCastle_SageRoom_Fire_00", "CoopShot_Arrow_Fire", "fire"),
+    ("NormalArrow", "EftLoc_FairyFountain_DryIce_00", "CoopShot_Arrow_Ice", "ice"),
+    ("NormalArrow", "EftLoc_SageRoom_Crystal_00", "CoopShot_Arrow_Light", "light"),
+)
+# ORM riesgos-visual: how long Nayru's Love lasts, read from the player's own game param
+# (Player/PlayerGameParam/Player.game__player__PlayerGameParam.bgyml, NayruLoveTime: 34.0 in the
+# dump of 2026-11-11) and written in coop_puppet.json as "nayru_s" for the hook's crystal stand-in.
+PLAYER_GAME_PARAM = "Player/PlayerGameParam/Player.game__player__PlayerGameParam.bgyml"
+
+
+def nayru_seconds(members):
+    """NayruLoveTime from the player's game param in a player pack, or None."""
+    data = members.get(PLAYER_GAME_PARAM)
+    if data is None:
+        return None
+    try:
+        doc = byml.loads(data)
+    except byml.BymlError:
+        return None
+    todo = [doc]
+    while todo:
+        n = todo.pop()
+        if isinstance(n, dict):
+            for k, v in n.items():
+                if k == "NayruLoveTime" and isinstance(v, (int, float)) and not isinstance(v, bool):
+                    return float(v)
+                todo.append(v)
+        elif isinstance(n, list):
+            todo.extend(n)
+    return None
+
+
+def build_combo_stand_in(model_members, model_source, fx_members, fx_source, name):
+    """(pack bytes, actor param bytes, member list) of a stand-in with one actor's model (and LOD)
+    and another's effect user (ARROW_ELEMENT_STAND_INS)."""
+    model = flatten_actor_param(model_members, model_source)
+    fx = flatten_actor_param(fx_members, fx_source)
+    if "ModelInfoRef" not in model:
+        raise BuildError(f"{model_source}'s ActorParam has no ModelInfoRef")
+    if "ELinkRef" not in fx:
+        raise BuildError(f"{fx_source}'s ActorParam has no ELinkRef")
+    model_part = {k: model[k] for k in STAND_IN_COMPONENTS if k in model}
+    comps = dict(model_part)
+    comps["ELinkRef"] = fx["ELinkRef"]
+    comps.update(FIXED_COMPONENTS)
+    doc = {"Components": comps}
+    files = collect_members(model_members, {"Components": model_part})
+    files.update(collect_members(fx_members, {"Components": {"ELinkRef": fx["ELinkRef"]}}))
+    ap = byml.dumps(doc)
+    files[actor_param_path(name)] = ap
+    return sarc.write(files), ap, sorted(files)
+# ORM cofre (oot-remake docs/DETALLES_MARIONETA.md, "Cofres"): what a chest gives, held over the finder's
+# puppet in the other games while his item-get plays. The Item_*/TBox_* actors are the game's "item got"
+# actors (ASInfo Item_GetDemo, PouchContentRef): made in another game they could give the item there, so
+# the hook only ever shows these model-only stand-ins (CoopSpawn::StandInOnly). A source missing from the
+# romfs, or one without a model, is left out (the hook then shows nothing over the head).
+GET_STAND_INS = tuple((d, f"CoopGet_{d}") for d in dumpcheck.CHEST_FINDS)
+EFFECT_STAND_IN_DROP_INFO = ("ActorName", "SLinkUserName")
+
+# ORM D-R19 (oot-remake docs/EPONA.md): the horse under another player who rides. Epona's own model,
+# AS (Animal_Horse_New, with the gaits Wait and Move_Gear_1 to _Top) and animations, with the shared
+# defaults the puppet uses: no AI, no physics (nobody bumps into it, the hook places it every frame),
+# no `HorseRef`, no attention (nobody can get on it), no actor name (no event takes it for Epona). Her
+# model shows the saddle only when the game plays SaddleOn (its ModelInfo has SaddleOn with IsPlay
+# false and SaddleOff played), so the horse gets its own ModelInfo with SaddleOn alone, as SaddleOff was
+# listed. One horse per look (request: "Epona solo debe verse como Epona"): Epona's, the Lon Lon horses'
+# (Animal_Horse, their coat) and Ingo's (Animal_Horse_For_Ingo, his black one); the hook picks by the
+# horse the rider is on (coop/host/epona.hpp horse_look, the same names). A romfs without a source
+# gets no such horse; the hook then uses the game's plain event horse for it.
+HORSES = (
+    ("Animal_Epona_Adult", "CoopPuppet_Horse"),
+    ("Animal_Horse", "CoopPuppet_Horse_Ranch"),
+    ("Animal_Horse_For_Ingo", "CoopPuppet_Horse_Ingo"),
+)
+HORSE = HORSES[0]
+HORSE_COMPONENTS = ("ASInfoRef", "ASRef", "AnimationRef", "ModelInfoRef", "LODRef", "LocalDepthShadowRef")
+HORSE_REQUIRED = ("ASRef", "ModelInfoRef")
+MODEL_DIR = "Component/ModelInfo/"
+MODEL_SUFFIX = ".engine__component__ModelInfo.bgyml"
+SADDLE_ON = "SaddleOn.fvbb"
+SADDLE_OFF = "SaddleOff.fvbb"
 # ActorInfo fields of the shootable that a model-only actor must not take over.
 STAND_IN_DROP_INFO = ("ActorName", "ELinkUserName", "SLinkUserName")
 # Issue 198: stand-ins that also play one effect of the shootable's ELink user, through an AI root
@@ -259,11 +397,11 @@ def flatten_actor_param(members, actor):
     return comps
 
 
-def make_actor_param(player_components, sound=True, basic_xlink=False):
+def make_actor_param(player_components, sound=True, basic_xlink=False, effects=False):
     missing = [k for k in REQUIRED_COMPONENTS if k not in player_components]
     if missing:
         raise BuildError(f"the player's ActorParam has no {', '.join(missing)}")
-    keep = KEEP_COMPONENTS + (SOUND_COMPONENTS if sound else ())
+    keep = KEEP_COMPONENTS + (SOUND_COMPONENTS if sound else ()) + (EFFECT_COMPONENTS if effects else ())
     comps = {k: player_components[k] for k in keep if k in player_components}
     comps.update(FIXED_COMPONENTS)
     if sound and not basic_xlink and player_components.get("XLinkRef"):
@@ -372,7 +510,7 @@ def tunic_model_info(actor, variant, project):
 
 
 def build_pack(members, variant, sound=True, player_footsteps=False, sound_user=None, actor=None,
-               project=None, basic_xlink=False):
+               project=None, basic_xlink=False, effects=False, lock_members=None):
     """Returns (pack bytes, actor param bytes, member list, equipment keys) for one variant.
     `actor`: the pack's actor (default CoopPuppet_<variant>); `project`: a model project of its own
     (a tunic colour), else the player's. `effects` (ORM): the puppet keeps Link's effect user.
@@ -414,16 +552,27 @@ def make_stand_in_param(components, extra=()):
     return {"Components": comps}
 
 
-def build_stand_in(members, source, name, template=None):
+def make_effect_stand_in_param(components):
+    """An effect stand-in's ActorParam (ORM objetos-uso): the actor's effect user (and model and
+    LOD, if any) with the shared defaults."""
+    if "ELinkRef" not in components:
+        raise BuildError("the actor's ActorParam has no ELinkRef")
+    comps = {k: components[k] for k in EFFECT_STAND_IN_COMPONENTS if k in components}
+    comps.update(FIXED_COMPONENTS)
+    return {"Components": comps}
+
+
+def build_stand_in(members, source, name, template=None, effect=False):
     """Returns (pack bytes, actor param bytes, member list) for one stand-in. With the impacts' AI
     `template`, a stand-in in STAND_IN_EFFECTS also gets its ELink user and an AI root that plays
-    its effect key once."""
-    doc = make_stand_in_param(flatten_actor_param(members, source),
-                              STAND_IN_EXTRA_COMPONENTS.get(name, ()))
+    its effect key once. `effect` (ORM): an effect stand-in, EFFECT_STAND_INS / FX_STAND_INS."""
+    flat = flatten_actor_param(members, source)
+    doc = (make_effect_stand_in_param(flat) if effect
+           else make_stand_in_param(flat, STAND_IN_EXTRA_COMPONENTS.get(name, ())))
     files = collect_members(members, doc)
-    effect = STAND_IN_EFFECTS.get(name) if template is not None else None
-    if effect:
-        extra, comps = effect_files(template, name, effect[0], None, effect[1])
+    fx = STAND_IN_EFFECTS.get(name) if template is not None else None
+    if fx:
+        extra, comps = effect_files(template, name, fx[0], None, fx[1])
         files.update(extra)
         doc["Components"].update(comps)
     ap = byml.dumps(doc)
@@ -477,10 +626,12 @@ def impact_row(source_row, name, elink_user, slink_user):
     return row
 
 
-def stand_in_row(source_row, name, with_effect=False):
+def stand_in_row(source_row, name, with_effect=False, effect=False):
     """The stand-in's ActorInfo row: the shootable's, less its effect, sound and name fields, with
-    the puppet's INFO_OVERRIDES (and its STAND_IN_EFFECTS ELink user when `with_effect`)."""
-    row = {k: v for k, v in source_row.items() if k not in STAND_IN_DROP_INFO}
+    the puppet's INFO_OVERRIDES (and its STAND_IN_EFFECTS ELink user when `with_effect`). An ORM
+    effect stand-in (`effect`) keeps its source's effect user."""
+    drop = EFFECT_STAND_IN_DROP_INFO if effect else STAND_IN_DROP_INFO
+    row = {k: v for k, v in source_row.items() if k not in drop}
     if with_effect and name in STAND_IN_EFFECTS:
         row["ELinkUserName"] = STAND_IN_EFFECTS[name][0]
     row.update(INFO_OVERRIDES)  # calculated wherever it is, as the puppet (a far shot)
@@ -488,14 +639,66 @@ def stand_in_row(source_row, name, with_effect=False):
     return row
 
 
+def make_horse_param(components):
+    """The horse's ActorParam: Epona's model, AS and animations with the shared defaults."""
+    missing = [k for k in HORSE_REQUIRED if k not in components]
+    if missing:
+        raise BuildError(f"Epona's ActorParam has no {', '.join(missing)}")
+    comps = {k: components[k] for k in HORSE_COMPONENTS if k in components}
+    comps.update(FIXED_COMPONENTS)
+    return {"Components": comps}
+
+
+def horse_model(members, model_ref, name):
+    """(path, data, source path) of the horse's own ModelInfo: Epona's, with SaddleOn in place of
+    SaddleOff and nothing else of the saddle; None when her ModelInfo is not in the pack or lists
+    no SaddleOn (her model is then used as it is)."""
+    src = ref_to_member(model_ref)
+    if src not in members:
+        return None
+    doc = byml.loads(members[src])
+    anims = doc.get("ModelVariationAnims") if isinstance(doc, dict) else None
+    if not isinstance(anims, list):
+        return None
+    on = [a for a in anims if isinstance(a, dict) and str(a.get("Fmab", "")).endswith(SADDLE_ON)]
+    if not on:
+        return None
+    kept = []
+    for a in anims:
+        fmab = str(a.get("Fmab", "")) if isinstance(a, dict) else ""
+        if fmab.endswith(SADDLE_OFF):
+            continue
+        if fmab.endswith(SADDLE_ON):
+            a = {k: v for k, v in a.items() if k != "IsPlay"}  # played, as SaddleOff was
+        kept.append(a)
+    out = dict(doc)
+    out["ModelVariationAnims"] = kept
+    return f"{MODEL_DIR}{name}{MODEL_SUFFIX}", byml.dumps(out), src
+
+
+def build_horse(members, source, name):
+    """Returns (pack bytes, actor param bytes, member list, model) for the riders' horse; `model` is
+    horse_model's (path, data, source) or None."""
+    doc = make_horse_param(flatten_actor_param(members, source))
+    files = collect_members(members, doc)
+    model = horse_model(members, doc["Components"]["ModelInfoRef"], name)
+    if model:
+        path, data, _ = model
+        files[path] = data
+        doc["Components"]["ModelInfoRef"] = "?" + path
+    ap = byml.dumps(doc)
+    files[actor_param_path(name)] = ap
+    return sarc.write(files), ap, sorted(files), model
+
+
 def _num(v):
     return v.v if isinstance(v, byml._Num) else v
 
 
-def info_row(player_row, actor, heap=None, sound=True, sound_user=None):
+def info_row(player_row, actor, heap=None, sound=True, sound_user=None, effects=False):
     """The puppet's ActorInfo row: the player's, less its player-only fields. `heap`, when given,
     sets InstanceHeapSize (a test switch, `--heap`), keeping the field's BYML type."""
-    drop = DROP_INFO_FIELDS + (() if sound else SOUND_INFO_FIELDS)
+    drop = DROP_INFO_FIELDS + (() if sound else SOUND_INFO_FIELDS) + (() if effects else EFFECT_INFO_FIELDS)
     row = {k: v for k, v in player_row.items() if k not in drop}
     row.update(INFO_OVERRIDES)
     if sound and sound_user:
@@ -706,7 +909,7 @@ def write_tunics(romfs, out_romfs, dicts, table, colors, log=print, self_dir=Non
 
 
 def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=False, sound_user=None,
-          tunics=(), test_tunic=None, stand_in_effects=False, basic_xlink=False):
+          tunics=(), test_tunic=None, stand_in_effects=False, basic_xlink=False, effects=True):
     """`tunics`: the tunic colours to make puppets of (puppet_pack.tunic.COLORS; each is a model,
     a tile and an actor per age, CoopPuppet_<age>_<Colour>). `test_tunic`: give the plain puppets
     that colour too (a test of the colours with a hook that knows none).
@@ -714,7 +917,8 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
     `sound`: False builds the puppets without Link's sounds (issue 131). `player_footsteps`: keep
     the player's footstep param instead of the puppet's own (FOOTSTEP_OVERRIDES). `sound_user`: another
     SLink user for the puppets' sounds (SLINK_DIR). `basic_xlink`: the shared ActorBasic XLink param
-    instead of the player's (test switch, the pack before puppet-looks)."""
+    instead of the player's (test switch, the pack before puppet-looks). `effects` (ORM): the
+    puppets keep Link's effect user (EFFECT_COMPONENTS)."""
     heaps = heaps or {}
     if not os.path.isfile(os.path.join(romfs, "Pack", "ZsDic.pack.zs")):
         raise BuildError(f"{romfs} does not look like the game's romfs (no Pack/ZsDic.pack.zs)")
@@ -761,12 +965,12 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
             raise BuildError(f"missing {rel(romfs, src)}")
         members = sarc.read(dicts.decompress(read(src)))
         pack, ap, names, keys = build_pack(members, v, sound, player_footsteps, sound_user, actor, project,
-                                           basic_xlink=basic_xlink)
+                                           basic_xlink=basic_xlink, effects=effects)
         dst_rel = f"Pack/Actor/{actor}.pack.zs"
         write(os.path.join(out_romfs, dst_rel), dicts.compress(pack, PACK_DICT))
         if player not in ai_rows:
             raise BuildError(f"ActorInfo has no row {player}")
-        new_ai.append(info_row(ai_rows[player], actor, heaps.get(actor), sound, sound_user))
+        new_ai.append(info_row(ai_rows[player], actor, heaps.get(actor), sound, sound_user, effects))
         if project:
             new_ai[-1]["ModelProjectName"] = project
         new_gai.append({"__RowId": actor})
@@ -907,11 +1111,17 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
             log(f"{name}: no {source} in this romfs, left out")
             continue
         members = sarc.read(dicts.decompress(read(src)))
-        pack, ap, names = build_stand_in(members, source, name, fx_template)
+        try:
+            pack, ap, names = build_stand_in(members, source, name, fx_template, effect_stand_in)
+        except BuildError as e:
+            if not optional:
+                raise
+            log(f"{name}: {e}, left out")  # the hook then makes no copy of it
+            continue
         effect = name in STAND_IN_EFFECTS and fx_template is not None
         dst_rel = f"Pack/Actor/{name}.pack.zs"
         write(os.path.join(out_romfs, dst_rel), dicts.compress(pack, PACK_DICT))
-        new_ai.append(stand_in_row(ai_rows[source], name, effect))
+        new_ai.append(stand_in_row(ai_rows[source], name, with_effect=effect, effect=effect_stand_in))
         new_gai.append({"__RowId": name})
         table.add_new(strip_zs(dst_rel), ((len(pack) + 0x1F) & ~0x1F) + PACK_SIZE_MARGIN)
         chain_ap = sum(table.get(path) or 0 for path, _ in actor_param_chain(members, source))
@@ -922,9 +1132,14 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
                                            STAND_IN_EFFECTS[name][1])[0].items():
                 grow = (table.get(IMPACT_TEMPLATE) or 0) + len(data) if path.endswith(".ainb") else 0
                 table.add_new(path, max(grow, len(data) + PACK_SIZE_MARGIN))
-        shots.append({"actor": name, "from": source, "pack": dst_rel, "pack_bytes": len(pack),
-                      "param_size": ap_size, "members": names,
-                      "effect": STAND_IN_EFFECTS[name][1] if effect else None})
+        shot = {"actor": name, "from": source, "pack": dst_rel, "pack_bytes": len(pack),
+                "param_size": ap_size, "members": names,
+                "effect": STAND_IN_EFFECTS[name][1] if effect else None}
+        if effect_stand_in:
+            shot["effect"] = True  # ORM objetos-uso / efectos2: plays its own effect user
+        if name in {n for _, n in FX_STAND_INS}:
+            shot["status"] = True  # ORM efectos2: put on the puppets, not a shot's copy
+        shots.append(shot)
         log(f"{name}: {len(names)} files, {len(pack)} bytes -> {dst_rel}")
 
     impacts = []
@@ -943,6 +1158,72 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
         impacts.append({"actor": name, "elink": elink_user, "slink": slink_user, "key": key,
                         "pack": dst_rel, "pack_bytes": len(pack), "members": sorted(files)})
         log(f"{name}: {key} on {elink_user or '-'} / {slink_user or '-'}, {len(pack)} bytes -> {dst_rel}")
+
+    # ORM riesgos-visual: the elemental arrows (optional: a romfs without a source leaves it out).
+    for model_source, fx_source, name, element in ARROW_ELEMENT_STAND_INS:
+        srcs = [os.path.join(romfs, "Pack", "Actor", f"{s}.pack.zs") for s in (model_source, fx_source)]
+        if not all(os.path.isfile(p) for p in srcs) or model_source not in ai_rows or fx_source not in ai_rows:
+            log(f"{name}: no {model_source} or {fx_source} in this romfs, left out (a plain arrow then)")
+            continue
+        model_members = sarc.read(dicts.decompress(read(srcs[0])))
+        fx_members = sarc.read(dicts.decompress(read(srcs[1])))
+        try:
+            pack, ap, names = build_combo_stand_in(model_members, model_source, fx_members, fx_source, name)
+        except BuildError as e:
+            log(f"{name}: {e}, left out")
+            continue
+        dst_rel = f"Pack/Actor/{name}.pack.zs"
+        write(os.path.join(out_romfs, dst_rel), dicts.compress(pack, PACK_DICT))
+        row = stand_in_row(ai_rows[model_source], name)
+        if "ELinkUserName" in ai_rows[fx_source]:
+            row["ELinkUserName"] = ai_rows[fx_source]["ELinkUserName"]
+        new_ai.append(row)
+        new_gai.append({"__RowId": name})
+        table.add_new(strip_zs(dst_rel), ((len(pack) + 0x1F) & ~0x1F) + PACK_SIZE_MARGIN)
+        chain_ap = (sum(table.get(path) or 0 for path, _ in actor_param_chain(model_members, model_source)) +
+                    sum(table.get(path) or 0 for path, _ in actor_param_chain(fx_members, fx_source)))
+        ap_size = max(chain_ap, len(ap) + PACK_SIZE_MARGIN)
+        table.add_new(actor_param_path(name), ap_size)
+        shots.append({"actor": name, "from": model_source, "effect_from": fx_source, "element": element,
+                      "effect": True, "pack": dst_rel, "pack_bytes": len(pack), "param_size": ap_size,
+                      "members": names})
+        log(f"{name}: {len(names)} files, {len(pack)} bytes ({element} arrow) -> {dst_rel}")
+
+    # ORM riesgos-visual: Nayru's Love's time, from the player's own param.
+    nayru_s = None
+    base_src = os.path.join(romfs, "Pack", "Actor", "Player_Base.pack.zs")
+    for player_pack in (base_src, os.path.join(romfs, "Pack", "Actor", "Player_Child.pack.zs")):
+        if nayru_s is None and os.path.isfile(player_pack):
+            nayru_s = nayru_seconds(sarc.read(dicts.decompress(read(player_pack))))
+    log(f"Nayru's Love: {nayru_s} s from the player's game param" if nayru_s is not None
+        else "Nayru's Love: no NayruLoveTime in the player's game param (the hook keeps its 60 s)")
+
+    horses = []
+    for source, name in HORSES:
+        src = os.path.join(romfs, "Pack", "Actor", f"{source}.pack.zs")
+        if not os.path.isfile(src) or source not in ai_rows:
+            log(f"{name}: no {source} in this romfs, left out (the hook uses the game's event horse)")
+            continue
+        members = sarc.read(dicts.decompress(read(src)))
+        pack, ap, names, model = build_horse(members, source, name)
+        dst_rel = f"Pack/Actor/{name}.pack.zs"
+        write(os.path.join(out_romfs, dst_rel), dicts.compress(pack, PACK_DICT))
+        new_ai.append(stand_in_row(ai_rows[source], name))  # Epona's row less her name, effects, sound
+        new_gai.append({"__RowId": name})
+        table.add_new(strip_zs(dst_rel), ((len(pack) + 0x1F) & ~0x1F) + PACK_SIZE_MARGIN)
+        chain_ap = sum(table.get(path) or 0 for path, _ in actor_param_chain(members, source))
+        ap_size = max(chain_ap, len(ap) + PACK_SIZE_MARGIN)
+        table.add_new(actor_param_path(name), ap_size)
+        model_info = None
+        if model:
+            path, data, msrc = model
+            size = max((table.get(msrc) or 0) + max(0, len(data) - len(members[msrc])),
+                       len(data) + PACK_SIZE_MARGIN)
+            table.add_new(path, size)
+            model_info = {"param": path, "from": msrc, "size": size}
+        horses.append({"actor": name, "from": source, "pack": dst_rel, "pack_bytes": len(pack),
+                       "param_size": ap_size, "members": names, "model": model_info})
+        log(f"{name}: {len(names)} files, {len(pack)} bytes{', saddle on' if model else ''} -> {dst_rel}")
 
     ai_new = byml.dumps(upsert_rows(ai, new_ai))
     gai_new = byml.dumps(upsert_rows(gai, new_gai))
@@ -969,10 +1250,14 @@ def build(romfs, mod_dir, log=print, heaps=None, sound=True, player_footsteps=Fa
         "self_files": self_files,
         "tunics_off": tunics_off,
         "test_tunic": test_tunic,
+        "horses": horses,
+        "bodies": bodies,
         "sound": sound,
         "footsteps": "player" if player_footsteps or not sound else "puppet",
         "sound_user": sound_user if sound and sound_user else None,
         "xlink": "player" if sound and not basic_xlink else "basic",
+        "effects": effects,
+        "nayru_s": nayru_s,
         "tables": [rel(romfs, p) for p in (ai_path, gai_path, rs_path)],
         "source_sha256": {rel(romfs, p): hashlib.sha256(read(p)).hexdigest()
                           for p in (ai_path, gai_path, rs_path)},
@@ -1042,6 +1327,11 @@ def main(argv=None):
                     help="the language of the HUD's place names, e.g. USen, EUen, EUfr")
     ap.add_argument("--basic-xlink", action="store_true",
                     help="test switch: the puppets get the shared ActorBasic XLink param (the older pack)")
+    fx = ap.add_mutually_exclusive_group()
+    fx.add_argument("--effects", action="store_true",
+                    help="the puppets keep Link's effect user, so their commands' effects play (the default)")
+    fx.add_argument("--no-effects", action="store_true",
+                    help="build the puppets without Link's effect user (the pack before ORM efectos2)")
     a = ap.parse_args(argv)
     from_nup = os.path.isfile(a.romfs) and nup.is_nup(a.romfs)
     if from_nup:
@@ -1092,7 +1382,8 @@ def _main_build(a, romfs, hud_reader=None):
         tunics = [] if a.tunics.strip().lower() == "none" else [c.strip() for c in a.tunics.split(",") if c.strip()]
         build(romfs, mod_dir, heaps=heaps, sound=not a.no_sound, player_footsteps=a.player_footsteps,
               sound_user=a.sound_user, tunics=tunics, test_tunic=a.test_tunic,
-              stand_in_effects=a.seed_trail and not a.no_seed_trail, basic_xlink=a.basic_xlink)
+              stand_in_effects=a.seed_trail and not a.no_seed_trail, basic_xlink=a.basic_xlink,
+              effects=not a.no_effects)
     except BuildError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

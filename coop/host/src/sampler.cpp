@@ -94,6 +94,9 @@ bool Sampler::should_send(const PlayerReading& reading, std::uint64_t now) const
   // A new AS command or rate, not a new frame: receivers run the frame on
   // from the rate, and the keep-alive corrects it.
   if (animation_changed(reading.animation, last_sent_->animation)) return true;
+  // ORM: on or off a moving floor, or onto another one (coop/host/ride.hpp).
+  if (ride_.has_value() != last_sent_->ride.has_value()) return true;
+  if (ride_ && ride_->platform != last_sent_->ride->platform) return true;
   return false;
 }
 
@@ -156,6 +159,7 @@ std::vector<Outgoing> Sampler::frame(const std::optional<PlayerReading>& reading
     sample.scene = reading->scene;
     sample.age = reading->age;
     sample.animation = reading->animation;
+    sample.ride = ride_;  // ORM, component 30
     ++sequence_;
     push(out, sample);
     last_sent_ = std::move(sample);

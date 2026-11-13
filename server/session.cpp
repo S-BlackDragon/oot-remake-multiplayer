@@ -360,6 +360,9 @@ void Session::admit(ConnectionId id, Connection& c, const Hello& hello,
   c.unreliable_budget = 2.0 * config_.unreliable_per_second;
   c.byte_budget = 2.0 * config_.bytes_per_second;
   c.budget_time = now_us;
+  c.ocarina_budget = static_cast<double>(config_.ocarina_note_burst);
+  c.ocarina_at = now_us;
+  c.joined_at = now_us;  // ORM one host: its link is measured from now
   if (player_count() == 1) session_game_build_ = hello.game_build_id;
 
   send(id, kChannelSession, welcome);
@@ -656,6 +659,209 @@ void Session::on_join_partner(ConnectionId id, Connection& c, JoinPartner& j) {
   send(*target, kChannelSession, m);
   ++stats_.join_relayed;
   ++stats_.relayed;
+}
+
+// REVIVE (ORM "downed, not dead"): to the downed player only, while its last
+// PLAYER_STATUS says dead and both are in the same scene (when both are
+// known). The codec has made sure the player field is 0 and the other player
+// is 1 to kMaxPlayers. ORM D-R66: the downed player it goes to is being held
+// (revive_hold_at): the group defeat counts it as up while it lasts.
+void Session::on_revive(Connection& c, Revive& r, std::uint64_t now_us) {
+  const auto target = r.other_player == c.number ? std::nullopt : connection_of(r.other_player);
+  const auto it = target ? connections_.find(*target) : connections_.end();
+  if (it == connections_.end() || it->second.dead_since == 0 ||
+      (!c.scene.empty() && !it->second.scene.empty() && c.scene != it->second.scene)) {
+    ++stats_.revive_dropped;
+    return;
+  }
+  it->second.revive_hold_at = std::max<std::uint64_t>(now_us, 1);
+  Message m = r;
+  set_sender(m, c.number);
+  send(*target, kChannelSession, m);
+  ++stats_.revive_relayed;
+  ++stats_.relayed;
+}
+
+// STORY_EVENT (ORM story cutscenes, oot-remake docs/CINEMATICAS.md): the first
+// start of a (scene, name) in the room makes its sender the owner and goes to
+// everyone else (each game decides by its own scene whether to play it); a
+// later start of the same pair is another game that started it too, or the
+// same one again, and is not relayed. The owner's end goes to the others
+// too. The server knows nothing of what the events are.
+void Session::on_story_event(ConnectionId id, Connection& c, StoryEvent& s, std::uint64_t now_us) {
+  if (s.kind == StoryKind::played) {  // the server's own, to a joiner
+    ++stats_.story_dropped;
+    return;
+  }
+  const std::pair<std::string, std::string> key{s.scene, s.name};
+  auto it = story_.find(key);
+  if (s.kind == StoryKind::start) {
+    if (it != story_.end()) {
+      ++stats_.story_repeats;
+      log("story: player " + std::to_string(c.number) + " also started '" + s.name + "' in " +
+          s.scene + " (owner " + std::to_string(it->second.owner) + "); not relayed");
+      return;
+    }
+    if (story_.size() >= kMaxStoryEvents) {
+      ++stats_.story_dropped;
+      return;
+    }
+    s.server_time_ms = static_cast<std::uint32_t>(now_us / 1000);
+    story_[key] = StoryRecord{c.number, s.position, s.server_time_ms, false};
+  } else {  // end, or skipped (ORM D-048: an end whose owner skipped it)
+    if (it == story_.end() || it->second.owner != c.number || it->second.ended) {
+      ++stats_.story_dropped;
+      return;
+    }
+    it->second.ended = true;
+    it->second.skipped = s.kind == StoryKind::skipped;
+  }
+  log("story: player " + std::to_string(c.number) +
+      (s.kind == StoryKind::start ? " starts '" : s.kind == StoryKind::skipped ? " skipped '" : " ended '") +
+      s.name + "' in " + s.scene);
+  Message m = s;
+  set_sender(m, c.number);
+  send_to_others(id, kChannelSession, m);
+  ++stats_.story_relayed;
+  ++stats_.relayed;
+}
+
+// To a joiner: each story event the room has started, as STORY_EVENT played,
+// and, when its owner's end came, that end (`end` or `skipped`) after it (ORM,
+// ZMP D-048: the joiner's game skips its own start of a cutscene the room
+// skipped).
+void Session::send_story(ConnectionId to) {
+  for (const auto& [key, record] : story_) {
+    StoryEvent s;
+    s.player_number = record.owner;
+    s.kind = StoryKind::played;
+    s.scene = key.first;
+    s.name = key.second;
+    s.position = record.position;
+    s.server_time_ms = record.started_ms;
+    send(to, kChannelSession, s);
+    if (record.ended) {
+      s.kind = record.skipped ? StoryKind::skipped : StoryKind::end;
+      send(to, kChannelSession, s);
+    }
+  }
+}
+
+// PLAYER_LOOK (ORM): the sender's colour, kept for joiners and relayed to the
+// others with its number. The same look again (a game that sends it after
+// each WELCOME, or twice) is not relayed.
+void Session::on_player_look(ConnectionId id, Connection& c, const PlayerLook& look) {
+  PlayerLook kept = look;
+  kept.player_number = c.number;
+  if (c.look && *c.look == kept) {
+    ++stats_.look_repeats;
+    return;
+  }
+  c.look = kept;
+  send_to_others(id, kChannelSession, kept);
+  ++stats_.look_relayed;
+  ++stats_.relayed;
+}
+
+// OCARINA_NOTE (ORM, oot-remake docs/OCARINA.md, section 7): a player's note
+// or song, relayed to the others with its number; nothing is kept. Each
+// player has its own bucket (ocarina_note_per_second, bursts of
+// ocarina_note_burst): a note over it is dropped and counted.
+void Session::on_ocarina_note(ConnectionId id, Connection& c, OrmOcarinaNote& note,
+                              std::uint64_t now_us) {
+  if (config_.ocarina_note_per_second != 0) {
+    const double seconds = static_cast<double>(now_us - std::min(now_us, c.ocarina_at)) / 1e6;
+    const double burst = static_cast<double>(std::max<std::uint32_t>(config_.ocarina_note_burst, 1));
+    c.ocarina_at = std::max(now_us, c.ocarina_at);
+    c.ocarina_budget = std::min(c.ocarina_budget + seconds * config_.ocarina_note_per_second, burst);
+    if (c.ocarina_budget < 1.0) {
+      ++stats_.ocarina_note_dropped;
+      return;
+    }
+    c.ocarina_budget -= 1.0;
+  }
+  note.player_number = c.number;
+  send_to_others(id, kChannelSession, note);
+  ++stats_.ocarina_note_relayed;
+  ++stats_.relayed;
+}
+
+// OBJECT_POSE (ORM): the bones of a townsperson its owner's player talks to.
+// As an OBJECT_SAMPLE: only from the owner of the current epoch, to the
+// object's scene, with the sender's number; nothing is kept. One player's
+// poses are held to one every object_pose_gap_us and to one object at a time.
+// A pose of many bones comes in parts (ObjectPose::part, one time and one
+// parts mask for all of them): the other parts of the pose last relayed pass
+// with it, each once, so a pose is at most kMaxObjectPoseParts messages.
+void Session::on_object_pose(ConnectionId id, Connection& c, std::uint8_t channel,
+                             ObjectPose& pose, std::uint64_t now_us) {
+  const auto it = objects_.find(pose.id);
+  if (it == objects_.end() || it->second.owner != id || it->second.epoch != pose.epoch) {
+    ++stats_.object_pose_refused;
+    return;
+  }
+  if (pose.part >= kMaxObjectPoseParts) {  // the codec refuses it; never shift past
+    ++stats_.object_pose_refused;
+    return;
+  }
+  const std::uint8_t bit = static_cast<std::uint8_t>(1u << pose.part);
+  const bool same_pose = c.pose_object && *c.pose_object == pose.id && c.pose_at != 0 &&
+                         c.pose_time == pose.time && c.pose_parts == pose.parts;
+  if (same_pose) {
+    if ((c.pose_parts_relayed & bit) != 0) {
+      ++stats_.object_pose_dropped;  // that part again
+      return;
+    }
+    c.pose_parts_relayed = static_cast<std::uint8_t>(c.pose_parts_relayed | bit);
+  } else {
+    if (c.pose_object && c.pose_at != 0) {
+      const std::uint64_t since = now_us - std::min(now_us, c.pose_at);
+      if (since < config_.object_pose_gap_us ||
+          (*c.pose_object != pose.id && since < config_.object_pose_one_us)) {
+        ++stats_.object_pose_dropped;
+        return;
+      }
+    }
+    c.pose_object = pose.id;
+    c.pose_at = std::max<std::uint64_t>(now_us, 1);
+    c.pose_time = pose.time;
+    c.pose_parts = pose.parts;
+    c.pose_parts_relayed = bit;
+  }
+  pose.player_number = c.number;
+  send_to_scene(it->second.scene, id, channel, pose);
+  ++stats_.object_pose_relayed;
+  ++stats_.relayed;
+}
+
+// To a joiner: the look of each other player who has sent one, lowest number
+// first.
+void Session::send_looks(ConnectionId to) {
+  std::vector<PlayerLook> looks;
+  for (const auto& [other, oc] : connections_) {
+    if (other != to && oc.state == State::joined && oc.look) looks.push_back(*oc.look);
+  }
+  std::sort(looks.begin(), looks.end(), [](const PlayerLook& a, const PlayerLook& b) {
+    return a.player_number < b.player_number;
+  });
+  for (const PlayerLook& look : looks) send(to, kChannelSession, look);
+}
+
+// ORM: a game sends PLAYER_STATUS only when its flags change, so a joiner (or
+// a rejoiner, whose presence starts empty) would see a downed mate as up until
+// that mate's flags changed again: no tag, no revive, no spectator choice.
+// Each other player's last non-zero status goes to it after its WELCOME.
+void Session::send_statuses(ConnectionId to) {
+  std::vector<PlayerStatus> statuses;
+  for (const auto& [other, oc] : connections_) {
+    if (other != to && oc.state == State::joined && oc.status != 0) {
+      statuses.push_back(PlayerStatus{oc.number, oc.status});
+    }
+  }
+  std::sort(statuses.begin(), statuses.end(), [](const PlayerStatus& a, const PlayerStatus& b) {
+    return a.player_number < b.player_number;
+  });
+  for (const PlayerStatus& st : statuses) send(to, kChannelSession, st);
 }
 
 // To the host only, the host itself included: a host's own FLAG_SET comes

@@ -244,8 +244,37 @@ std::optional<protocol::Equipment> PlayerReader::read_equipment() {
   e.third_weapon = read_slot_name(addr::kEquipSlotThirdWeapon);
   e.tool = read_slot_name(addr::kEquipSlotTool);
   e.sub_tool = read_slot_name(addr::kEquipSlotSubTool);
+  // ORM (oot-remake docs/DETALLES_MARIONETA.md): the armor really worn wins
+  // over the flags (a mask or boots put on with ZR, the Lens of Truth: its own
+  // link, so the lens line below comes after).
+  if (const auto actor = find_player_actor()) worn::apply(memory_, *actor, e);
+  // The Lens of Truth (ORM objetos-uso): while it is on, the head is the
+  // lens piece, so the other games' puppets wear it too; off, the flag again.
+  if (const auto lens = read_lens()) e.head = *lens;
+  // ORM (oot-remake docs/INVENTARIO.md, "Cartera de cada uno"): the wallet, to
+  // be shown in every game's HUD; each player's own, never shared.
+  e.rupees = wallet_value(flags.get_int(kCurrentRupeeFlag));
   if (e == protocol::Equipment{}) return std::nullopt;
   return e;
+}
+
+std::optional<std::string> PlayerReader::read_lens() {
+  const auto user = equipment_user();
+  if (!user) return std::nullopt;
+  for (std::uint32_t i = 0; i < addr::kArmorLinkCount; ++i) {
+    const auto name =
+        read_link_name(*user + addr::kArmorLinks + addr::kEquipSlotStride * i);
+    if (name && name->find(addr::kLensMark) != std::string::npos) return name;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::uint64_t> PlayerReader::equipment_user() {
+  const auto actor = find_player_actor();
+  if (!actor) return std::nullopt;
+  const auto components = read_ptr(memory_, *actor + addr::kActorComponents);
+  if (!components) return std::nullopt;
+  return read_ptr(memory_, *components + addr::kComponentsEquipmentUser);
 }
 
 std::optional<std::uint8_t> PlayerReader::read_drawn() {
@@ -299,14 +328,12 @@ std::optional<std::uint8_t> PlayerReader::read_drawn() {
 
 std::optional<std::string> PlayerReader::read_slot_name(std::uint32_t slot_index) {
   if (slot_index >= addr::kEquipSlotCount) return std::nullopt;
-  const auto actor = find_player_actor();
-  if (!actor) return std::nullopt;
-  const auto components = read_ptr(memory_, *actor + addr::kActorComponents);
-  if (!components) return std::nullopt;
-  const auto user = read_ptr(memory_, *components + addr::kComponentsEquipmentUser);
+  const auto user = equipment_user();
   if (!user) return std::nullopt;
-  const std::uint64_t slot =
-      *user + addr::kEquipSlots + addr::kEquipSlotStride * slot_index;
+  return read_link_name(*user + addr::kEquipSlots + addr::kEquipSlotStride * slot_index);
+}
+
+std::optional<std::string> PlayerReader::read_link_name(std::uint64_t slot) {
   const auto id = read_u32(memory_, slot + addr::kEquipSlotId);
   if (!id) return std::nullopt;
   if (*id == addr::kEmptyId) return std::string{};

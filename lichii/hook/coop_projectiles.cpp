@@ -61,6 +61,16 @@ Element ElementOf(std::string_view equip_arrow) {
     return Element::none;
 }
 
+std::string_view ElementStandIn(Element element) {
+    switch (element) {
+    case Element::fire: return kElementStandIns[0];
+    case Element::ice: return kElementStandIns[1];
+    case Element::light: return kElementStandIns[2];
+    case Element::none: break;
+    }
+    return {};
+}
+
 proto::DamageCause CauseOf(Kind kind, Element element) {
     switch (kind) {
     case Kind::bomb:

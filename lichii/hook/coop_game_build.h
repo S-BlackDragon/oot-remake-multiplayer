@@ -49,6 +49,8 @@ struct MainOffsets {
     std::uint64_t equip_change_state;  // kEquipChangeState
     std::uint64_t unequip_armor;       // kUnequipArmor
     std::uint64_t set_matrix;          // kSetMatrix
+    std::uint64_t set_linear_velocity;   // CoopCarry::still::kSetLinearVelocity
+    std::uint64_t set_angular_velocity;  // CoopCarry::still::kSetAngularVelocity
     std::uint64_t set_time;            // coop_time.cpp kSetTime
     std::uint64_t cut_foliage;         // CoopWorld::kCutFoliage
     // Code patches. The caves (coop_svc.s, coop_hold.s, coop_downed.s) are linked at these
@@ -100,6 +102,8 @@ inline constexpr std::array<Build, 1> kBuilds{{
          .equip_change_state = 0xe34c40,
          .unequip_armor = 0x10aceb0,
          .set_matrix = 0x4c6580,
+         .set_linear_velocity = 0x12dbe0,
+         .set_angular_velocity = 0x12b790,
          .set_time = 0x34522d0,
          .cut_foliage = 0xb80800,
          .frame_step = 0x3b4e300,

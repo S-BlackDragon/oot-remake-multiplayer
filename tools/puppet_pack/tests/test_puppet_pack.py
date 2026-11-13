@@ -446,6 +446,26 @@ class BuildPackTest(unittest.TestCase):
         self.assertFalse([n for n in names if "SLink" in n])
         self.assertNotIn("SLinkUserName", build.info_row({"SLinkUserName": "P"}, "C", sound=False, sound_user="E"))
 
+    def test_pack_with_effects(self):
+        # ORM objetos-uso: --effects keeps the player's effect user, so the AS's EmitEffect events
+        # (spell casts, hammer swings) play on the puppet; off, the pack is as before.
+        members = fake_player_pack("Child")
+        pack, _, names, _ = build.build_pack(members, "Child", effects=True)
+        comps = byml.loads(sarc.read(pack)["Actor/CoopPuppet_Child.engine__actor__ActorParam.bgyml"])["Components"]
+        self.assertEqual(comps["ELinkRef"], "?Component/ELink/Player.engine__component__ELinkParam.bgyml")
+        self.assertIn("Component/ELink/Player.engine__component__ELinkParam.bgyml", names)
+        self.assertEqual(comps["SLinkRef"], "?Component/SLink/Player_Child.engine__component__SLinkParam.bgyml")
+        plain, _, plain_names, _ = build.build_pack(members, "Child")
+        self.assertNotIn("ELinkRef", byml.loads(sarc.read(plain)[
+            "Actor/CoopPuppet_Child.engine__actor__ActorParam.bgyml"])["Components"])
+        self.assertFalse([n for n in plain_names if "ELink" in n])
+        player = {"__RowId": "Player_Child", "ActorName": "Player", "ELinkUserName": "Player",
+                  "SLinkUserName": "Player_Child"}
+        row = build.info_row(player, "CoopPuppet_Child", effects=True)
+        self.assertEqual(row["ELinkUserName"], "Player")
+        self.assertNotIn("ActorName", row)
+        self.assertNotIn("ELinkUserName", build.info_row(player, "CoopPuppet_Child"))
+
     def test_pack_without_sound(self):
         members = fake_player_pack("Child")
         pack, _, names, _ = build.build_pack(members, "Child", sound=False)
@@ -554,7 +574,9 @@ class BuildPackTest(unittest.TestCase):
         self.assertEqual([n for _, n in build.STAND_INS],
                          ["CoopShot_Seed", "CoopShot_Arrow", "CoopShot_Hook", "CoopShot_HookLong",
                           "CoopShot_Lure", "CoopShot_SinkingLure", "CoopShot_Bomb",
-                          "CoopShot_Boomerang", "CoopRide_Epona"])
+                          "CoopShot_Boomerang", "CoopRide_Epona", "CoopShot_FishingLine"])
+        self.assertEqual(build.EFFECT_STAND_INS, (("ExpandFireField", "CoopShot_DinFire"),
+                                                  ("PlayerShockWave", "CoopShot_ShockWave")))
 
     def test_seed_stand_in_plays_its_tail(self):
         # Issue 198: with the impacts' AI template the seed stand-in also plays the seed's Tail.
@@ -629,6 +651,45 @@ class BuildPackTest(unittest.TestCase):
         self.assertEqual([i[0] for i in build.IMPACTS],
                          ["CoopHit_SeedSpark", "CoopHit_SeedSound", "CoopHit_Arrow", "CoopHit_ArrowSound"])
 
+    def test_effect_stand_in(self):
+        # ORM objetos-uso: Din's Fire has no model; its stand-in is its effect user only, never its
+        # fire, attack, physics or AI.
+        din = {"Components": {
+            "ELinkRef": "?Component/ELink/ExpandFireField.engine__component__ELinkParam.bgyml",
+            "ChemicalRef": "?Component/ChemicalParam/ExpandFireField.game__component__ChemicalParam.bgyml",
+            "PhysicsRef": "?Component/Physics/ExpandFireField.engine__component__PhysicsParam.bgyml",
+            "ShootableRef": "?Component/ShootableParam/ExpandFireField.game__component__ShootableParam.bgyml",
+            "AttackRef": "?GameBalance/AttackParam/ExpandFireField.game__gamebalance__AttackParam.bgyml",
+            "AIInfoRef": "?AI/AIInfo/ExpandFireField.engine__actor__AIInfo.bgyml",
+        }}
+        members = {
+            "Actor/ExpandFireField.engine__actor__ActorParam.bgyml": byml.dumps(din),
+            "Component/ELink/ExpandFireField.engine__component__ELinkParam.bgyml": byml.dumps(
+                {"UserName": "ExpandFireField"}),
+            "Component/ChemicalParam/ExpandFireField.game__component__ChemicalParam.bgyml": byml.dumps({}),
+            "Component/Physics/ExpandFireField.engine__component__PhysicsParam.bgyml": byml.dumps({}),
+        }
+        pack, ap, names = build.build_stand_in(members, "ExpandFireField", "CoopShot_DinFire", effect=True)
+        comps = byml.loads(ap)["Components"]
+        self.assertEqual(comps["ELinkRef"], din["Components"]["ELinkRef"])
+        for k in ("ChemicalRef", "PhysicsRef", "ShootableRef", "AttackRef", "AIInfoRef", "ModelInfoRef"):
+            self.assertNotIn(k, comps)
+        self.assertEqual(comps["ActorLogicNodeRef"], build.FIXED_COMPONENTS["ActorLogicNodeRef"])
+        self.assertEqual(names, ["Actor/CoopShot_DinFire.engine__actor__ActorParam.bgyml",
+                                 "Component/ELink/ExpandFireField.engine__component__ELinkParam.bgyml"])
+        # A model-only stand-in of it cannot be made, and an effect one needs the effect user.
+        with self.assertRaises(build.BuildError):
+            build.build_stand_in(members, "ExpandFireField", "CoopShot_DinFire")
+        with self.assertRaises(build.BuildError):
+            build.make_effect_stand_in_param({"PhysicsRef": "x"})
+        row = build.stand_in_row({"__RowId": "ExpandFireField", "ActorName": "ExpandFireField",
+                                  "ELinkUserName": "ExpandFireField", "SLinkUserName": "X"},
+                                 "CoopShot_DinFire", effect=True)
+        self.assertEqual(row["ELinkUserName"], "ExpandFireField")
+        for k in ("ActorName", "SLinkUserName"):
+            self.assertNotIn(k, row)
+        self.assertEqual(row["__RowId"], "CoopShot_DinFire")
+
     def test_bomb_stand_in_keeps_its_animations(self):
         # Issue 169: the held bomb's stand-in has the model and the animation set (its fuse can
         # blink), and no physics, life, liftable or AI.
@@ -688,6 +749,61 @@ class BuildPackTest(unittest.TestCase):
         self.assertEqual(horse["ASRef"], bomb["Components"]["ASRef"])
         for k in ("AIScheduleRef", "RidableRef", "HorseRef", "PhysicsRef"):
             self.assertNotIn(k, horse)
+
+    def test_horse(self):
+        # ORM D-R19: the riders' horse is Epona's model, AS and animations, nothing that rides or thinks.
+        parent = {"Components": {
+            "ASRef": "?AS/Animal_Horse_New.root.asb",
+            "ASInfoRef": "?Component/ASInfo/Animal_Horse.engine__component__ASInfo.bgyml",
+            "AnimationRef": "?Component/AnimationParam/Animal_Horse.engine__component__AnimationParam.bgyml",
+            "ActorLogicNodeRef": "Work/Logic/NodeDefinition/Node/ActorLogicAnimalHorse.aidefn",
+            "LODRef": "?Component/LODParam/Animal_Horse.engine__component__LODParam.bgyml",
+            "HorseRef": "?Component/HorseParam/Default.game__component__HorseParam.bgyml",
+            "PhysicsRef": "?Component/Physics/Animal_Horse.engine__component__PhysicsParam.bgyml",
+            "AttentionSenderRef": "?Component/AttentionSenderParam/Animal_Horse.game__component__AttentionSenderParam.bgyml",
+            "ModelInfoRef": "?Component/ModelInfo/Animal_Horse_Normal.engine__component__ModelInfo.bgyml",
+        }}
+        epona = {"$parent": "Work/Actor/Animal_Horse.engine__actor__ActorParam.gyml", "Components": {
+            "ActorNameRef": "?ActorSystem/ActorName/Animal_Epona_Adult.engine__actor__ActorName.bgyml",
+            "ModelInfoRef": "?Component/ModelInfo/Animal_Epona_Adult.engine__component__ModelInfo.bgyml",
+            "HorseRef": "?Component/HorseParam/Animal_Epona.game__component__HorseParam.bgyml",
+        }}
+        model = {"FmdbName": "Animal_Horse_Epona_Adult", "ModelProjectName": "Animal_Horse_Epona_Adult",
+                 "ModelVariationAnims": [
+                     {"Fmab": "Work/Model/Animal/Animal_Horse_Epona_Adult/output/SaddleOn.fvbb", "IsPlay": False},
+                     {"Fmab": "Work/Model/Animal/Animal_Horse_Epona_Adult/output/SaddleOff.fvbb"}]}
+        mi = "Component/ModelInfo/Animal_Epona_Adult.engine__component__ModelInfo.bgyml"
+        members = {
+            "Actor/Animal_Horse.engine__actor__ActorParam.bgyml": byml.dumps(parent),
+            "Actor/Animal_Epona_Adult.engine__actor__ActorParam.bgyml": byml.dumps(epona),
+            mi: byml.dumps(model),
+            "Component/ASInfo/Animal_Horse.engine__component__ASInfo.bgyml": byml.dumps({"NumSlots": 2}),
+            "Component/HorseParam/Animal_Epona.game__component__HorseParam.bgyml": byml.dumps({}),
+            "Component/Physics/Animal_Horse.engine__component__PhysicsParam.bgyml": byml.dumps({}),
+        }
+        pack, ap, names, made = build.build_horse(members, *build.HORSE)
+        comps = byml.loads(ap)["Components"]
+        self.assertEqual(comps["ASRef"], "?AS/Animal_Horse_New.root.asb")
+        self.assertEqual(comps["ActorLogicNodeRef"], build.FIXED_COMPONENTS["ActorLogicNodeRef"])
+        for k in ("HorseRef", "PhysicsRef", "AttentionSenderRef", "ActorNameRef"):
+            self.assertNotIn(k, comps)
+        own = "Component/ModelInfo/CoopPuppet_Horse.engine__component__ModelInfo.bgyml"
+        self.assertEqual(comps["ModelInfoRef"], "?" + own)
+        self.assertEqual(made[0], own)
+        self.assertEqual(made[2], mi)
+        saddle = byml.loads(sarc.read(pack)[own])
+        self.assertEqual(saddle["FmdbName"], "Animal_Horse_Epona_Adult")  # Epona's model
+        self.assertEqual(saddle["ModelVariationAnims"],
+                         [{"Fmab": "Work/Model/Animal/Animal_Horse_Epona_Adult/output/SaddleOn.fvbb"}])
+        self.assertIn("Actor/CoopPuppet_Horse.engine__actor__ActorParam.bgyml", names)
+        self.assertNotIn("Component/HorseParam/Animal_Epona.game__component__HorseParam.bgyml", names)
+        self.assertEqual(sorted(sarc.read(pack)), names)
+        # A ModelInfo with no SaddleOn is used as it is.
+        model2 = {"FmdbName": "X", "ModelVariationAnims": [{"Fmab": "a/Color.fmab"}]}
+        self.assertIsNone(build.horse_model({mi: byml.dumps(model2)}, "?" + mi, "CoopPuppet_Horse"))
+        self.assertIsNone(build.horse_model({}, "?" + mi, "CoopPuppet_Horse"))
+        with self.assertRaises(build.BuildError):
+            build.make_horse_param({"ModelInfoRef": "x"})
 
     def test_actor_param_chain(self):
         members = fake_player_pack("Adult")
@@ -1023,6 +1139,8 @@ class FullBuildTest(unittest.TestCase):
         self.assertIs(man["sound"], True)
         self.assertEqual(man["footsteps"], "puppet")
         self.assertIsNone(man["sound_user"])
+        self.assertIs(man["effects"], True)  # ORM efectos2: on by default
+        self.assertNotIn("ELinkUserName", rows["CoopPuppet_Child"])
         # The puppet's footstep param has its own entry; the made-up table has none for the
         # player's file, so it is the file plus the margin.
         for a in man["actors"]:
@@ -1075,6 +1193,100 @@ class FullBuildTest(unittest.TestCase):
             for m in i["members"]:
                 self.assertGreater(t.get(m), len(files[m]))
             self.assertGreater(t.get(i["pack"][:-3]), 0)
+
+    def test_build_effects_and_effect_stand_in(self):
+        # ORM objetos-uso: with Din's Fire's pack in the romfs its effect stand-in is built and listed
+        # under "shots" (the hook reads them there); --effects keeps the puppets' effect user.
+        from puppet_pack import zs
+        d = zs.Dicts.from_romfs(self.romfs)
+        din = {"Components": {"ELinkRef": "?Component/ELink/ExpandFireField.engine__component__ELinkParam.bgyml",
+                              "PhysicsRef": "?Component/Physics/F.engine__component__PhysicsParam.bgyml"}}
+        members = {"Actor/ExpandFireField.engine__actor__ActorParam.bgyml": byml.dumps(din),
+                   "Component/ELink/ExpandFireField.engine__component__ELinkParam.bgyml": byml.dumps(
+                       {"UserName": "ExpandFireField"})}
+        self.write("Pack/Actor/ExpandFireField.pack.zs", d.compress(sarc.write(members), build.PACK_DICT))
+        # The shock wave's pack has no effect user here: left out, the build goes on.
+        self.write("Pack/Actor/PlayerShockWave.pack.zs", d.compress(sarc.write(
+            {"Actor/PlayerShockWave.engine__actor__ActorParam.bgyml": byml.dumps({"Components": {}})}),
+            build.PACK_DICT))
+        ai = byml.loads(self.ai_bytes) + [
+            {"__RowId": "ExpandFireField", "ActorName": "ExpandFireField", "ELinkUserName": "ExpandFireField"},
+            {"__RowId": "PlayerShockWave", "ELinkUserName": "PlayerShockWave"}]
+        for r in ai:
+            if r["__RowId"] == "Player_Child":
+                r["ELinkUserName"] = "Player"
+        self.write("RSDB/ActorInfo.Product.999.rstbl.byml.zs", zstandard.ZstdCompressor().compress(byml.dumps(ai)))
+        mod = os.path.join(self.dir, "mod_fx")
+        said = []
+        m = build.build(self.romfs, mod, log=said.append, effects=True)
+        self.assertIs(m["effects"], True)
+        self.assertEqual([(s["actor"], s.get("effect")) for s in m["shots"]], [("CoopShot_DinFire", True)])
+        self.assertTrue(any(l.startswith("CoopShot_ShockWave:") and "left out" in l for l in said))
+        rows = {r["__RowId"]: r for r in byml.loads(d.decompress(build.read(
+            os.path.join(mod, "romfs", "RSDB/ActorInfo.Product.999.rstbl.byml.zs"))))}
+        self.assertEqual(rows["CoopShot_DinFire"]["ELinkUserName"], "ExpandFireField")
+        self.assertNotIn("ActorName", rows["CoopShot_DinFire"])
+        self.assertEqual(rows["CoopPuppet_Child"]["ELinkUserName"], "Player")
+        packed = sarc.read(d.decompress(build.read(os.path.join(mod, "romfs", "Pack/Actor/CoopShot_DinFire.pack.zs"))))
+        comps = byml.loads(packed["Actor/CoopShot_DinFire.engine__actor__ActorParam.bgyml"])["Components"]
+        self.assertNotIn("PhysicsRef", comps)
+        self.assertIn("ELinkRef", comps)
+
+    def test_build_fx_stand_ins(self):
+        # ORM efectos2: a status stand-in is an effect locator's effect user, listed under "shots"
+        # with "status" (the hook's StandInsIn finds the name anywhere in the manifest); the
+        # locators the romfs lacks are left out and the build goes on.
+        from puppet_pack import zs
+        d = zs.Dicts.from_romfs(self.romfs)
+        source = build.FX_STAND_INS[0][0]
+        loc = {"Components": {
+            "ELinkRef": f"?Component/ELink/{source}.engine__component__ELinkParam.bgyml",
+            "GameLifeConditionRef": "?ActorSystem/GameLifeCondition/Landmark02km.game__actor__LifeCondition.bgyml",
+            "LODRef": "?Component/LODParam/Default.engine__component__LODParam.bgyml",
+        }}
+        members = {f"Actor/{source}.engine__actor__ActorParam.bgyml": byml.dumps(loc),
+                   f"Component/ELink/{source}.engine__component__ELinkParam.bgyml": byml.dumps(
+                       {"UserName": source})}
+        self.write(f"Pack/Actor/{source}.pack.zs", d.compress(sarc.write(members), build.PACK_DICT))
+        ai = byml.loads(self.ai_bytes) + [{"__RowId": source, "CalcRadius": 20.0, "ELinkUserName": source}]
+        self.write("RSDB/ActorInfo.Product.999.rstbl.byml.zs", zstandard.ZstdCompressor().compress(byml.dumps(ai)))
+        mod = os.path.join(self.dir, "mod_status")
+        said = []
+        m = build.build(self.romfs, mod, log=said.append)
+        self.assertEqual([(s["actor"], s.get("effect"), s.get("status")) for s in m["shots"]],
+                         [("CoopFx_Burn", True, True)])
+        for _, name in build.FX_STAND_INS[1:]:
+            self.assertTrue(any(l.startswith(f"{name}:") and "left out" in l for l in said), name)
+        rows = {r["__RowId"]: r for r in byml.loads(d.decompress(build.read(
+            os.path.join(mod, "romfs", "RSDB/ActorInfo.Product.999.rstbl.byml.zs"))))}
+        self.assertEqual(rows["CoopFx_Burn"]["ELinkUserName"], source)
+        self.assertEqual(rows["CoopFx_Burn"]["CalcRadius"], build.INFO_OVERRIDES["CalcRadius"])
+        packed = sarc.read(d.decompress(build.read(os.path.join(mod, "romfs", "Pack/Actor/CoopFx_Burn.pack.zs"))))
+        comps = byml.loads(packed["Actor/CoopFx_Burn.engine__actor__ActorParam.bgyml"])["Components"]
+        self.assertEqual(comps["ELinkRef"], loc["Components"]["ELinkRef"])
+        self.assertNotIn("GameLifeConditionRef", comps)  # nothing deletes it but the hook
+        self.assertIn(f"Component/ELink/{source}.engine__component__ELinkParam.bgyml", packed)
+        man = build.read(os.path.join(mod, "coop_puppet.json")).decode()
+        self.assertIn('"CoopFx_Burn"', man)
+
+    def test_fx_stand_in_names(self):
+        # The hook's CoopEffects::kFxStandIns (lichii/hook/coop_effects.h) has these same names,
+        # in this order (burn, freeze, shock, Nayru), and each source is an effect locator.
+        self.assertEqual([n for _, n in build.FX_STAND_INS],
+                         ["CoopFx_Burn", "CoopFx_Freeze", "CoopFx_Shock", "CoopFx_Nayru"])
+        for source, _ in build.FX_STAND_INS:
+            self.assertTrue(source.startswith("EftLoc_"), source)
+
+    def test_main_effects_switches(self):
+        # ORM efectos2: the effect user is in by default; --no-effects leaves it out; both is refused.
+        for args, want in (([], True), (["--effects"], True), (["--no-effects"], False)):
+            mod = os.path.join(self.dir, "mod_fx_" + "_".join(a.strip("-") for a in args))
+            self.assertEqual(build.main(["--romfs", self.romfs, "--mod-dir", mod, "--any-version"] + args), 0)
+            man = json.loads(build.read(os.path.join(mod, "coop_puppet.json")))
+            self.assertIs(man["effects"], want, args)
+        with self.assertRaises(SystemExit):
+            build.main(["--romfs", self.romfs, "--mod-dir", os.path.join(self.dir, "x"), "--any-version",
+                        "--effects", "--no-effects"])
 
     def test_build_heap_switch(self):
         from puppet_pack import zs
@@ -1443,8 +1655,10 @@ class NupTest(unittest.TestCase):
     def test_nup_files_has_the_stand_in_sources(self):
         # The pack built from a .nup (before this fix) had "shots": []: only REQUIRED was extracted, so
         # every STAND_INS source was "left out". They are read from the .nup when it has them.
-        self.assertEqual({f"Pack/Actor/{src}.pack.zs" for src, _ in build.STAND_INS} |
-                         {f"Pack/Actor/{build.IMPACT_SOURCE}.pack.zs"} |
+        self.assertEqual({f"Pack/Actor/{src}.pack.zs" for src, _ in
+                          build.STAND_INS + build.EFFECT_STAND_INS + build.GET_STAND_INS + build.FX_STAND_INS
+                          + build.HORSES} |
+                         {f"Pack/Actor/{build.IMPACT_SOURCE}.pack.zs", f"Pack/Actor/{build.LOCK_SOURCE}.pack.zs"} |
                          {"Tex/Angin_Tile_A_Alb.bntx.zs", "Tex/Angin_Tile_A_Dark_Alb.bntx.zs",
                           "Tex/Mt_Vest_Player_Adult_Alb.bntx.zs", "Tex/Mt_Angin_Acs_Player_Adult_Alb.bntx.zs",
                           "Tex/Mt_Cloth_Parts_Player_Child_Alb.bntx.zs", "Tex/Mt_Vest_Player_Child_Alb.bntx.zs"} |

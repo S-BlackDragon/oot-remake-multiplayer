@@ -127,6 +127,35 @@ struct SessionConfig {
   float handover_owner_far_m = 40.0f;
   float handover_chase_m = 20.0f;
   std::uint64_t handover_hold_us = 3'000'000;
+  // ORM OBJECT_POSE (oot-remake docs/NPC_COMPARTIDOS.md, steps 5 to 7): a
+  // player's poses come at most one every object_pose_gap_us (a game sends 20
+  // a second), and for one object at a time: a pose of another object within
+  // object_pose_one_us of the last one relayed is dropped. Both bound what one
+  // player can make the server send, whatever its game does.
+  std::uint64_t object_pose_gap_us = 25'000;
+  std::uint64_t object_pose_one_us = 500'000;
+  // ORM (orm_interest.hpp): a PLAYER_POSE goes only to the players in the
+  // sender's place (a scene in either era), not to every other player.
+  bool pose_same_place = true;
+  // ORM OCARINA_NOTE (oot-remake docs/OCARINA.md, section 7): each player's
+  // notes have a bucket of their own, refilled with ocarina_note_per_second
+  // up to ocarina_note_burst (a game sends at most 12 a second); the rest are
+  // dropped and counted in ocarina_note_dropped. It bounds what one player can
+  // make the others' games play, whatever its game does. 0: no limit of its own
+  // (the reliable message rate still applies).
+  std::uint32_t ocarina_note_per_second = 20;
+  std::uint32_t ocarina_note_burst = 20;
+  // ORM quick messages (oot-remake docs/COMUNICACION.md): CHAT had no limit of
+  // its own past the message budget above (120 lines at once). A player's
+  // chat lines are held to chat_count in any chat_window_us, each at least
+  // chat_gap_us after the one before; the rest are dropped and counted in
+  // chat_limited (one log line per run of drops). The game keeps itself under
+  // it (8 in 10 s, 250 ms apart: coop/host/quick_chat.hpp), so a line it shows
+  // as sent is not dropped here; the margin is for lines that arrive bunched.
+  // chat_count 0: off.
+  std::uint32_t chat_count = 10;
+  std::uint64_t chat_window_us = 10'000'000;
+  std::uint64_t chat_gap_us = 0;
   std::uint64_t handover_cooldown_us = 5'000'000;
   // Issue 101: a game that is not the owner says its copy chases its own
   // Link (OBJECT_PRESENT flag targeting). Its game is the only one whose
@@ -592,6 +621,40 @@ class Session {
     // its own lure is; lures_at 0: none yet.
     std::map<protocol::ObjectId, protocol::FishLureEntry> lures;
     std::uint64_t lures_at = 0;
+    // ORM: its last PLAYER_LOOK (the player field its number), for joiners.
+    std::optional<protocol::PlayerLook> look;
+    // ORM: its last GROUP_SETTINGS (the player field its number), for joiners.
+    std::optional<protocol::GroupSettings> settings;
+    // ORM orm/pvp: its PLAYER_HIT bucket (hits_per_second) and when it was
+    // filled; the last PLAYER_HIT relayed to it (pvp_down_window_us); its
+    // last fall to PvP (0: none, or up since); its last PLAYER_CALL and
+    // PLAYER_RENAME (call_gap_us).
+    double hit_budget = 0;
+    std::uint64_t hit_at = 0;
+    std::uint64_t hit_taken_at = 0;
+    std::uint64_t pvp_down_at = 0;
+    std::uint64_t call_at = 0;
+    std::uint64_t rename_at = 0;
+    // ORM: the object of its last relayed OBJECT_POSE, and when; that pose's
+    // time and parts mask, and the parts of it relayed so far.
+    std::optional<protocol::ObjectId> pose_object;
+    std::uint64_t pose_at = 0;
+    // ORM: its OCARINA_NOTE bucket (notes), refilled with time since ocarina_at.
+    double ocarina_budget = 0;
+    std::uint64_t ocarina_at = 0;
+    // ORM: when its last chat lines were relayed (SessionConfig::chat_count),
+    // and whether the drop that runs now was logged.
+    std::deque<std::uint64_t> chat_times;
+    bool chat_drop_logged = false;
+    protocol::SampleTime pose_time;
+    std::uint8_t pose_parts = 0;
+    std::uint8_t pose_parts_relayed = 0;
+    // ORM one host (orm_host.cpp): its round trips to us, its wish, when it
+    // joined, and when its last pick was taken (picks are held to one a second).
+    LinkMeasure link;
+    protocol::HostWish host_wish = protocol::HostWish::automatic;
+    std::uint64_t joined_at = 0;
+    std::uint64_t host_pick_at = 0;
   };
 
   // One shared object (docs/objects.md "Server").

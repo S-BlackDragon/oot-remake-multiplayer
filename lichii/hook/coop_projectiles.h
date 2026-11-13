@@ -22,6 +22,7 @@
 
 #include <array>
 #include <cstdint>
+#include <array>
 #include <deque>
 #include <mutex>
 #include <optional>
@@ -49,6 +50,11 @@ struct Info {
 
 const Info* Find(std::string_view actor);
 Element ElementOf(std::string_view equip_arrow);  // "Item_Arrow_Fire" and so on
+// ORM riesgos-visual: the copy of an elemental arrow (tools/puppet_pack build.py
+// ARROW_ELEMENT_STAND_INS): "CoopShot_Arrow_Fire", "_Ice", "_Light"; "" plain.
+std::string_view ElementStandIn(Element element);
+inline constexpr std::array<std::string_view, 3> kElementStandIns{"CoopShot_Arrow_Fire", "CoopShot_Arrow_Ice",
+                                                                  "CoopShot_Arrow_Light"};
 coop::protocol::DamageCause CauseOf(Kind kind, Element element = Element::none);
 const char* NameOf(Kind kind);
 const char* NameOf(Element element);

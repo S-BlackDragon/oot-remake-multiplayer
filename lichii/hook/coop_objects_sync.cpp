@@ -6,6 +6,8 @@
 #include "coop/host/gerudo.hpp"
 #include "coop_guard.h"
 #include "coop_world.h"
+#include "coop/host/epona.hpp"  // ORM D-R19
+#include "coop/host/final_rules.hpp"  // ORM endgame: owner_keep
 
 #include <algorithm>
 #include <cmath>
@@ -170,6 +172,9 @@ bool IsShared(std::string_view name) {
     // the other game drew two horses (its copy and the ride's stand-in).
     // The ride sync (coop_ride.h) shows the other player's horse instead.
     if (name == "Animal_Epona_Adult") return false;
+    // ORM "Levantar": a bomb flower's fruit, so the one a player carries is
+    // seen in his hands and goes off once (LICHII_COOP_CARRY_FLOWERS).
+    if (CoopCarry::ShareFlowers() && CoopCarry::IsBombFlower(name)) return true;
     return name.starts_with("Enemy_") || name.starts_with("Animal_") ||
            CoopWorld::IsBreakable(name);
 }
@@ -749,6 +754,29 @@ std::uint8_t Sync::OwnerOf(const proto::ObjectId& id) const {
     return it == owners_.end() ? 0 : it->second.player;
 }
 
+std::optional<std::uint16_t> Sync::EpochOf(const proto::ObjectId& id) const {
+    const auto it = owners_.find(id);
+    if (it == owners_.end() || it->second.player == 0) {
+        return std::nullopt;
+    }
+    return it->second.epoch;
+}
+
+std::optional<std::uint64_t> Sync::CopyFor(const proto::ObjectId& id, std::uint8_t owner,
+                                           std::uint16_t epoch) const {
+    const auto known = owners_.find(id);
+    if (owner == 0 || owner == self_ || known == owners_.end() || known->second.player != owner ||
+        known->second.epoch != epoch) {
+        return std::nullopt;
+    }
+    for (const auto& [address, o] : objects_) {
+        if (o.id == id && o.name.starts_with("Npc_") && !talk_freed_.contains(address)) {
+            return address;
+        }
+    }
+    return std::nullopt;
+}
+
 proto::ObjectState Sync::StateOf(Object& o, std::uint64_t now_us) {
     proto::ObjectState state;
     state.time = {now_us, ++o.sequence};
@@ -1199,6 +1227,9 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
             life = proto::ObjectLife{0, o.max};
         }
         if (life) {
+            if (HeldLife(o, *life, now_us, writes)) {
+                continue;  // ORM "Levantar": in another player's puppet's hands
+            }
             if (o.life && life->life < *o.life) {
                 o.fight_until = now_us + kFightUs;
                 std::int32_t drop = *o.life - life->life;
@@ -1613,7 +1644,8 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                 held != carry_ours_.end() ? std::optional(held->second) : std::nullopt;
             const bool changed = life != o.sent_life || Moved(o.position, o.sent_position) ||
                                  Turned(rotation, o.sent_rotation) ||
-                                 animation != o.sent_animation || slots != o.sent_slots;
+                                 animation != o.sent_animation || slots != o.sent_slots ||
+                                 (o.sent_moving && !moving) || keep != o.sent_keep || carry != o.sent_carry;
             if (!o.sent_once || changed || now_us - o.sent_at >= kStillEveryUs) {
                 proto::ObjectSample sample;
                 sample.id = o.id;
@@ -1984,6 +2016,13 @@ void Sync::Flush(std::uint8_t self, std::uint64_t now_us, std::vector<Object>& g
                 send.emplace_back(r);
                 notes_.emplace_back("dead, said to the others: " + o.name);
             }
+        } else if ((o.hit_sum > 0 || broken_here) && o.held_other_at != 0 &&
+                   now_us - o.held_other_at <= kHeldEchoUs) {
+            // ORM "Levantar": gone from another player's puppet's hands (or just
+            // after): the holder's game decides its break.
+            notes_.emplace_back("carry: " + o.name +
+                                " went in another player's hands here: no hit of ours, not sent "
+                                "(the holder's game decides)");
         } else if (o.hit_sum > 0 || broken_here) {
             proto::Damage d;
             d.id = o.id;
@@ -2222,12 +2261,19 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
                                            sample->state.velocity, sample->state.animation,
                                            sample->state.slots.value_or(
                                                std::vector<proto::SlotAnimation>{})});
+                    o->received.back().carry = sample->state.carry;  // ORM "Levantar"
                     while (o->received.size() > kKeepSamples) {
                         o->received.pop_front();
                     }
                 }
             }
             if (!sample->state.life || !o->life) {
+                continue;
+            }
+            if (o->held_life) {
+                // ORM "Levantar": ours stays raised while the puppet holds it;
+                // the owner's life is put back when the hold ends (HeldLife).
+                o->owner_life = sample->state.life->life;
                 continue;
             }
             const std::int32_t life = sample->state.life->life;
@@ -2271,6 +2317,15 @@ void Sync::Apply(std::uint8_t self, std::uint64_t now_us, std::vector<proto::Mes
             }
             if (damage->player_number == self) {
                 continue;  // our own hit, sent before it became ours: already in its life
+            }
+            if (carry_claims_.contains(o->address)) {
+                // ORM "Levantar": our Link holds it (or has just let it go): our
+                // game decides its break (a copy in the other game's puppet's
+                // hands is no place to break it from).
+                notes_.emplace_back("carry: P" + std::to_string(damage->player_number) + "'s DAMAGE of " +
+                                    std::to_string(damage->amount) + " to " + o->name +
+                                    ", which our Link holds: not taken (our game decides)");
+                continue;
             }
             std::int32_t amount = damage->amount;
             if (o->blast_credit > 0 && now_us < o->blast_until) {
@@ -2354,6 +2409,111 @@ void Sync::DeadByWrite(Object& o, std::uint16_t epoch, std::uint64_t now_us,
     notes_.emplace_back(std::string("dead by ") + why + ", said to the others: " + o.name);
 }
 
+bool Sync::HeldLife(Object& o, const proto::ObjectLife& life, std::uint64_t now_us,
+                    std::vector<LifeWrite>& writes) {
+    if (!o.breakable) {
+        return false;
+    }
+    const bool held = CarriedByOther(o.address, now_us);
+    // ORM (SONDAS.md round 6): just thrown, the raise stays kThrownKeepUs, until the holder's break comes. Seen in
+    // a game (sondas18r6): our copy, thrown out of the puppet's hands, broke on its own landing 0.24 s later, 1.2 s
+    // before the holder's WORLD_BREAK, so the world sync had no copy left to break.
+    const bool thrown = !held && o.held_life && !o.held_raise_failed && o.held_other_at != 0 &&
+                        now_us - o.held_other_at <= kThrownKeepUs;
+    if (held || thrown) {
+        if (held) {
+            o.held_other_at = now_us;
+            if (!o.received.empty() && o.received.back().carry) {
+                o.held_holder = o.received.back().carry->holder;
+            }
+        }
+        const std::string holder =
+            o.held_holder != 0 ? "P" + std::to_string(o.held_holder) : std::string("another player");
+        const std::string where = held ? " in " + holder + "'s puppet's hands"
+                                       : " just out of " + holder + "'s puppet's hands (thrown)";
+        if (thrown && !o.held_thrown_said) {
+            o.held_thrown_said = true;
+            notes_.emplace_back("carry: " + o.name + where + ": life kept raised up to " +
+                                std::to_string(kThrownKeepUs / 1000) + " ms, until the holder's break comes");
+        }
+        if (life.life <= 0) {
+            // It broke in the hands anyway (the raise did not take, or came
+            // a walk late): never our hit. Its owner's life is not written
+            // back on the pieces (dead_at: the holder's break comes).
+            if (!o.life || *o.life > 0) {
+                notes_.emplace_back("carry: " + o.name + " broke" + where + " here anyway (life 0, " +
+                                    (o.held_raise_failed ? "the raise did not take"
+                                     : o.held_life       ? "raised"
+                                                         : "not raised yet") +
+                                    "): no hit of ours, not sent (the holder's game decides)");
+            }
+            o.held_life = false;
+            o.held_thrown_said = false;
+            if (o.dead_at == 0) {
+                o.dead_at = now_us;
+            }
+            o.life = 0;
+            o.max = life.max;
+            return true;
+        }
+        if (!o.held_life) {
+            o.held_life = true;
+            o.held_raise_failed = false;
+            o.owner_life = o.life.value_or(life.life);
+            o.owner_max = life.max;
+            writes.push_back({o.address, kHeldLife, 0, {}, kHeldLife});
+            notes_.emplace_back("carry: " + o.name + " in " + holder + "'s puppet's hands here: life and max kept at " +
+                                std::to_string(kHeldLife) + " while held (a bump of the hands is no break)");
+            o.life = kHeldLife;
+            o.max = kHeldLife;
+            return true;
+        }
+        if (o.held_raise_failed) {
+            o.life = life.life;  // the fallback: only its break is kept back
+            o.max = life.max;
+            return true;
+        }
+        if (life.max < kHeldLife) {
+            // The game did not keep the raised max: no more writes (each would
+            // be undone again); a break in the hands is still not sent.
+            o.held_raise_failed = true;
+            notes_.emplace_back("carry: " + o.name + " in " + holder + "'s puppet's hands: the raise did not take (" +
+                                std::to_string(life.life) + " of " + std::to_string(life.max) +
+                                "): fallback, its break here is not sent");
+        } else if (life.life < kHeldLife) {
+            writes.push_back({o.address, kHeldLife, 0, {}, kHeldLife});
+            notes_.emplace_back("carry: " + o.name + " took a bump of " + std::to_string(kHeldLife - life.life) +
+                                where + ": life put back, no hit of ours");
+        }
+        o.life = o.held_raise_failed ? life.life : kHeldLife;
+        o.max = life.max;
+        return true;
+    }
+    if (o.held_life) {
+        o.held_life = false;
+        o.held_thrown_said = false;
+        const std::int32_t max = o.owner_max > 0 ? o.owner_max : std::max<std::int32_t>(1, life.max);
+        const std::int32_t back = std::min(max, o.owner_life > 0 ? o.owner_life : max);
+        writes.push_back({o.address, back, 0, {}, o.held_raise_failed ? 0 : max});
+        notes_.emplace_back("carry: " + o.name + " out of the puppet's hands: life back to " +
+                            std::to_string(back) + " of " + std::to_string(max) + " (the owner's)");
+        o.held_raise_failed = false;
+        o.life = back;
+        o.max = max;
+        return true;
+    }
+    if (o.held_other_at != 0 && now_us - o.held_other_at <= kHeldEchoUs && o.life &&
+        life.life < *o.life) {
+        notes_.emplace_back("carry: " + o.name + " lost life just after another player's hold (" +
+                            std::to_string(*o.life) + " -> " + std::to_string(life.life) +
+                            "): no hit of ours, not sent (the holder's game decides)");
+        o.life = life.life;
+        o.max = life.max;
+        return true;
+    }
+    return false;
+}
+
 void Sync::Lower(Object& o, std::int32_t life, std::uint64_t now_us,
                  std::vector<LifeWrite>& writes, std::uint8_t hitter) {
     if (!o.life) {
@@ -2388,6 +2548,179 @@ void Sync::Lower(Object& o, std::int32_t life, std::uint64_t now_us,
     o.hurt_until = now_us + kHurtWaitUs;
 }
 
+// Where samples place a copy at server time `t` (Poses): blended between the
+// two around it, carried on by the last one's velocity for at most
+// kExtrapolateUs past it, or the first one before them all. Not empty.
+void Sync::PlaceAt(const std::deque<Received>& received, std::uint64_t t, proto::Vec3& position,
+                   std::optional<proto::Quat>& rotation) {
+    const Received& last = received.back();
+    if (t >= last.time) {
+        const float ahead = static_cast<float>(std::min(t - last.time, kExtrapolateUs)) / 1e6f;
+        position = last.position;
+        if (last.velocity && Finite(*last.velocity)) {
+            for (std::size_t i = 0; i < 3; ++i) {
+                position[i] += (*last.velocity)[i] * ahead;
+            }
+        }
+        rotation = last.rotation;
+    } else if (t <= received.front().time) {
+        position = received.front().position;
+        rotation = received.front().rotation;
+    } else {
+        std::size_t i = 1;
+        while (received[i].time <= t) {
+            ++i;
+        }
+        const Received& a = received[i - 1];
+        const Received& b = received[i];
+        const float f = static_cast<float>(t - a.time) / static_cast<float>(b.time - a.time);
+        position = Lerp(a.position, b.position, f);
+        if (a.rotation && b.rotation) {
+            rotation = Nlerp(*a.rotation, *b.rotation, f);
+        } else {
+            rotation = b.rotation ? b.rotation : a.rotation;
+        }
+    }
+}
+
+void Sync::SetTalk(std::set<std::uint64_t> claims, std::set<std::uint64_t> freed,
+                   std::uint64_t now_us) {
+    // A copy our talk lets go blends back from where our game left it; one
+    // freed again (a new talk) or blended in is done with.
+    for (const std::uint64_t address : talk_freed_) {
+        if (freed.contains(address) || now_us == 0) {
+            continue;
+        }
+        const auto o = objects_.find(address);
+        if (o == objects_.end()) {
+            continue;
+        }
+        Rejoin r;
+        r.since_us = now_us;
+        r.position = o->second.position;
+        if (o->second.rotation) {
+            r.rotation = QuatOf(*o->second.rotation);
+        }
+        rejoin_[address] = r;
+    }
+    std::erase_if(rejoin_, [&](const auto& kv) {
+        return freed.contains(kv.first) || !objects_.contains(kv.first) ||
+               (now_us != 0 && now_us - std::min(now_us, kv.second.since_us) >= kRejoinUs);
+    });
+    talk_claims_ = std::move(claims);
+    talk_freed_ = std::move(freed);
+}
+
+void Sync::SetCarry(std::set<std::uint64_t> claims,
+                    std::map<std::uint64_t, proto::ObjectCarry> ours) {
+    carry_claims_ = std::move(claims);
+    carry_ours_ = std::move(ours);
+}
+
+bool Sync::CarriedByOther(std::uint64_t address, std::uint64_t now_us) const {
+    const auto it = objects_.find(address);
+    if (it == objects_.end() || it->second.received.empty()) {
+        return false;
+    }
+    const Received& last = it->second.received.back();
+    if (now_us < last.time || now_us - last.time > kPoseStaleUs || !last.carry) {
+        return false;
+    }
+    const auto owner = owners_.find(it->second.id);
+    return owner != owners_.end() && owner->second.player != 0 && owner->second.player != self_ &&
+           last.carry->holder != self_;
+}
+
+void Sync::Carried(std::uint64_t now_us, std::uint32_t live, std::vector<CarryPose>& out) const {
+    const std::uint64_t t = now_us > kBehindUs ? now_us - kBehindUs : 0;
+    for (const auto& [address, o] : objects_) {
+        if (o.received.empty() || now_us < o.received.back().time ||
+            now_us - o.received.back().time > kPoseStaleUs) {
+            continue;
+        }
+        const auto owner = owners_.find(o.id);
+        if (owner == owners_.end() || owner->second.player == 0 || owner->second.player == self_ ||
+            talk_freed_.contains(address) || carry_claims_.contains(address)) {
+            continue;
+        }
+        // The sample shown now: the last at or before t (the first when t is
+        // before them all).
+        std::size_t i = 0;
+        while (i + 1 < o.received.size() && o.received[i + 1].time <= t) {
+            ++i;
+        }
+        const Received& a = o.received[i];
+        if (!a.carry || a.carry->holder == 0 || a.carry->holder == self_ ||
+            a.carry->holder > proto::kMaxPlayers) {
+            continue;
+        }
+        CarryPose c;
+        c.address = address;
+        c.name = o.name;
+        c.carry = *a.carry;
+        if (a.time <= t && i + 1 < o.received.size()) {
+            const Received& b = o.received[i + 1];
+            if (b.carry && b.carry->holder == a.carry->holder && b.time > a.time) {
+                const float f = static_cast<float>(t - a.time) / static_cast<float>(b.time - a.time);
+                c.carry = CoopCarry::BlendCarry(*a.carry, *b.carry, f);
+            }
+        }
+        // The first sample of this hold that is still kept: the blend in
+        // runs from it.
+        std::size_t first = i;
+        while (first > 0 && o.received[first - 1].carry &&
+               o.received[first - 1].carry->holder == a.carry->holder) {
+            --first;
+        }
+        const std::uint64_t since = o.received[first].time;
+        c.weight = t <= since ? 0.0f
+                              : std::min(1.0f, static_cast<float>(t - since) /
+                                                   static_cast<float>(kAttachBlendUs));
+        c.fall = (live & (std::uint32_t{1} << a.carry->holder)) == 0;
+        c.fallback.address = address;
+        std::optional<proto::Quat> rotation;
+        PlaceAt(o.received, t, c.fallback.position, rotation);
+        if (rotation) {
+            c.fallback.rotation = MatOf(*rotation);
+        }
+        out.push_back(std::move(c));
+    }
+}
+
+std::optional<float> Sync::RejoinWeight(std::uint64_t address, std::uint64_t now_us) const {
+    const auto r = rejoin_.find(address);
+    if (r == rejoin_.end() || now_us < r->second.since_us ||
+        now_us - r->second.since_us >= kRejoinUs) {
+        return std::nullopt;
+    }
+    const float t =
+        static_cast<float>(now_us - r->second.since_us) / static_cast<float>(kRejoinUs);
+    return t * t * (3.0f - 2.0f * t);  // eased in and out: no jolt at either end
+}
+
+std::vector<std::uint64_t> Sync::Rejoining(std::uint64_t now_us) const {
+    std::vector<std::uint64_t> out;
+    for (const auto& [address, r] : rejoin_) {
+        if (RejoinWeight(address, now_us)) {
+            out.push_back(address);
+        }
+    }
+    return out;
+}
+
+std::optional<proto::Vec3> Sync::PlaceOf(std::uint8_t player, std::uint64_t now_us) const {
+    std::lock_guard lock(inbox_mutex_);
+    const auto it = places_.find(player);
+    if (it == places_.end()) {
+        return std::nullopt;
+    }
+    const std::uint64_t at = it->second.second;
+    if ((at <= now_us ? now_us - at : at - now_us) >= kPlaceStaleUs) {
+        return std::nullopt;
+    }
+    return it->second.first;
+}
+
 void Sync::Poses(std::uint64_t now_us, std::vector<PoseWrite>& out) const {
     const std::uint64_t t = now_us > kBehindUs ? now_us - kBehindUs : 0;
     for (const auto& [address, o] : objects_) {
@@ -2407,7 +2740,6 @@ void Sync::Poses(std::uint64_t now_us, std::vector<PoseWrite>& out) const {
         }
         PoseWrite w;
         w.address = address;
-        const Received& last = o.received.back();
         std::optional<proto::Quat> rotation;
         bool smoothed = false;
         if (smooth_on_ && !o.received.back().bridge) {
@@ -2456,7 +2788,11 @@ std::vector<std::uint64_t> Sync::Holds(std::uint64_t now_us) const {
     std::vector<std::uint64_t> out;
     for (const PoseWrite& w : placed) {
         const auto o = objects_.find(w.address);
-        if (o != objects_.end() && o->second.reacts) {
+        if (o == objects_.end()) {
+            continue;
+        }
+        if ((hold_enemies_ && o->second.reacts) ||
+            (npc_pose_ && o->second.name.starts_with("Npc_"))) {
             out.push_back(w.address);
         }
     }
@@ -2516,6 +2852,7 @@ void Sync::Plays(std::uint64_t now_us, std::vector<PlayWish>& out) const {
             -static_cast<std::int64_t>(kBehindUs), static_cast<std::int64_t>(kExtrapolateUs));
         out.push_back({address, wanted->name, rate, FrameAfter(wanted->frame, rate, age),
                        last.time, 0, {}});
+        out.back().partial = npc_pose_ && o.name.starts_with("Npc_");  // ORM step 6
         // Issue 150: a boss's other slots (Gohma's eye guard and eyelids,
         // whose AS events open and close the eye's guard). Without them
         // each game's copy kept its own AI's guard: the eye stood open for

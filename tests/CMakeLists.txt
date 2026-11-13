@@ -78,13 +78,17 @@ add_executable(coop_tests
   lichii/puppet_test.cpp
   lichii/puppet_config_test.cpp
   lichii/callers_test.cpp
+  lichii/effects_test.cpp
   lichii/fairy_test.cpp
   lichii/rooms_test.cpp
+  lichii/epona_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_epona.cpp
+  lichii/bodies_hook_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_bodies.cpp  # ORM choque
   lichii/objects_test.cpp
   lichii/hits_test.cpp
   lichii/carry_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_carry.cpp
   lichii/spawn_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_spawn.cpp
   lichii/ride_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_ride.cpp
+  lichii/mascaras_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_mascaras.cpp
   lichii/projectiles_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_projectiles.cpp
   lichii/enemy_shots_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_enemy_shots.cpp
   lichii/drops_test.cpp
@@ -114,6 +118,8 @@ add_executable(coop_tests
   lichii/chest_open_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_chest_open.cpp
   lichii/ocarina_test.cpp
   lichii/ocarina_sound_test.cpp
+  orm/orm_ocarina_sound_test.cpp  # ORM: notes and songs at the puppets (was lichii/ocarina_sound_test.cpp)
+  lichii/ocarina_note_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_ocarina_note.cpp
   lichii/pickups_test.cpp
   lichii/testinput_test.cpp
   lichii/time_test.cpp
@@ -180,6 +186,8 @@ add_executable(coop_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_callers.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_camera.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_drops.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_effects.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_enemies.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_chests.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_colors.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_dungeon.cpp
@@ -195,6 +203,7 @@ add_executable(coop_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_hits.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_copy_smooth.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_pose.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_npc_pose.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_puppet.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_puppet_config.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../lichii/hook/coop_doors.cpp

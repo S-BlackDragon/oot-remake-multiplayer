@@ -1,8 +1,15 @@
 // Puppets (coop_puppet.h). No emulator code.
 #include "coop_puppet.h"
 
+#include "coop_check_visual.h"
+
 #include "coop_camera.h"
 #include "coop_colors.h"
+#include "coop_carry.h"  // ORM ocarina-mano: the hand place
+#include "coop_ocarina.h"
+#include "coop_detalles.h"  // ORM
+#include "orm_ocarina_sound.h"  // ORM: the others' notes and songs at their puppets
+#include "coop_perf.h"  // ORM: LICHII_ORM_PERF
 #include "coop_pose.h"
 #include "orm_ride.h"  // ORM: moving floors that carry a partner
 #include "coop_switch.h"
@@ -18,6 +25,7 @@
 #include <string_view>
 #include <mutex>
 
+#include "coop/host/epona.hpp"  // ORM D-R19: riders on a horse
 #include "coop/host/scene.hpp"
 #include "coop/host/session.hpp"
 #include "coop/net/client.hpp"
@@ -199,6 +207,7 @@ std::optional<Call> Director::Step(Guest& guest, bool after_call, std::uint64_t 
 // Once a frame, the full-body pose copy (coop_pose.cpp): our skeleton is
 // read and each live puppet's is written.
 void Director::PoseFrame(Guest& guest, std::uint64_t now_ms) {
+    posed_ = 0;
     if (!pose_copy_) {
         return;
     }
@@ -208,7 +217,360 @@ void Director::PoseFrame(Guest& guest, std::uint64_t now_ms) {
             puppets.emplace_back(slot.number, slot.actor);
         }
     }
-    CoopPose::OnCalcFrame(guest, input_.main_base, puppets, now_ms);
+    // ORM smoothing: the body poses shown for the time the positions are.
+    std::uint64_t render_us = 0;
+    if (smooth_) {
+        const std::uint64_t server = ServerNow(now_ms);
+        const std::uint64_t delay = smooth_delay_us_.load();
+        render_us = server > delay ? server - delay : 0;
+    }
+    posed_ = CoopPose::OnCalcFrame(guest, input_.main_base, puppets, now_ms, render_us);
+}
+
+// ORM (coop_mascaras.h): after the pose copy wrote this frame's body, each
+// live puppet's mask or lens takes its place and its head bones.
+void Director::FollowHeads(Guest& guest) {
+    if (!head_follow_ || input_.main_base == 0) {
+        heads_.Clear();
+        return;
+    }
+    for (const auto& slot : slots_) {
+        if (slot.phase == Phase::live && slot.actor != 0) {
+            heads_.Follow(guest, slot.number, slot.actor, [this](const std::string& s) { Say(s); });
+        } else {
+            heads_.Forget(slot.number);
+        }
+    }
+}
+
+namespace {
+// The actor of an equipment link (a slot's or an armor link's holder).
+std::uint64_t LinkActor(Guest& guest, std::uint64_t link) {
+    std::uint64_t holder = 0;
+    std::uint64_t piece = 0;
+    if (!ReadValue(guest, link + addr::kEquipSlotHolder, holder) || holder == 0 ||
+        !ReadValue(guest, holder + addr::kHolderActor, piece)) {
+        return 0;
+    }
+    return piece;
+}
+
+// An actor's name (+0x260, as CoopFairy::addr::kActorName).
+std::string PieceName(Guest& guest, std::uint64_t actor) {
+    std::uint64_t text = 0;
+    std::array<char, 65> name{};
+    if (actor == 0 || !ReadValue(guest, actor + 0x260, text) || text == 0 || !guest.Read(text, name.data(), 64)) {
+        return {};
+    }
+    return std::string(name.data(), strnlen(name.data(), 64));
+}
+
+// ORM review (REVISION_FINAL.md "Visual"): whether `piece` is still in one of
+// `puppet`'s armor links (not emptied) and not gone, read again each frame
+// before a parked belt Ocarina is written: the puppet made again or deleted
+// (a scene change, a remake), or its belt piece swapped, leaves an address
+// that is no longer that piece.
+bool StillBelt(Guest& guest, std::uint64_t puppet, std::uint64_t piece) {
+    std::uint64_t parts = 0;
+    std::uint64_t eu = 0;
+    if (puppet == 0 || piece == 0 || !ReadValue(guest, puppet + addr::kActorParts, parts) || parts == 0 ||
+        !ReadValue(guest, parts + addr::kPartsEquipmentUser, eu) || eu == 0) {
+        return false;
+    }
+    for (std::uint32_t a = 0; a < addr::kArmorLinkCount; ++a) {
+        const std::uint64_t link = eu + addr::kArmorLinks + addr::kEquipSlotStride * a;
+        std::uint32_t id = 0xFFFFFFFFu;
+        if (!ReadValue(guest, link + addr::kEquipSlotId, id) || id == 0xFFFFFFFFu || LinkActor(guest, link) != piece) {
+            continue;
+        }
+        std::uint32_t state = 0;
+        return ReadValue(guest, piece + addr::kActorState, state) && !Gone(state);
+    }
+    return false;
+}
+}  // namespace
+
+// ORM (docs/SONDAS.md, 2026-11-12): the remake takes Link's own Ocarina from the belt to his hand
+// with its "DemoOcarina" command (the effects rules play it on the puppet under the copied pose).
+// While a puppet's player plays freely, its Ocarina piece (the armor link named as its player's
+// Ocarina) is read kHandJudgeFrames later: up in the hand, "check: ocarina hand ok"; still on
+// the belt, "fallback" (the command did not play on the puppet, or its binding did not follow).
+// Once per play; a new play judges again.
+void Director::OcarinaHandCheck(Guest& guest, Slot& slot, const Target* t) {
+    const bool playing = t != nullptr && t->show == Show::show && t->anim &&
+                         coop::host::activity_of(t->anim->name) == coop::host::Activity::ocarina &&
+                         t->gear[kGearOcarina] && t->gear[kGearOcarina]->starts_with("Item_Ocarina_");
+    if (!playing) {
+        slot.hand_frames = 0;
+        slot.hand_judged = false;
+        return;
+    }
+    if (slot.hand_judged || ++slot.hand_frames < kHandJudgeFrames) {
+        return;
+    }
+    slot.hand_judged = true;
+    std::uint64_t parts = 0;
+    std::uint64_t eu = 0;
+    Vec3 at{};
+    if (!ReadValue(guest, slot.actor + addr::kActorParts, parts) || parts == 0 ||
+        !ReadValue(guest, parts + addr::kPartsEquipmentUser, eu) || eu == 0 ||
+        !ReadValue(guest, slot.actor + addr::kActorPosition, at)) {
+        return;
+    }
+    const std::string who = "P" + std::to_string(slot.number);
+    for (std::uint32_t a = 0; a < addr::kArmorLinkCount; ++a) {
+        const std::uint64_t piece = LinkActor(guest, eu + addr::kArmorLinks + addr::kEquipSlotStride * a);
+        Vec3 piece_at{};
+        if (piece == 0 || PieceName(guest, piece) != *t->gear[kGearOcarina] ||
+            !ReadValue(guest, piece + addr::kActorPosition, piece_at)) {
+            continue;
+        }
+        char up[32];
+        std::snprintf(up, sizeof(up), "%.2f", static_cast<double>(piece_at[1] - at[1]));
+        if (piece_at[1] - at[1] > kHandUp) {
+            CoopVCheck::Ok("ocarina hand", who + "'s own Ocarina is in its hand while " + who + " plays ('" +
+                                               t->anim->name + "', up " + up + ")");
+        } else {
+            CoopVCheck::Fallback("ocarina hand", who + "'s own Ocarina stays on its belt while " + who +
+                                                     " plays ('" + t->anim->name + "', up " + up +
+                                                     "): only the sub weapon one can show it in the hand");
+        }
+        return;
+    }
+    Say(who + " ocarina hand: no piece named '" + *t->gear[kGearOcarina] + "' on the puppet: not judged");
+}
+
+namespace {
+// The player's own Ocarina while he plays (the ocarina hand probe, sondas12 and sondas13, a child Link
+// playing 'DemoOcarina'): in the frame of skeleton matrix 0 read as CoopCarry reads it, the same two
+// runs to the millimetre.
+const CoopCarry::Frame kOcarinaHeld{{-0.167f, 0.740f, -0.020f},
+                                    {0.223f, 0.633f, -0.741f, 0.276f, 0.688f, 0.671f, 0.935f, -0.354f, -0.021f}};
+}  // namespace
+
+bool Director::OcarinaHandPlace(Guest& guest, Slot& slot, const Target* t) {
+    const bool playing = t != nullptr && t->show == Show::show && t->anim &&
+                         coop::host::activity_of(t->anim->name) == coop::host::Activity::ocarina &&
+                         t->gear[kGearOcarina] && t->gear[kGearOcarina]->starts_with("Item_Ocarina_");
+    const auto actor = slot.actor != 0 ? CoopCarry::ReadActor(guest, slot.actor) : std::nullopt;
+    if (!playing || !actor) {
+        if (slot.hand_piece != 0 && actor && StillBelt(guest, slot.actor, slot.hand_piece)) {
+            // Put away: back where it was on the puppet (its binding takes over).
+            const Vec3 back{actor->p[0] + slot.hand_back[0], actor->p[1] + slot.hand_back[1],
+                            actor->p[2] + slot.hand_back[2]};
+            guest.Write(slot.hand_piece + addr::kActorPosition, back.data(), sizeof(back));
+            guest.Write(slot.hand_piece + addr::kActorPositionRequest, back.data(), sizeof(back));
+        }
+        slot.hand_piece = 0;
+        return false;
+    }
+    std::uint64_t piece = slot.hand_piece;
+    if (piece != 0 && !StillBelt(guest, slot.actor, piece)) {
+        piece = 0;
+    }
+    if (piece == 0) {
+        std::uint64_t parts = 0;
+        std::uint64_t eu = 0;
+        if (!ReadValue(guest, slot.actor + addr::kActorParts, parts) || parts == 0 ||
+            !ReadValue(guest, parts + addr::kPartsEquipmentUser, eu) || eu == 0) {
+            return false;
+        }
+        for (std::uint32_t a = 0; a < addr::kArmorLinkCount && piece == 0; ++a) {
+            const std::uint64_t p = LinkActor(guest, eu + addr::kArmorLinks + addr::kEquipSlotStride * a);
+            std::uint32_t state = 0;
+            if (p != 0 && ReadValue(guest, p + addr::kActorState, state) && !Gone(state) &&
+                PieceName(guest, p) == *t->gear[kGearOcarina]) {
+                piece = p;
+            }
+        }
+        Vec3 at{};
+        if (piece == 0 || !ReadValue(guest, piece + addr::kActorPosition, at)) {
+            return false;  // not made yet
+        }
+        slot.hand_back = {at[0] - actor->p[0], at[1] - actor->p[1], at[2] - actor->p[2]};
+    }
+    std::optional<CoopCarry::Frame> anchor;
+    if (const auto skeleton = CoopCarry::FindSkeleton(guest, slot.actor)) {
+        anchor = CoopCarry::ReadBone(guest, *skeleton, *actor, 0);
+    }
+    if (slot.hand_piece != piece) {
+        Say("P" + std::to_string(slot.number) + " ocarina hand: its own Ocarina put in its hands each frame while it "
+            "plays (" + (anchor ? std::string("in skeleton matrix 0's frame") : std::string("in the actor frame")) +
+            ", as the player's was measured)");
+    }
+    slot.hand_piece = piece;
+    const CoopCarry::Frame f = CoopCarry::Compose(anchor.value_or(*actor), kOcarinaHeld);
+    guest.Write(piece + addr::kActorPosition, f.p.data(), sizeof(f.p));
+    guest.Write(piece + addr::kActorPositionRequest, f.p.data(), sizeof(f.p));
+    guest.Write(piece + addr::kActorRotation, f.r.data(), sizeof(f.r));
+    guest.Write(piece + addr::kActorRotationRequest, f.r.data(), sizeof(f.r));
+    return true;
+}
+
+void Director::OcarinaBelt(Guest& guest) {
+    if (input_.main_base == 0) {
+        return;
+    }
+    for (auto& slot : slots_) {
+        const Target* t = slot.phase == Phase::live && slot.actor != 0 ? Wanted(slot.number) : nullptr;
+        const bool placed_in_hand = OcarinaHandPlace(guest, slot, t);
+        OcarinaHandCheck(guest, slot, t);
+        if (placed_in_hand) {
+            continue;  // its belt Ocarina is the one in the hand: nothing to park
+        }
+        // The Ocarina in a carried slot, drawn: OcarinaInHand's doing.
+        std::optional<int> hand;
+        if (t != nullptr && t->gear[kGearOcarina] && t->gear[kGearOcarina]->starts_with("Item_Ocarina_")) {
+            for (std::size_t i = 0; i < kGearCount; ++i) {
+                if (i != kGearOcarina && GearIsCarried(i) && kGearSlots[i] >= 0 && t->gear[i] == t->gear[kGearOcarina] &&
+                    ((t->drawn.value_or(0) >> kGearSlots[i]) & 1u) != 0) {
+                    hand = kGearSlots[i];
+                }
+            }
+        }
+        Vec3 at{};
+        const bool placed = slot.actor != 0 && ReadValue(guest, slot.actor + addr::kActorPosition, at);
+        if (slot.belt_parked != 0 && !StillBelt(guest, slot.actor, slot.belt_parked)) {
+            // Not that puppet's belt piece any more: forgotten, never written.
+            slot.belt_parked = 0;
+            slot.belt_frames = 0;
+        }
+        if (!hand || belt_park_failed_ || !placed) {
+            if (slot.belt_parked != 0 && placed) {
+                // Put away: back where it was on the puppet (its binding takes over).
+                const Vec3 back{at[0] + slot.belt_offset[0], at[1] + slot.belt_offset[1], at[2] + slot.belt_offset[2]};
+                guest.Write(slot.belt_parked + addr::kActorPosition, back.data(), sizeof(back));
+                guest.Write(slot.belt_parked + addr::kActorPositionRequest, back.data(), sizeof(back));
+            }
+            slot.belt_parked = 0;
+            slot.belt_frames = 0;
+            continue;
+        }
+        std::uint64_t parts = 0;
+        std::uint64_t eu = 0;
+        if (!ReadValue(guest, slot.actor + addr::kActorParts, parts) || parts == 0 ||
+            !ReadValue(guest, parts + addr::kPartsEquipmentUser, eu) || eu == 0) {
+            continue;
+        }
+        const std::uint64_t in_hand =
+            LinkActor(guest, eu + addr::kEquipSlots + addr::kEquipSlotStride * static_cast<std::uint32_t>(*hand));
+        std::uint64_t belt = slot.belt_parked;
+        if (belt == 0) {
+            for (std::uint32_t a = 0; a < addr::kArmorLinkCount && belt == 0; ++a) {
+                const std::uint64_t piece = LinkActor(guest, eu + addr::kArmorLinks + addr::kEquipSlotStride * a);
+                std::uint32_t state = 0;
+                if (piece != 0 && piece != in_hand && ReadValue(guest, piece + addr::kActorState, state) &&
+                    !Gone(state) && PieceName(guest, piece) == *t->gear[kGearOcarina]) {
+                    belt = piece;
+                }
+            }
+        }
+        Vec3 belt_at{};
+        Vec3 hand_at{};
+        if (belt == 0 || in_hand == 0 || !ReadValue(guest, belt + addr::kActorPosition, belt_at) ||
+            !ReadValue(guest, in_hand + addr::kActorPosition, hand_at)) {
+            continue;  // not both made yet
+        }
+        if (slot.belt_parked == 0) {
+            const float apart = std::hypot(belt_at[0] - hand_at[0], belt_at[1] - hand_at[1], belt_at[2] - hand_at[2]);
+            if (!(apart > kBeltApart)) {
+                continue;  // one place: one Ocarina shows
+            }
+            slot.belt_parked = belt;
+            slot.belt_offset = {belt_at[0] - at[0], belt_at[1] - at[1], belt_at[2] - at[2]};
+            slot.belt_frames = 0;
+        } else if (++slot.belt_frames == kBeltJudgeFrames) {
+            // Did it stay parked since the last frame's write?
+            const bool held = belt_at[1] < at[1] - 0.5f * kHideDrop;
+            if (held) {
+                CoopVCheck::Ok("ocarina belt", "P" + std::to_string(slot.number) + "'s belt Ocarina stays parked out "
+                                               "of sight while the one in the hand shows: one Ocarina");
+            } else {
+                CoopVCheck::Fallback("ocarina belt",
+                                     "P" + std::to_string(slot.number) + "'s belt Ocarina is put back on the belt "
+                                     "by the game each frame: two Ocarinas show while playing (as before)");
+                belt_park_failed_ = true;
+                slot.belt_parked = 0;
+                continue;
+            }
+        }
+        const Vec3 down{at[0] + slot.belt_offset[0], at[1] + slot.belt_offset[1] - kHideDrop,
+                        at[2] + slot.belt_offset[2]};
+        guest.Write(belt + addr::kActorPosition, down.data(), sizeof(down));
+        guest.Write(belt + addr::kActorPositionRequest, down.data(), sizeof(down));
+    }
+}
+
+std::uint64_t Director::ServerNow(std::uint64_t now_ms) const {
+    if (input_.server_now_us == 0) {
+        return 0;
+    }
+    return input_.server_now_us + (now_ms - std::min(now_ms, input_.server_at_ms)) * 1000;
+}
+
+// ORM smoothing (SetSmoothing): the puppet at the server time of this calc
+// frame, not of the last present (the two threads do not run in step, so the
+// plan's position repeats on one frame and skips on the next), and the
+// sender's command of that time for the AS fallback.
+void Director::Smooth(Slot& slot, const Target& target, std::uint64_t now_ms, Vec3& at,
+                      Mat3& rot) {
+    slot.smooth_anim.reset();
+    if (!smooth_ || slot.number == 0) {
+        return;
+    }
+    const std::uint64_t server = ServerNow(now_ms);
+    if (server == 0) {
+        return;
+    }
+    const auto p = smooth_(slot.number, server);
+    if (!p) {
+        return;
+    }
+    at = {p->position[0] + target.offset[0], p->position[1] + target.offset[1],
+          p->position[2] + target.offset[2]};
+    if (p->rotation) {
+        rot = QuatToMatrix(*p->rotation);
+    }
+    if (p->animation) {
+        slot.smooth_anim = Anim{p->animation->name, p->animation->frame, p->animation->rate};
+        slot.smooth_serial = p->animation_sequence + 1;  // 0 is "none yet"
+    }
+    if (anim_ && p->gait != slot.gait) {
+        slot.gait = p->gait;
+        char speed[32] = "-";
+        if (p->sender_speed) {
+            std::snprintf(speed, sizeof(speed), "%.2f", static_cast<double>(*p->sender_speed));
+        }
+        Say("P" + std::to_string(slot.number) + " gait " + coop::host::to_string(p->gait) +
+            " (sender's '" + (p->animation ? p->animation->name : std::string("?")) +
+            "', speed " + speed + ", shown " + coop::host::to_string(p->how) + ")");
+    }
+}
+
+// The reveal (SetRevealGate): a parked puppet shows once it has a fresh
+// sample and a first pose on it, or after kRevealTimeoutMs whatever it has.
+void Director::Reveal(Slot& slot, const Target& target, std::uint64_t now_ms) {
+    const bool fresh = !target.sample_age_ms || *target.sample_age_ms < kFreshSampleMs;
+    // A player whose poses come is posed by the pose copy (a whole fresh
+    // pose written last frame); one who sends none by its AS command.
+    const bool poses = pose_copy_ && CoopPose::Drives(slot.number, now_ms);
+    const bool posed = poses ? (slot.number < 32 && ((posed_ >> slot.number) & 1u) != 0)
+                             : (!slot.anim_name.empty() && !slot.frame_to_set && slot.sync_next == 0);
+    const std::uint64_t waited = now_ms - std::min(now_ms, slot.reveal_since_ms);
+    if (!(fresh && posed) && waited < kRevealTimeoutMs) {
+        return;
+    }
+    slot.revealed = true;
+    // ORM reveal: drawn at its fresh sample from this frame, not eased there from the place it
+    // was parked at (issue 194's ease is for a jump of a puppet one sees).
+    slot.smooth.Set(target.position);
+    const std::string age =
+        target.sample_age_ms ? std::to_string(*target.sample_age_ms) + " ms old" : "age not known";
+    Say("P" + std::to_string(slot.number) + " shown after " + std::to_string(waited) + " ms (" +
+        slot.reveal_why + "): " +
+        (posed ? (poses ? "its pose on it" : "its animation playing") : "no pose yet") +
+        ", sample " + age + ", at " + VecText(target.position) +
+        (fresh && posed ? std::string() : std::string("; waited the most")));
 }
 
 void Director::NewFrame(Guest& guest, std::uint64_t now_ms) {
@@ -263,9 +625,12 @@ void Director::NewFrame(Guest& guest, std::uint64_t now_ms) {
                 ReadValue(guest, slot.actor + addr::kActorPosition, at);
                 Say("P" + std::to_string(slot.number) + " " + slot.actor_name + " spawned after " +
                     std::to_string(now_ms - slot.since_ms) + " ms: request " + Hex(slot.request) +
-                    ", actor " + Hex(slot.actor) + ", state 4, at " + VecText(at));
+                    ", actor " + Hex(slot.actor) + ", state 4, at " + VecText(at) +
+                    (slot.revealed ? "" : "; parked until it has a pose and a fresh sample"));
+                NoteLock(slot.actor_name, true);  // ORM orm/pvp: the ally target's check
                 slot.phase = Phase::live;
                 slot.since_ms = now_ms;
+                slot.reveal_since_ms = now_ms;
                 slot.shown = Show::show;  // a new actor stands where it was made
                 slot.model_checked = !IsTunicActor(slot.actor_name);
             } else if (now_ms - slot.since_ms > kCreateTimeoutMs) {
@@ -317,15 +682,47 @@ void Director::NewFrame(Guest& guest, std::uint64_t now_ms) {
                 slot.ocarina_hand = {};  // its bind block is freed with it
                 slot.taken = 0;
                 slot.lost_ms = now_ms;  // a load deletes it before the camera goes
+            } else if (const Target* absent = Wanted(slot.number);
+                       absent != nullptr && state != addr::kStatePresent &&
+                       absent->actor == slot.actor_name && input_.scene == slot.scene) {
+                // Neither present nor gone: nothing is written to it, so a
+                // puppet parked for its reveal or a hide stays down there.
+                // Seen so for kAbsentMs while the plan wants it seen: made
+                // again (Next deletes it for slot.remake).
+                if (absent->show == Show::hide) {
+                    slot.absent_since_ms = 0;
+                } else if (slot.absent_since_ms == 0) {
+                    slot.absent_since_ms = std::max<std::uint64_t>(now_ms, 1);
+                } else if (!slot.remake && now_ms - slot.absent_since_ms >= kAbsentMs) {
+                    Say("P" + std::to_string(slot.number) + " not present (state " +
+                        std::to_string(state) + ") for " +
+                        std::to_string(now_ms - slot.absent_since_ms) + " ms: made again");
+                    slot.remake = true;
+                }
             } else if (const Target* t = Wanted(slot.number);
                        t != nullptr && state == addr::kStatePresent && t->actor == slot.actor_name &&
                        input_.scene == slot.scene) {
+                slot.absent_since_ms = 0;
+                const std::string who = "P" + std::to_string(slot.number);
+                // Back after a while out of the plan (a reconnect, a stall):
+                // the reveal again, not a snap to where they are now.
+                if (reveal_gate_ && slot.number != 0 && slot.revealed && slot.missing_ms != 0 &&
+                    now_ms - slot.missing_ms >= kBackHideMs) {
+                    slot.revealed = false;
+                    slot.reveal_since_ms = now_ms;
+                    slot.reveal_why = "back";
+                    Say(who + " back after " + std::to_string(now_ms - slot.missing_ms) +
+                        " ms out of the plan: parked until it has a pose and a fresh sample");
+                }
+                if (!slot.revealed) {
+                    Reveal(slot, *t, now_ms);
+                }
                 if (t->show != slot.shown) {
                     if (slot.shown == Show::hide) {
                         slot.meter_skip = true;  // issue 194: it was parked, not drawn
                     }
-                    Say("P" + std::to_string(slot.number) + " " + ShowText(slot.shown) + " -> " +
-                        ShowText(t->show) + (*t->why ? std::string(" (") + t->why + ")" : std::string()));
+                    Say(who + " " + ShowText(slot.shown) + " -> " + ShowText(t->show) +
+                        (*t->why ? std::string(" (") + t->why + ")" : std::string()));
                     slot.shown = t->show;
                 }
                 if (t->show != Show::hide && slot.number < 32) {
@@ -342,9 +739,9 @@ void Director::NewFrame(Guest& guest, std::uint64_t now_ms) {
                 } else if (t->show == Show::hide) {
                     slot.smooth.Set(t->position);  // out of sight: comes back where they are
                     slot.meter.Reset();
-                    Vec3 parked = t->position;
+                    Vec3 parked = at;
                     parked[1] -= kHideDrop;
-                    Pose(slot, guest, parked, nullptr, now_ms);
+                    Pose(slot, guest, parked, slot.revealed ? nullptr : &rot, now_ms);
                 }
                 // Issue 152: the Ocarina in hand while it plays one (coop_ocarina.h),
                 // by their own command (free play is DemoOcarina: shown, not held,
@@ -471,6 +868,7 @@ void Director::Finish(Guest& guest, std::uint64_t result, std::uint64_t now_ms) 
         break;
     case Pending::play:
         slot.anim_name = slot.play_name;
+        slot.anim_rate = slot.play_rate;
         slot.anim_serial = slot.play_serial;
         slot.frame_to_set = slot.play_frame;
         slot.sync_next = 1;  // then the partial slots, after the frame
@@ -479,6 +877,19 @@ void Director::Finish(Guest& guest, std::uint64_t result, std::uint64_t now_ms) 
             std::snprintf(buf, sizeof(buf), " from frame %.1f", slot.play_frame);
             Say(who + " plays '" + slot.play_name + "'" + buf + " (returned " +
                 Hex(result & 0xff) + ")");
+        }
+        // ORM, issue 152: a note or song node of the Ocarina, named in the
+        // command its player sent (oot-remake docs/OCARINA.md). Logged
+        // always: it is what a run reads to know whether the notes reach
+        // us in the command at all; the sound is not played yet.
+        if (const auto cue = CoopOcarina::CueOf(slot.play_name)) {
+            Say(who + " ocarina " + CoopOcarina::CueText(*cue) + " ('" + slot.play_name + "')");
+        }
+        // ORM: its note at the puppet (LICHII_COOP_OCARINA_SOUND, orm_ocarina_sound.h);
+        // the Link puppets' director only (pose_copy_), not the fairies'.
+        if (pose_copy_) {
+            OrmOcarinaSound::ThePlayer().OnCommand(input_.main_base, slot.number, slot.actor,
+                                                   slot.play_name, now_ms);
         }
         break;
     case Pending::frame:
@@ -503,15 +914,20 @@ void Director::Finish(Guest& guest, std::uint64_t result, std::uint64_t now_ms) 
         break;
     case Pending::unequip: {
         const std::size_t i = slot.equip_index;
+        // ORM: a piece it put on by itself from our flags is not in `worn`.
+        const bool stray = slot.worn[i].empty();
+        const std::string name = stray ? slot.unequip_name : slot.worn[i];
+        const char* whose = stray ? " (ours, not its player's)" : "";
         if ((result & 0xff) != 0) {
-            Say(who + " takes off " + kGearNames[i] + " '" + slot.worn[i] + "' (returned " +
+            Say(who + " takes off " + kGearNames[i] + " '" + name + "'" + whose + " (returned " +
                 Hex(result & 0xff) + ")");
             slot.worn[i].clear();
             slot.off_since_ms[i] = 0;
         } else {
-            // Refused: the next Equip makes the puppet again without it.
-            Say(who + " takes off " + kGearNames[i] + " '" + slot.worn[i] +
-                "': the game's call returned 0");
+            // Refused: the next Equip makes the puppet again without it (a
+            // stray piece is left on: made again, it would put it on again).
+            Say(who + " takes off " + kGearNames[i] + " '" + name + "'" + whose +
+                ": the game's call returned 0" + (stray ? "; left on" : ""));
             slot.unequip_refused[i] = true;
         }
         break;
@@ -655,11 +1071,15 @@ std::optional<Call> Director::Next(Slot& slot, Guest& guest, std::uint64_t now_m
                 return c;
             }
         }
-        if (auto c = Equip(slot, *t, guest, now_ms)) {
-            return c;
-        }
-        if (auto c = Hold(slot, *t, guest, now_ms)) {
-            return c;
+        // Parked for the reveal: no gear yet (a piece made under the floor
+        // stays there); it is worn in the frame the puppet shows.
+        if (slot.revealed) {
+            if (auto c = Equip(slot, *t, guest, now_ms)) {
+                return c;
+            }
+            if (auto c = Hold(slot, *t, guest, now_ms)) {
+                return c;
+            }
         }
         if (matrix_call_ && t->show != Show::hold) {
             if (auto c = Move(slot, guest)) {
@@ -667,7 +1087,9 @@ std::optional<Call> Director::Next(Slot& slot, Guest& guest, std::uint64_t now_m
             }
         }
         if (pose_copy_ && CoopPose::Drives(slot.number, now_ms)) {
-            return std::nullopt;  // the pose copy moves it
+            // The pose copy moves it; ORM efectos2: an allowed command plays
+            // as well, for its effect and sound events (coop_effects.h).
+            return t->effects ? PosedAnimate(slot, *t, guest) : std::nullopt;
         }
         return Animate(slot, *t, guest);
     default:
@@ -707,7 +1129,14 @@ std::optional<Call> Director::Create(Slot& slot, const Target& target, Guest& gu
     // up while a scene loads: made later, its request stays in state 2.
     std::array<std::uint8_t, 0x100> arg{};
     const Vec3 scale{1.0f, 1.0f, 1.0f};
-    std::memcpy(arg.data() + 0x00, target.position.data(), 12);
+    // With the reveal, made parked under its spot: its first frames (in its
+    // default T-pose, at a sample that may be old) are not seen.
+    const bool parked = reveal_gate_ && slot.number != 0;
+    Vec3 at = target.position;
+    if (parked || create_parked_) {
+        at[1] -= kHideDrop;  // ORM choque (SetCreateParked): a body never made on anyone
+    }
+    std::memcpy(arg.data() + 0x00, at.data(), 12);
     std::memcpy(arg.data() + 0x0c, target.rotation.data(), 36);
     std::memcpy(arg.data() + 0x30, scale.data(), 12);
     std::memcpy(arg.data() + 0x40, &create_default, 8);
@@ -747,6 +1176,10 @@ std::optional<Call> Director::Create(Slot& slot, const Target& target, Guest& gu
     slot.ocarina_hand = {};  // a new puppet may reuse the old address
     slot.their_anim.clear();
     slot.anim_serial = 0;
+    slot.anim_rate = 1.0f;
+    slot.smooth_anim.reset();
+    slot.smooth_serial = 0;
+    slot.gait = coop::host::Gait::unknown;
     slot.frame_to_set.reset();
     slot.held_frame.reset();
     slot.smooth.Reset();
@@ -763,6 +1196,12 @@ std::optional<Call> Director::Create(Slot& slot, const Target& target, Guest& gu
     slot.remake = false;
     slot.off_since_ms = {};
     slot.unequip_refused = {};
+    slot.unequip_name.clear();
+    slot.stray_offs = {};
+    slot.revealed = !parked;
+    slot.reveal_why = "new";
+    slot.side_said = false;
+    slot.absent_since_ms = 0;
     pending_ = Pending::create;
     return c;
 }
@@ -909,7 +1348,10 @@ std::optional<Call> Director::Equip(Slot& slot, const Target& target, Guest& gue
     if (target.show == Show::hide) {
         return std::nullopt;  // parked: a piece made now would stay down there
     }
-    if (target.show == Show::show && now_ms >= slot.rewear_ms) {
+    // ORM efectos2: not while it blinks (the pieces may read a frame behind
+    // the puppet parked for a blink), nor a moment after.
+    if (target.show == Show::show && now_ms >= slot.rewear_ms &&
+        !CoopEffects::Flashing(target.flash_since_ms, now_ms, 2 * kFarForMs)) {
         LeftBehind(slot, guest, now_ms);
     }
     for (std::size_t i = 0; i < target.gear.size(); ++i) {
@@ -944,6 +1386,13 @@ std::optional<Call> Director::Equip(Slot& slot, const Target& target, Guest& gue
             slot.remake = true;
             return std::nullopt;
         }
+        // ORM (coop_detalles.h): armor of ours its player does not wear.
+        if (want && want->empty() && slot.worn[i].empty() && GearIsArmor(i)) {
+            if (auto c = TakeOffStray(slot, guest, i, now_ms)) {
+                return c;
+            }
+            continue;
+        }
         slot.off_since_ms[i] = 0;
         if (!want || want->empty() || *want == slot.worn[i] ||
             want->size() >= block::kGearCapacity) {
@@ -977,6 +1426,56 @@ std::optional<Call> Director::Equip(Slot& slot, const Target& target, Guest& gue
         return c;
     }
     return std::nullopt;
+}
+
+// ORM (coop_detalles.h): the puppet put on a piece of armor by itself from
+// our own game's flags, and its player wears nothing of that kind (want ""
+// and nothing worn by us). Taken off with the game's own armor take-off once
+// it has been there kTakeOffMs, at most CoopDetalles::kStrayTries times.
+std::optional<Call> Director::TakeOffStray(Slot& slot, Guest& guest, std::size_t i,
+                                           std::uint64_t now_ms) {
+    std::uint64_t parts = 0;
+    std::uint64_t eu = 0;
+    if (!ReadValue(guest, slot.actor + addr::kActorParts, parts) || parts == 0 ||
+        !ReadValue(guest, parts + addr::kPartsEquipmentUser, eu) || eu == 0) {
+        slot.off_since_ms[i] = 0;
+        return std::nullopt;
+    }
+    const std::uint32_t index = kGearKinds[i] - addr::kArmorKindFirst;
+    const auto stray = CoopDetalles::StrayArmor(guest, input_.main_base, eu, index);
+    if (!stray || stray->empty()) {
+        slot.off_since_ms[i] = 0;
+        return std::nullopt;
+    }
+    if (slot.unequip_refused[i]) {
+        return std::nullopt;  // said once, in Finish
+    }
+    if (slot.stray_offs[i] >= CoopDetalles::kStrayTries) {
+        if (slot.stray_offs[i] == CoopDetalles::kStrayTries) {
+            ++slot.stray_offs[i];
+            Say("P" + std::to_string(slot.number) + " " + kGearNames[i] + " '" + *stray +
+                "' (ours) is back after " + std::to_string(CoopDetalles::kStrayTries) +
+                " take-offs: left on");
+        }
+        return std::nullopt;
+    }
+    if (slot.off_since_ms[i] == 0) {
+        slot.off_since_ms[i] = std::max<std::uint64_t>(now_ms, 1);
+        return std::nullopt;
+    }
+    if (now_ms - slot.off_since_ms[i] < kTakeOffMs) {
+        return std::nullopt;
+    }
+    ++slot.stray_offs[i];
+    slot.equip_index = i;
+    slot.unequip_name = *stray;
+    Call c;
+    c.function = input_.main_base + addr::kUnequipArmor;
+    c.x[0] = eu;
+    c.x[1] = index;
+    c.x[2] = 0;
+    pending_ = Pending::unequip;
+    return c;
 }
 
 // A worn sword or shield far from its puppet does not follow it: the game
@@ -1167,7 +1666,8 @@ std::optional<Call> Director::SetFrame(Slot& slot, std::uint64_t controller, flo
 //   kFrameSlack off, so the game's own playback runs in between.
 // - hold: the frame it had when the hold began, every frame.
 // - hide: nothing (it is out of sight).
-std::optional<Call> Director::Animate(Slot& slot, const Target& target, Guest& guest) {
+std::optional<Call> Director::Animate(Slot& slot, const Target& target, Guest& guest,
+                                      const Anim* only, std::uint32_t only_serial) {
     if (target.show == Show::hide) {
         return std::nullopt;
     }
@@ -1195,12 +1695,25 @@ std::optional<Call> Director::Animate(Slot& slot, const Target& target, Guest& g
         Say(who + " moves again");
     }
     slot.held_frame.reset();
-    if (!target.anim || target.anim->name.empty() ||
-        target.anim->name.size() >= block::kAnimCapacity) {
+    // ORM smoothing: the sender's command at the shown time, else the newest.
+    // ORM efectos2: or the one PosedAnimate chose.
+    const std::optional<Anim>& newest = slot.smooth_anim ? slot.smooth_anim : target.anim;
+    const Anim* wanted = only != nullptr ? only : newest ? &*newest : nullptr;
+    const std::uint32_t serial = only != nullptr      ? only_serial
+                                 : slot.smooth_anim ? slot.smooth_serial
+                                                    : target.anim_serial;
+    if (wanted == nullptr || wanted->name.empty() || wanted->name.size() >= block::kAnimCapacity) {
         return std::nullopt;
     }
-    const Anim& anim = *target.anim;
-    if (anim.name != slot.anim_name) {
+    const Anim& anim = *wanted;
+    // A new name, or (ORM) the same name at another rate: the rate is only
+    // set by a play, so a change of rate alone was never shown.
+    const std::optional<coop::host::AnimPlayed> played =
+        slot.anim_name.empty()
+            ? std::nullopt
+            : std::optional<coop::host::AnimPlayed>(coop::host::AnimPlayed{slot.anim_name, slot.anim_rate});
+    if (coop::host::next_anim_step(played, {anim.name, anim.frame, anim.rate}, std::nullopt, false) ==
+        coop::host::AnimStep::play) {
         const std::uint64_t text =
             slot.block + block::kAnimText + block::kAnimCapacity * slot.anim_buffer;
         std::array<char, block::kAnimCapacity> name{};
@@ -1219,14 +1732,15 @@ std::optional<Call> Director::Animate(Slot& slot, const Target& target, Guest& g
         std::memcpy(request.data() + 0x14, &rate, 4);
         std::memcpy(request.data() + 0x18, &unset, 4);
         std::memcpy(request.data() + 0x1c, &unset, 4);
-        // +0x20 skip-if-same stays 0: we only play a new name.
+        // +0x20 skip-if-same stays 0: we only play a new name or rate.
         const std::uint64_t at = slot.block + block::kPlayRequest;
         if (!guest.Write(at, request.data(), request.size())) {
             return std::nullopt;
         }
         slot.play_name = anim.name;
+        slot.play_rate = rate;
         slot.play_frame = std::isfinite(anim.frame) ? anim.frame : 0.0f;
-        slot.play_serial = target.anim_serial;
+        slot.play_serial = serial;
         Call c;
         c.function = input_.main_base + addr::kPlayAs;
         c.x[0] = at;
@@ -1250,8 +1764,8 @@ std::optional<Call> Director::Animate(Slot& slot, const Target& target, Guest& g
         }
         slot.sync_next = 0;
     }
-    if (target.anim_serial != slot.anim_serial) {
-        slot.anim_serial = target.anim_serial;
+    if (serial != slot.anim_serial) {
+        slot.anim_serial = serial;
         const auto now = Frame(guest, controller);
         if (std::isfinite(anim.frame) &&
             (!now || std::fabs(*now - anim.frame) > kFrameSlack)) {
@@ -1297,6 +1811,43 @@ void Director::DrawAt(Slot& slot, Guest& guest, const Target& target, std::uint6
             (jump >= CoopSnap::kWarpM ? ", warp" : held ? ", at once" : ", eased") + ")");
     }
     Pose(slot, guest, drawn, &target.rotation, now_ms);
+}
+
+// ORM efectos2 (coop_effects.h): while the pose copy writes the bones, its
+// player's command is played as well when the effect rules allow it, only
+// for the command's effect and sound events; after an allowed command, the
+// rest command once. A play's frame and partial slots are still finished.
+// Shown puppets only (held and parked ones keep what they have).
+std::optional<Call> Director::PosedAnimate(Slot& slot, const Target& target, Guest& guest) {
+    if (target.show != Show::show || !slot.revealed) {
+        return std::nullopt;
+    }
+    const std::optional<Anim>& newest = slot.smooth_anim ? slot.smooth_anim : target.anim;
+    const std::uint32_t serial = slot.smooth_anim ? slot.smooth_serial : target.anim_serial;
+    std::optional<CoopEffects::Command> wanted;
+    if (newest) {
+        wanted = CoopEffects::Command{newest->name, newest->frame, newest->rate, false};
+    }
+    const auto posed = CoopEffects::PosedCommand(effect_rules_, wanted, slot.anim_name);
+    if (!posed) {
+        if (!slot.anim_name.empty() && (slot.frame_to_set || slot.sync_next > 0)) {
+            const Anim same{slot.anim_name, slot.frame_to_set.value_or(0.0f), slot.anim_rate};
+            return Animate(slot, target, guest, &same, slot.anim_serial);
+        }
+        return std::nullopt;
+    }
+    const std::string who = "P" + std::to_string(slot.number);
+    if (!slot.effects_said) {
+        slot.effects_said = true;
+        Say(who + " effects: '" + posed->name +
+            "' played under the copied pose (its effect and sound events)");
+    } else if (anim_ && posed->name != slot.anim_name) {
+        Say(who + " effects: " +
+            (posed->rest ? "rest '" + posed->name + "' after '" + slot.anim_name + "'"
+                         : "'" + posed->name + "' played under the copied pose"));
+    }
+    const Anim anim{posed->name, posed->frame, posed->rate};
+    return Animate(slot, target, guest, &anim, posed->rest ? slot.anim_serial : serial);
 }
 
 // The puppet's pose: +0x31c/+0x328 and the engine's pending transform
@@ -1414,6 +1965,9 @@ void Director::Status(Guest& guest, std::uint64_t now_ms) {
             line += ", wanted at " + VecText(t->position);
             line += t->show == Show::show ? " (show)" : t->show == Show::hold ? " (hold)" : " (hide)";
         }
+        if (!slot.revealed && slot.phase == Phase::live) {
+            line += " parked until it has a pose and a fresh sample";
+        }
         // While it is being made, what the handle holds, to see it fill in.
         if (std::uint64_t h = 0; slot.phase == Phase::creating && slot.handle != 0 &&
                                  ReadValue(guest, slot.handle, h) && h != 0) {
@@ -1445,6 +1999,43 @@ Gear GearOf(const coop::protocol::Equipment& e) {
     return gear;
 }
 
+bool OcarinaInHand(Target& target, std::size_t piece) {
+    if (piece >= kGearCount || kGearSlots[piece] < 0 || !GearIsCarried(piece)) {
+        return false;
+    }
+    const auto& ocarina = target.gear[kGearOcarina];
+    if (!ocarina || !ocarina->starts_with("Item_Ocarina_")) {
+        return false;
+    }
+    target.gear[piece] = *ocarina;
+    target.drawn = static_cast<std::uint8_t>(target.drawn.value_or(0) | (1u << kGearSlots[piece]));
+    return true;
+}
+
+std::size_t OcarinaHandPiece(std::string_view setting) {
+    if (CoopSwitch::Parse(setting) == CoopSwitch::Reading::off) {  // 0, false, no, off
+        return kOcarinaHandOff;
+    }
+    if (setting == "bow") {
+        return kGearHeld;
+    }
+    return kGearSubWeapon;
+}
+
+void Planner::SetColliders(bool on) {
+    if (on == colliders_) {
+        return;
+    }
+    colliders_ = on;
+    gate_.reset();  // off: every body goes; on: each waits until clear
+}
+
+std::vector<std::string> Planner::TakeEffectLines() {
+    std::vector<std::string> lines;
+    lines.swap(effect_lines_);
+    return lines;
+}
+
 Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& scene,
                     const std::optional<Vec3>& position, bool local_event,
                     const std::vector<Remote>& remotes, std::uint64_t now_ms,
@@ -1461,10 +2052,16 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
         scene_ = in.scene;
         scene_since_ms_ = now_ms;
         debug_spot_.reset();
+        overlaps_.clear();  // everyone is somewhere else now
+        gate_.reset();      // ORM choque: every body a ghost until clear again
     }
     if (in.scene.empty()) {
         return in;
     }
+    if (local_event_ && !local_event) {
+        local_event_end_ms_ = now_ms;  // kept over a scene change: both may enter at one door
+    }
+    local_event_ = local_event;
     for (const auto& r : remotes) {
         if (r.number == 0 || !(r.fade > 0.0f)) {
             continue;
@@ -1502,7 +2099,16 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
             break;
         case coop::host::Visibility::ride:
             // Issue 199: shown in its riding animation; CoopRide draws a
-            // copy of the horse under it.
+            // copy of the horse under it. ORM D-R19 (request: "tenemos que vernos
+            // en todo momento"): with our riders' horses on (settings_.riders,
+            // coop_epona.h) the getting on is named too; which horse is drawn
+            // (theirs, CoopRide_Epona, or ours, coop_epona's) is chosen there,
+            // never both (oot-remake docs/PIN_TEST10.md).
+            if (settings_.riders &&
+                coop::host::epona::ride_of(anim) == coop::host::epona::Ride::mounting) {
+                why = "getting on";
+                break;
+            }
             why = "riding";
             break;
         case coop::host::Visibility::hold:
@@ -1538,6 +2144,23 @@ Input Planner::Plan(std::uint64_t main_base, const std::optional<std::string>& s
         t.gear = r.gear;
         t.drawn = r.drawn;
         t.ocarina = r.ocarina;
+        if (coop::host::activity_of(anim) == coop::host::Activity::ocarina) {
+            OcarinaInHand(t, settings_.ocarina_hand);
+        }
+        t.sample_age_ms = r.sample_age_ms;
+        t.keep_only = keep_only;
+        // ORM efectos2 (coop_effects.h): effect commands, damage flash, status.
+        if (settings_.effects.any()) {
+            const auto look =
+                effects_.Update(settings_.effects, r.number, theirs.value_or(std::string_view{}), anim,
+                                (r.status & coop::protocol::status::dead) != 0, now_ms);
+            if (const std::string& said = effects_.Said(r.number); !said.empty()) {
+                effect_lines_.push_back("P" + std::to_string(r.number) + " effects: " + said);
+            }
+            t.effects = settings_.effects.as_effects;
+            t.flash_since_ms = look.flash_since_ms;
+            t.status = t.show == Show::show ? look.status : CoopEffects::Status::none;
+        }
         in.targets.push_back(std::move(t));
     }
     if (settings_.debug && position && now_ms - scene_since_ms_ >= settings_.debug_delay_ms) {
@@ -1568,11 +2191,120 @@ bool PackHasTunicPuppets(std::string_view manifest) {
            manifest.find("\"CoopPuppet_Adult_") != std::string_view::npos;
 }
 
+namespace {
+float Distance(const Vec3& a, const Vec3& b) {
+    return std::sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) +
+                     (a[2] - b[2]) * (a[2] - b[2]));
+}
+}  // namespace
+
+float Planner::FirstSightM(std::uint8_t number) const {
+    for (const auto& [n, o] : overlaps_) {
+        if (n == number) return o.first_m;
+    }
+    return -1.0f;
+}
+
+std::pair<Vec3, float> Planner::SideStep(const Remote& r, const std::optional<Vec3>& ours,
+                                         bool local_event, std::uint64_t now_ms, bool shown) {
+    auto it = std::find_if(overlaps_.begin(), overlaps_.end(),
+                           [&](const auto& kv) { return kv.first == r.number; });
+    if (it == overlaps_.end()) {
+        overlaps_.emplace_back(r.number, Overlap{});
+        it = overlaps_.end() - 1;
+    }
+    Overlap& o = it->second;
+    // Its first plan in this scene with our Link read and the puppet drawn (sondas23r7: the first plans came while
+    // our Link was not read yet; sondas24r7: while the mate was still loading, its place not yet the one it lands
+    // on; and the game's boot event ran while the puppet was first shown on us).
+    const bool first_sight = shown && !o.judged && ours.has_value();
+    if (first_sight) {
+        o.judged = true;
+    }
+    const float apart_now = ours ? Distance(r.position, *ours) : 1e9f;
+    if (first_sight) {
+        o.first_m = apart_now;
+    }
+    const bool cutscene = coop::host::in_cutscene(r.status);
+    if (o.cutscene && !cutscene) {
+        o.event_end_ms = now_ms;
+    }
+    o.cutscene = cutscene;
+    const std::uint64_t ended = std::max(o.event_end_ms, local_event_end_ms_);
+    const bool event = local_event || cutscene;
+    const float apart = ours ? Distance(r.position, *ours) : 1e9f;
+    // To the puppet's own side (its rotation's x axis on the ground), the side away from our Link.
+    const auto side_away = [&]() {
+        Vec3 side{1.0f, 0.0f, 0.0f};
+        if (r.rotation) {
+            const Mat3 m = QuatToMatrix(*r.rotation);
+            const float n = std::hypot(m[0], m[6]);
+            if (n > 1e-3f) {
+                side = {m[0] / n, 0.0f, m[6] / n};
+            }
+        }
+        if (ours && (side[0] * (r.position[0] - (*ours)[0]) + side[2] * (r.position[2] - (*ours)[2])) < 0.0f) {
+            side = {-side[0], 0.0f, -side[2]};
+        }
+        return side;
+    };
+    if (first_sight && apart < kOverlapNear) {
+        // Both at one Continue spot: aside at once, whole (no fade-in), further than after an event.
+        const Vec3 side = side_away();
+        o.on = true;
+        o.first = true;
+        o.anchor = r.position;
+        o.step = {side[0] * kFirstSightStep, 0.0f, side[2] * kFirstSightStep};
+        o.weight = 1.0f;
+        o.last_ms = now_ms;
+        return {o.step, o.weight};
+    }
+    if (!o.on) {
+        const bool after = ended != 0 && now_ms - std::min(now_ms, ended) <= kOverlapWindowMs;
+        if (after && !event && apart < kOverlapNear) {
+            if (o.near_since_ms == 0) {
+                o.near_since_ms = std::max<std::uint64_t>(now_ms, 1);
+            } else if (now_ms - o.near_since_ms >= kOverlapForMs) {
+                const Vec3 side = side_away();
+                o.on = true;
+                o.anchor = r.position;
+                o.step = {side[0] * kSideStep, 0.0f, side[2] * kSideStep};
+            }
+        } else {
+            o.near_since_ms = 0;
+        }
+    } else if ((event && !o.first) || apart > kSideStepApart || Distance(r.position, o.anchor) > kSideStepLeave) {
+        // A first sight's step is kept through the mate's own boot event (sondas26r7: B, just loaded, was in its
+        // DefaultBootEvent: the step went in the next plan and B's puppet stood on us again).
+        o.on = false;
+        o.first = false;
+        o.near_since_ms = 0;
+    }
+    const std::uint64_t dt =
+        o.last_ms == 0 ? 0 : std::min<std::uint64_t>(now_ms - std::min(now_ms, o.last_ms), 100);
+    o.last_ms = now_ms;
+    if (o.on) {
+        o.weight = std::min(1.0f, o.weight + static_cast<float>(std::max<std::uint64_t>(dt, 1)) /
+                                                 static_cast<float>(kSideStepInMs));
+    } else {
+        o.weight = std::max(0.0f, o.weight - static_cast<float>(dt) / static_cast<float>(kSideStepOutMs));
+    }
+    if (!(o.weight > 0.0f)) {
+        return {Vec3{}, 0.0f};
+    }
+    return {o.step, o.weight};
+}
+
 std::string Planner::ActorFor(bool adult, std::optional<std::uint32_t> color) const {
     if (!settings_.actor.empty()) {
         return settings_.actor;
     }
     const std::string plain = adult ? "CoopPuppet_Adult" : "CoopPuppet_Child";
+    // ORM orm/pvp: the lock-on variant while "Fijar aliados" asks for it; it
+    // wears no tunic colour (the pack has no lock-on per colour).
+    if (const std::string suffix = ActorSuffix(); !suffix.empty()) {
+        return plain + suffix;
+    }
     if (settings_.tunics && color) {
         std::string_view tunic = CoopColors::TunicOf(*color);
         if (tunic.empty() && settings_.green_puppet) {
@@ -1616,6 +2348,8 @@ std::once_flag g_once;
 std::atomic<bool> g_configured = false;
 std::unique_ptr<Director> g_director;
 std::unique_ptr<Planner> g_planner;  // the present thread only
+PlanObserver g_plan_observer;        // ORM efectos2; the present thread only
+std::vector<PlanObserver> g_plan_observers;  // ORM choque (AddPlanObserver); the present thread only
 
 // Each remote player's newest animation, from the network thread.
 struct Received {
@@ -1623,12 +2357,94 @@ struct Received {
     std::uint32_t serial = 0;
 };
 std::mutex g_anim_mutex;
-std::array<std::optional<Received>, 5> g_anims;  // by player number; guarded
-std::array<Gear, 5> g_gear;  // the same; guarded
-std::array<std::optional<std::uint8_t>, 5> g_drawn;                // the same; guarded
-std::array<std::optional<std::uint32_t>, 5> g_color;               // the same; guarded
-std::optional<std::uint32_t> g_own_color;                          // ours; guarded
-std::array<CoopPuppetSound::Wanted, 5> g_ocarina;  // the same; guarded (issue 152)
+std::array<std::optional<Received>, coop::protocol::kMaxPlayers + 1> g_anims;  // by player number; guarded
+std::array<Gear, coop::protocol::kMaxPlayers + 1> g_gear;  // the same; guarded
+std::array<std::optional<std::uint8_t>, coop::protocol::kMaxPlayers + 1> g_drawn;  // the same; guarded
+std::array<std::optional<std::uint32_t>, coop::protocol::kMaxPlayers + 1> g_color;  // the same; guarded
+std::optional<std::uint32_t> g_own_color;                                           // ours; guarded
+std::array<CoopPuppetSound::Wanted, coop::protocol::kMaxPlayers + 1> g_ocarina;  // the same; guarded (issue 152)
+// ORM smoothing (LICHII_ORM_SMOOTH): each remote player's samples, fed from
+// the network thread, asked from the calc thread; guarded by g_anim_mutex.
+std::array<coop::host::PoseSmoother, coop::protocol::kMaxPlayers + 1> g_smooth;
+std::array<std::uint64_t, coop::protocol::kMaxPlayers + 1> g_smooth_log_ms{};  // the same
+// What SmoothAt last gave for each player (LastSmoothed, the riders' horses); the same.
+std::array<std::optional<ShownPose>, coop::protocol::kMaxPlayers + 1> g_shown;
+constexpr std::uint64_t kSmoothLogMs = 10'000;
+// ORM riesgos-visual: the delay measured from each player's 10 s window
+// (coop::host::DelayTuner), the same for everyone; guarded by g_anim_mutex.
+coop::host::DelayTuner g_tuner;
+
+// The calc thread (Director::SetSmoothing): where player n is shown at
+// server time `server_now_us`. Every 10 s, a line of what the smoothing had
+// to do for that player, when it had to do anything but interpolate.
+std::optional<coop::host::SmoothedPose> SmoothAt(std::uint8_t number, std::uint64_t server_now_us,
+                                                 std::uint64_t now_ms) {
+    if (number == 0 || number >= g_smooth.size()) {
+        return std::nullopt;
+    }
+    std::optional<coop::host::SmoothedPose> pose;
+    std::optional<coop::host::PoseSmoother::Stats> stats;
+    std::optional<coop::host::DelayTuner::Verdict> verdict;
+    {
+        std::lock_guard lock(g_anim_mutex);
+        pose = g_smooth[number].at(server_now_us);
+        if (pose) {
+            g_shown[number] = ShownPose{server_now_us, *pose};
+        } else {
+            g_shown[number].reset();
+        }
+        if (g_smooth_log_ms[number] == 0) {
+            g_smooth_log_ms[number] = now_ms;
+        } else if (now_ms - std::min(now_ms, g_smooth_log_ms[number]) >= kSmoothLogMs) {
+            g_smooth_log_ms[number] = now_ms;
+            stats = g_smooth[number].take_stats();
+            verdict = g_tuner.feed(*stats);
+            if (verdict->change == coop::host::DelayTuner::Change::up ||
+                verdict->change == coop::host::DelayTuner::Change::down) {
+                for (auto& s : g_smooth) {
+                    s.set_delay_us(verdict->delay_us);
+                }
+            }
+        }
+    }
+    if (verdict && g_director) {
+        // ORM riesgos-visual: the delay's check line, and each change of it.
+        const auto& v = *verdict;
+        const std::string who = "P" + std::to_string(number);
+        const std::string share = std::to_string(static_cast<int>(v.share * 1000.0 + 0.5) / 10) + "." +
+                                  std::to_string(static_cast<int>(v.share * 1000.0 + 0.5) % 10) + " %";
+        using C = coop::host::DelayTuner::Change;
+        if (v.change == C::up || v.change == C::down) {
+            g_director->SetSmoothDelay(v.delay_us);  // the bodies with the positions
+            g_director->Note(who + " smooth: the delay is " + std::to_string(v.delay_us / 1000) +
+                             " ms for everyone now (" + share + " of " + who + "'s frames were past his newest "
+                             "sample)");
+        }
+        if (v.change == C::up) {
+            CoopVCheck::Fallback("smooth delay", std::to_string(v.delay_us / 1000) + " ms for everyone: " + share +
+                                                     " of " + who + "'s frames were carried on or held at the " +
+                                                     "shorter one");
+        } else if (v.change == C::kept && v.share <= g_tuner.settings().up_share) {
+            CoopVCheck::Ok("smooth delay", std::to_string(v.delay_us / 1000) + " ms covers " + who +
+                                               "'s samples (" + share + " of his frames carried on or held)");
+        }
+    }
+    if (stats && g_director &&
+        (stats->reordered || stats->late || stats->too_old || stats->extrapolated || stats->held ||
+         stats->corrections || stats->snaps || stats->cuts)) {
+        const auto& t = *stats;
+        g_director->Note("P" + std::to_string(number) + " smooth: " +
+                         std::to_string(t.buffered) + " samples in 10 s, " +
+                         std::to_string(t.reordered) + " out of order, " + std::to_string(t.late) +
+                         " late, " + std::to_string(t.too_old) + " too old; " +
+                         std::to_string(t.frames) + " frames: " + std::to_string(t.extrapolated) +
+                         " carried on, " + std::to_string(t.held) + " held moving, " +
+                         std::to_string(t.corrections) + " eased, " + std::to_string(t.snaps) +
+                         " snapped (" + std::to_string(t.cuts) + " teleports or scene changes); " +
+                         "at most " + std::to_string(t.max_ahead_us / 1000) + " ms past a sample");
+    }
+    return pose;
+}
 
 } // namespace
 
@@ -1664,6 +2480,10 @@ void OnEvent(const coop::net::Event& event) {
         g_drawn = {};
         g_color = {};
         g_ocarina = {};
+        for (auto& s : g_smooth) {
+            s.reset();
+        }
+        g_shown = {};
     } else if (event.kind == EventKind::player_left && event.player < g_anims.size()) {
         std::lock_guard lock(g_anim_mutex);
         g_anims[event.player].reset();
@@ -1671,6 +2491,8 @@ void OnEvent(const coop::net::Event& event) {
         g_drawn[event.player].reset();
         g_color[event.player].reset();
         g_ocarina[event.player] = {};
+        g_smooth[event.player].reset();
+        g_shown[event.player].reset();
     } else if (event.kind == EventKind::player_equip && event.player != 0 &&
                event.player < g_gear.size()) {
         const auto& e = event.equipment;
@@ -1686,6 +2508,9 @@ void OnEvent(const coop::net::Event& event) {
         g_color[event.player] = e.color;
     } else if (const auto* note = std::get_if<coop::protocol::OcarinaNote>(&event.message);
                event.kind == EventKind::message && note != nullptr) {
+        if (!OrmOcarinaSound::UpstreamNotes()) {
+            return;  // ORM: LICHII_ORM_OCARINA_NOTES=1: our orm_ocarina_sound plays the notes, not this
+        }
         if (note->player_number == 0 || note->player_number >= g_ocarina.size()) {
             return;
         }
@@ -1698,11 +2523,17 @@ void OnEvent(const coop::net::Event& event) {
         w = CoopPuppetSound::Wanted{note->note, w.serial + 1, now_ms};
     } else if (event.kind == EventKind::message) {
         const auto* sample = std::get_if<coop::protocol::PlayerSample>(&event.message);
-        if (sample == nullptr || !sample->animation || sample->player_number == 0 ||
+        if (sample == nullptr || sample->player_number == 0 ||
             sample->player_number >= g_anims.size()) {
             return;
         }
         std::lock_guard lock(g_anim_mutex);
+        if (const auto s = coop::host::smooth_sample_of(*sample)) {
+            g_smooth[sample->player_number].push(*s);  // ORM smoothing (positions too)
+        }
+        if (!sample->animation) {
+            return;
+        }
         auto& slot = g_anims[sample->player_number];
         const std::uint32_t serial = slot ? slot->serial + 1 : 1;
         slot = Received{{sample->animation->name, sample->animation->frame,
@@ -1720,6 +2551,23 @@ void Configure(PlannerSettings settings, bool verbose, Director::Log log) {
         // unless asked for; the colour is the tunic (PlannerSettings::tunics).
         const char* tint = std::getenv("LICHII_COOP_PUPPET_TINT");
         g_director->SetTint(tint != nullptr ? CoopColors::StrengthFrom(tint) : 0.0f);
+        g_director->SetRevealGate(true);
+        // ORM: masks and the lens on the puppet's head (coop_mascaras.h).
+        g_director->SetHeadFollow(CoopSwitch::On("LICHII_ORM_MASK_FOLLOW", true));
+        if (settings.smooth) {
+            // ORM smoothing (oot-remake docs/SUAVIZADO.md); the fairies' own
+            // director keeps the plan's positions.
+            g_director->SetSmoothing(
+                [](std::uint8_t number, std::uint64_t server_now_us) {
+                    const auto now_ms = static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch())
+                            .count());
+                    return SmoothAt(number, server_now_us, now_ms);
+                },
+                coop::host::SmoothSettings{}.delay_us);
+        }
+        g_director->SetEffectRules(settings.effects.rules);  // ORM efectos2
         g_planner = std::make_unique<Planner>(std::move(settings));
         g_configured = true;
     });
@@ -1728,6 +2576,14 @@ void Configure(PlannerSettings settings, bool verbose, Director::Log log) {
 Director& TheDirector() {
     Configure({}, false, {});
     return *g_director;
+}
+
+std::optional<ShownPose> LastSmoothed(std::uint8_t number) {
+    if (number == 0 || number >= g_shown.size()) {
+        return std::nullopt;
+    }
+    std::lock_guard lock(g_anim_mutex);
+    return g_shown[number];
 }
 
 std::uint32_t LivePuppets() {
@@ -1753,6 +2609,11 @@ std::vector<Remote> Collect(coop::host::Session* session, std::uint64_t server_n
                     r.scene = player->scene();
                     r.status = player->flags();
                     r.adult = player->age() == coop::protocol::Age::adult;
+                    // The newest sample's age, for the reveal (oldest first).
+                    if (!player->samples().empty()) {
+                        const std::uint64_t at = player->samples().back().time.server_time_us;
+                        r.sample_age_ms = server_now_us > at ? (server_now_us - at) / 1000 : 0;
+                    }
                 }
                 remotes.push_back(std::move(r));
             }
@@ -1797,7 +2658,21 @@ void Publish(std::uint64_t main_base, const std::optional<std::string>& scene,
             .count());
     g_planner->SetFailedTunics(g_director->FailedTunics());
     auto input = g_planner->Plan(main_base, scene, position, local_event, remotes, now_ms, own_gear, own_drawn, own_color);
+    // ORM moving floors (orm_ride.h): a partner on a lift or boat drawn on our copy of it.
+    OrmRide::Draw(input.targets, input.scene);
     StampDrawing(input, now_ms);
+    input.server_now_us = server_now_us;  // ORM smoothing: run on by the director
+    input.server_at_ms = now_ms;
+    // ORM efectos2: what the effects did, and the status stand-ins' places.
+    for (const auto& line : g_planner->TakeEffectLines()) {
+        g_director->Note(line);
+    }
+    if (g_plan_observer) {
+        g_plan_observer(input);
+    }
+    for (const auto& observer : g_plan_observers) {
+        observer(input);  // ORM choque: the bodies (coop_bodies.cpp)
+    }
     g_director->SetInput(std::move(input));
 }
 

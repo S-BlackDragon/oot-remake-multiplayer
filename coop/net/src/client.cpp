@@ -109,6 +109,7 @@ std::string_view to_string(EventKind kind) {
     case EventKind::join_timed_out: return "join timed out";
     case EventKind::host_changed: return "host changed";
     case EventKind::player_equip: return "player equip";
+    case EventKind::player_look: return "player look";
   }
   return "unknown";
 }
@@ -651,6 +652,13 @@ bool Client::apply_room(const proto::Message& message, std::uint8_t channel,
     event.kind = EventKind::player_equip;
     event.player = equip->player_number;
     event.equipment = *known->equipment;
+  } else if (const auto* look = std::get_if<proto::PlayerLook>(&message)) {
+    Player* known = player_entry(look->player_number);
+    if (known == nullptr || known->self) return false;
+    known->look = *look;
+    event.kind = EventKind::player_look;
+    event.player = look->player_number;
+    event.look = *look;
   } else if (const auto* chat = std::get_if<proto::Chat>(&message)) {
     const Player* known = find_player(chat->player_number);
     if (known == nullptr || known->self) return false;
@@ -702,6 +710,8 @@ void Client::on_welcome(const proto::Welcome& welcome) {
   event.welcome = welcome;
   ever_welcomed_ = true;
   push(std::move(event));
+  // ORM: our colour, on every connection (the server forgets a leaver's).
+  if (config_.color) send_look();
 
   std::vector<EarlyMessage> early = std::move(early_);
   early_.clear();
@@ -730,6 +740,12 @@ bool Client::send_on(const proto::Message& message, std::uint8_t channel) {
   if (!send_raw(message, channel)) return false;
   if (const auto* status = std::get_if<proto::PlayerStatus>(&message)) {
     if (Player* self = player_entry(player_number_)) self->status = status->flags;
+  }
+  if (const auto* look = std::get_if<proto::PlayerLook>(&message)) {
+    if (Player* self = player_entry(player_number_)) {
+      self->look = *look;
+      self->look->player_number = player_number_;
+    }
   }
   if (const auto* equip = std::get_if<proto::PlayerEquip>(&message)) {
     if (Player* self = player_entry(player_number_)) {
@@ -772,6 +788,17 @@ bool Client::answer_challenge(const proto::JoinChallenge& challenge,
   cipher_ = std::make_unique<proto::TrafficCipher>(*keys);
   keys->wipe();
   return sent;
+}
+
+bool Client::set_color(const std::array<std::uint8_t, 3>& rgb) {
+  config_.color = rgb;
+  if (state_ != State::connected) return false;
+  return send_look();
+}
+
+bool Client::send_look() {
+  if (!config_.color) return false;
+  return send(proto::PlayerLook{proto::kPlayerSelf, *config_.color, 0});
 }
 
 bool Client::send_raw(const proto::Message& message, std::uint8_t channel) {

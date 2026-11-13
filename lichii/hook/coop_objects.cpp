@@ -36,6 +36,25 @@
 //   LICHII_COOP_OBJECTS_HIT_REPLAY=0 writes life directly instead);
 // - a copy near our Link whose own AI plays another animation than its
 //   owner's is asked for (issue 132; LICHII_COOP_OBJECTS_WAKE=0 stops it);
+// LICHII_COOP_NPC=1 (ORM D-R12, off by default; docs/objects.md
+// "Townspeople"): the townsperson our player talks to (coop/host/npc_talk.hpp,
+// from our own event and the walk) is claimed in OBJECT_PRESENT, so the server
+// gives it to us, and our copy of it is not moved or animated by its old
+// owner meanwhile. Nothing new is read: the walk already has every Npc_.
+// LICHII_COOP_NPC_POSE=1 (ORM, off by default; oot-remake
+// docs/NPC_COMPARTIDOS.md, steps 5 to 7): the townspeople copies we do not
+// own are held like enemy copies (the AI hold, coop_hold.h; mode 1 unless
+// LICHII_COOP_OBJECTS_AI_HOLD says another), their plays fill the partial AS
+// slots from slot 0 (0x3abec10, as the puppet), and the townsperson we own
+// and talk to (LICHII_COOP_NPC=1) is sent bone by bone as OBJECT_POSE, which
+// the other games write onto their copy (coop_npc_pose.h).
+// LICHII_COOP_CARRY (ORM "Levantar", on by default; =0 off; oot-remake
+// docs/DETALLES_MARIONETA.md, coop_carry.h): what our Link lifts is claimed
+// and carried (its samples say it is in our hands), and what another player
+// holds is drawn in the hands of his puppet, placed on the calc thread from
+// the puppet as drawn there (LICHII_COOP_CARRY_BONE=0: its actor frame only),
+// its speeds zeroed after each place so it does not fall between them
+// (LICHII_COOP_CARRY_STILL=0: kept, the old path; CoopCarry::Still).
 // LICHII_COOP_OBJECTS_TEST_DRIVE=1 (two-game tests only): on the game that
 // LICHII_COOP_OBJECTS_TEST_TAKE=<hex key> (tests only): on player 2's game,
 // 3 s after sharing starts, acts as if that 64-bit placement key arrived
@@ -88,7 +107,12 @@
 #include "coop/host/scene.hpp"
 #include "coop/host/session.hpp"
 #include "coop/net/client.hpp"
+#include "coop_npc_gaze.h"
+#include "coop_npc_pose.h"
+#include "coop_interest.h"
 #include "coop_objects_sync.h"
+#include "orm_ride.h"
+#include "coop/host/ride.hpp"
 #include "coop_ocarina.h"
 #include "coop_spawn.h"
 #include "coop_pickups.h"
@@ -206,7 +230,11 @@ constexpr u64 kMalloc = 0x14c6c90;
 // The mover's block from the game's malloc: the play request, then one
 // fixed cell per animation name (a slot may keep the name's pointer).
 constexpr u64 kBlockRequest = 0x0;
+// ORM levantar-vasija: 16 zero bytes the speed calls of a carried copy point
+// at (CoopCarry::Still), between the play request (0x30 bytes) and the names.
+constexpr u64 kBlockZero = 0x30;
 constexpr u64 kBlockNames = 0x40;
+static_assert(kBlockZero >= kBlockRequest + 0x30 && kBlockZero + CoopCarry::still::kZeroBytes <= kBlockNames);
 constexpr u64 kNameCell = 0x50;
 constexpr u64 kNameCells = 400;
 constexpr u64 kBlockSize = kBlockNames + kNameCell * kNameCells;
@@ -462,6 +490,24 @@ private:
     Core::Memory::Memory& memory_;
 };
 
+// ORM "Levantar": the present thread's view of the game's memory for
+// CoopCarry's reads (our Link's bones). Reads only.
+class MemoryGuest final : public CoopPuppet::Guest {
+public:
+    explicit MemoryGuest(Core::Memory::Memory& memory) : memory_(memory) {}
+    bool Read(std::uint64_t address, void* out, std::size_t size) override {
+        if (address < 0x1000 || size == 0 || !memory_.IsValidVirtualAddressRange(address, size)) {
+            return false;
+        }
+        memory_.ReadBlockUnsafe(address, out, size);
+        return true;
+    }
+    bool Write(std::uint64_t, const void*, std::size_t) override { return false; }
+
+private:
+    Core::Memory::Memory& memory_;
+};
+
 // The game's calc thread, at the svc cave (coop_svc.h AddCaller): moves the
 // copies with the game's own setter and deletes the taken pickups. The
 // present thread hands it the latest wish list; each game frame it works
@@ -473,7 +519,46 @@ public:
         std::array<float, 12> transform{};  // place, then the 3x3 rows
         bool rotation = false;              // false: keep the actor's own
         bool asleep = false;                // state 6 may be moved too (issue 101)
+        // ORM "Levantar": in the hands of the puppet of carry.holder, placed
+        // from that puppet as drawn this frame (CoopCarry::Attached), blended
+        // from `transform` by `weight`. `transform` alone when the puppet or
+        // its place cannot be read.
+        struct Attach {
+            coop::protocol::ObjectCarry carry;
+            float weight = 1.0f;
+        };
+        std::optional<Attach> attach;
     };
+
+    // ORM "Levantar": the carried copies follow the puppet's bone (on) or its
+    // actor frame only (LICHII_COOP_CARRY_BONE=0).
+    void SetCarryBone(bool on) {
+        std::lock_guard lock(mutex_);
+        carry_bone_ = on;
+    }
+    // ORM levantar-vasija: a copy in a puppet's hands has its speeds zeroed
+    // after each place (on), or keeps them (LICHII_COOP_CARRY_STILL=0).
+    void SetCarryStill(bool on) {
+        std::lock_guard lock(mutex_);
+        still_.SetOn(on);
+    }
+    // Carried copies placed since the last ask: on a bone, on the actor, and
+    // left where the samples put them (no puppet of the holder here); then
+    // the copy-frames held still (their speeds zeroed).
+    std::array<std::size_t, 4> TakeCarryCounts() {
+        std::lock_guard lock(mutex_);
+        const std::array<std::size_t, 4> counts{carry_bone_count_, carry_actor_count_,
+                                                carry_fallback_count_, still_.TakeStillFrames()};
+        carry_bone_count_ = 0;
+        carry_actor_count_ = 0;
+        carry_fallback_count_ = 0;
+        return counts;
+    }
+    // The lines of the copies let go since the last ask (CoopCarry::Still).
+    std::vector<std::string> TakeStillLines() {
+        std::lock_guard lock(mutex_);
+        return still_.TakeLines();
+    }
 
     struct Hit {
         u64 actor = 0;      // the copy
@@ -492,6 +577,26 @@ public:
             hits_.push_back(hit);
             hits_.back().asked_ms = SteadyMs();
         }
+    }
+
+    // ORM LICHII_COOP_NPC_POSE: write the townsperson poses on the calc
+    // thread at the start of each game frame (coop_npc_pose.h).
+    void SetNpcPose(bool on) {
+        std::lock_guard lock(mutex_);
+        npc_pose_ = on;
+    }
+
+    // ORM LICHII_COOP_NPC_GAZE: turn the townspeople's look slots to the
+    // puppets on the calc thread at the start of each game frame (coop_npc_gaze.h).
+    void SetNpcGaze(bool on) {
+        std::lock_guard lock(mutex_);
+        npc_gaze_ = on;
+    }
+
+    // Partial slot calls made since the last ask (ORM step 6).
+    std::size_t TakePartials() {
+        std::lock_guard lock(mutex_);
+        return std::exchange(partials_, 0);
     }
 
     // Present thread: the enemy copies whose AI is held, and how.
@@ -575,7 +680,40 @@ public:
                 return SetFrame(controller, frame, index);
             }
         }
+        // ORM step 6: then slot 0's command on the copy's partial slots.
+        if (after_call && !partial_queue_.empty()) {
+            const CoopPuppet::Call c = partial_queue_.front();
+            partial_queue_.erase(partial_queue_.begin());
+            ++partials_;
+            return c;
+        }
+        // ORM levantar-vasija: after a carried copy's place, its speed calls.
+        if (after_call && !still_queue_.empty()) {
+            const CoopPuppet::Call c = still_queue_.front();
+            still_queue_.erase(still_queue_.begin());
+            return c;
+        }
         if (!after_call) {
+            partial_queue_.clear();
+            still_queue_.clear();
+            still_.Frame();
+            if (npc_pose_) {
+                CoopNpcPose::TheNpcPose().OnCalcFrame(guest, now_ms);
+            }
+            if (npc_gaze_) {
+                // The puppets shown or held (not parked under their spot for a hide).
+                const std::uint32_t live = CoopPuppet::LivePuppets();
+                std::vector<CoopNpcGaze::PuppetAt> puppets;
+                for (const auto& slot : CoopPuppet::TheDirector().Slots()) {
+                    if (slot.actor != 0 && slot.number != 0 && slot.number < 32 &&
+                        slot.phase == CoopPuppet::Phase::live && ((live >> slot.number) & 1u) != 0) {
+                        puppets.push_back({slot.number, slot.actor,
+                                           slot.actor_name.find("Adult") != std::string::npos});
+                    }
+                }
+                CoopNpcGaze::TheWriter().OnCalcFrame(
+                    guest, puppets, [this](CoopPuppet::Guest& g, u64 a) { return Alive(g, a); });
+            }
             for (const u64 actor : std::exchange(releases_, {})) {
                 u32 flags = 0;
                 if (!Alive(guest, actor) || !guest.Read(actor + kActorFlags, &flags, 4)) {
@@ -589,7 +727,12 @@ public:
                     ++release_clear_;
                 }
             }
-            if (block_ == 0 && main_ != 0 && !allocating_ && !plays_.empty() && !alloc_tried_) {
+            // The block holds the play request and names, and the zero cell
+            // of the carried copies' speed calls (levantar-vasija).
+            const bool carrying = std::any_of(poses_.begin(), poses_.end(),
+                                              [](const Pose& p) { return p.attach.has_value(); });
+            if (block_ == 0 && main_ != 0 && !allocating_ && (!plays_.empty() || carrying) &&
+                !alloc_tried_) {
                 allocating_ = true;
                 alloc_tried_ = true;
                 CoopPuppet::Call c;
@@ -613,6 +756,15 @@ public:
                 WriteHolds(guest);
             }
             work_ = poses_;
+            // ORM "Levantar": the puppets, by player, for the carried copies.
+            puppets_.clear();
+            if (std::any_of(work_.begin(), work_.end(), [](const Pose& p) { return p.attach.has_value(); })) {
+                for (const auto& slot : CoopPuppet::TheDirector().Slots()) {
+                    if (slot.actor != 0 && slot.number != 0) {
+                        puppets_[slot.number] = slot.actor;
+                    }
+                }
+            }
             if (work_.size() > 1) {
                 std::rotate(work_.begin(), work_.begin() + (++turn_ % work_.size()), work_.end());
             }
@@ -762,6 +914,10 @@ public:
             }
             checked_sample_[key] = p.sample;
             frame_after_ = std::make_tuple(p.address, p.slot, frame);
+            if (p.partial) {  // ORM: the townsperson's other parts after its play (coop_npc_pose.h)
+                partial_queue_ = CoopNpcPose::PartialCalls(
+                    main_, p.address, CoopNpcPose::AsSlotCount(guest, p.address));
+            }
             CoopPuppet::Call c;
             c.function = main_ + kPlayAs;
             c.x[0] = block_ + kBlockRequest;
@@ -794,7 +950,32 @@ public:
             if (!Alive(guest, p.actor, p.asleep)) {
                 continue;
             }
-            if (p.rotation) {
+            if (p.attach) {
+                // ORM "Levantar": in the holder's puppet's hands as it stands now.
+                std::array<float, 12> t = p.transform;
+                bool turned = p.rotation;
+                const bool in_hands = Attach(guest, p, t);
+                if (in_hands) {
+                    turned = true;
+                }
+                guest.Write(p.actor + kActorPosition, t.data(), turned ? 48 : 12);
+                // ORM levantar-vasija: in the hands, a still double: its
+                // speeds zeroed with the game's own calls right after this
+                // place (CoopCarry::Still); queued for the after-calls.
+                bool still = false;
+                if (in_hands) {
+                    still = HoldStill(guest, p.actor);
+                }
+                if (hold_watch_.Falling() || (in_hands && !still)) {
+                    // ORM riesgos-visual: it fell between our writes (HoldWatch),
+                    // or it is not held still: the pending place too, which the
+                    // actor's calc applies.
+                    guest.Write(p.actor + CoopPuppet::addr::kActorPositionRequest, t.data(), 12);
+                    if (turned) {
+                        guest.Write(p.actor + CoopPuppet::addr::kActorRotationRequest, t.data() + 3, 36);
+                    }
+                }
+            } else if (p.rotation) {
                 guest.Write(p.actor + kActorPosition, p.transform.data(), 48);
             } else {
                 guest.Write(p.actor + kActorPosition, p.transform.data(), 12);
@@ -978,6 +1159,65 @@ private:
         return at;
     }
 
+    // ORM "Levantar": the transform of a carried copy from its holder's
+    // puppet (bone or actor frame), blended in from `t` (the samples' place)
+    // by the pose's weight. False (t unchanged) when the puppet is not here
+    // or its place does not read.
+    bool Attach(CoopPuppet::Guest& guest, const Pose& p, std::array<float, 12>& t) {
+        const auto puppet = puppets_.find(p.attach->carry.holder);
+        CoopCarry::Anchor used = CoopCarry::Anchor::none;
+        const auto at = puppet != puppets_.end()
+                            ? CoopCarry::Attached(guest, puppet->second, p.attach->carry,
+                                                  carry_bone_, &used)
+                            : std::nullopt;
+        if (!at) {
+            ++carry_fallback_count_;
+            hold_watch_.Forget(p.actor);
+            return false;
+        }
+        (used == CoopCarry::Anchor::bone ? carry_bone_count_ : carry_actor_count_)++;
+        CoopCarry::Frame frame = *at;
+        if (p.attach->weight < 1.0f) {
+            CoopCarry::Frame from;
+            from.p = {p.transform[0], p.transform[1], p.transform[2]};
+            if (p.rotation) {
+                std::copy(p.transform.begin() + 3, p.transform.end(), from.r.begin());
+            } else if (const auto own = CoopCarry::ReadActor(guest, p.actor)) {
+                from.r = own->r;
+            }
+            frame = CoopCarry::Blend(from, *at, p.attach->weight);
+        }
+        // ORM riesgos-visual: does the copy stay where it was put last frame?
+        if (const auto now = CoopCarry::ReadActor(guest, p.actor)) {
+            hold_watch_.Note(p.actor, now->p, frame.p);
+        }
+        std::copy(frame.p.begin(), frame.p.end(), t.begin());
+        std::copy(frame.r.begin(), frame.r.end(), t.begin() + 3);
+        return true;
+    }
+
+    // ORM levantar-vasija: queue the speed calls that hold the copy `actor`,
+    // just placed in a puppet's hands, still (CoopCarry::Still). False when it
+    // takes the fallback (no body, its flags keep its speed, no zero cell).
+    bool HoldStill(CoopPuppet::Guest& guest, u64 actor) {
+        using Cell = CoopCarry::Still::Cell;
+        Cell cell = Cell::none;
+        if (block_ != 0) {
+            const std::array<std::uint8_t, CoopCarry::still::kZeroBytes> zero{};
+            cell = guest.Write(block_ + kBlockZero, zero.data(), zero.size()) ? Cell::ready : Cell::none;
+        } else if (allocating_ || !alloc_tried_) {
+            cell = Cell::coming;
+        }
+        const auto calls = still_.Hold(guest, main_, actor, block_ + kBlockZero, cell);
+        for (const CoopCarry::GameCall& g : calls) {
+            CoopPuppet::Call c;
+            c.function = g.function;
+            std::copy(g.x.begin(), g.x.end(), c.x.begin());
+            still_queue_.push_back(c);
+        }
+        return !calls.empty();
+    }
+
     // On the game thread, so the list cannot change under us: still on the
     // actor list (its node points back at it), awake, and an actor.
     // `asleep`: state 6 counts too (a copy moved to us from its far home).
@@ -993,6 +1233,15 @@ private:
 
     std::mutex mutex_;
     u64 main_ = 0;
+    // ORM "Levantar" (guarded): the puppets of this frame by player, and counts.
+    std::map<std::uint8_t, u64> puppets_;
+    bool carry_bone_ = true;
+    std::size_t carry_bone_count_ = 0;
+    std::size_t carry_actor_count_ = 0;
+    std::size_t carry_fallback_count_ = 0;
+    CoopCarry::HoldWatch hold_watch_;  // ORM riesgos-visual: carried copies that fall between writes
+    CoopCarry::Still still_;           // ORM levantar-vasija: carried copies held still
+    std::vector<CoopPuppet::Call> still_queue_;  // their speed calls, after the place
     std::vector<Pose> poses_;
     std::vector<u64> removes_;
     std::vector<PlayWish> plays_;
@@ -1037,6 +1286,10 @@ private:
     std::unordered_set<u64> held_before_;  // BSA components in last frame's table
     std::size_t hold_set_ = 0;
     std::size_t hold_kept_ = 0;
+    bool npc_pose_ = false;                          // ORM LICHII_COOP_NPC_POSE
+    bool npc_gaze_ = false;                          // ORM LICHII_COOP_NPC_GAZE
+    std::vector<CoopPuppet::Call> partial_queue_;    // after a play's frame set
+    std::size_t partials_ = 0;
 };
 
 Mover& TheMover() {
@@ -1159,6 +1412,16 @@ public:
             if (sharing_) {
                 sync_.Reset();
                 world_.Reset();
+                lifter_.Reset();
+                carried_logged_.clear();
+                npc_talk_.reset();
+                npc_claim_.reset();
+                npc_claim_logged_ = coop::host::NpcClaim::State::none;
+                npc_rejoin_logged_.clear();
+                npc_checked_.clear();
+                CoopNpcPose::TheNpcPose().Reset();
+                npc_pose_source_logged_.reset();
+                npc_pose_targets_logged_.clear();
                 sharing_ = false;
             }
             walk_actors_.clear();
@@ -1183,6 +1446,9 @@ public:
         }
         if (pose_ && sharing_) {
             Place(system, server_now_us);
+        }
+        if (npc_pose_ && sharing_) {
+            NpcPoseFrame(*session, server_now_us);
         }
         if (!share_every_.Due(CoopEvery::NowUs())) {
             return;
@@ -1249,6 +1515,48 @@ public:
             CoopSpawn::UseDirector();  // makes the rolled enemies another game decided
             sync_.SetHurt(hurt_);
             sync_.SetWake(wake_);  // issue 132: LICHII_COOP_OBJECTS_WAKE=0 turns it off
+            // ORM golpes: our hits on others' enemies shown at once, copies smoothed.
+            sync_.SetHits(hit_feedback_);
+            sync_.SetHitDedupe(hit_dedupe_);
+            sync_.SetCopySmooth(copy_smooth_);
+            LOG_INFO(Core, "coop: objects: share hits feedback {}, owner dedupe {}, copy smoothing {}",
+                     hit_feedback_ ? "on" : "off", hit_dedupe_ ? "on" : "off (logged only)",
+                     copy_smooth_ ? "on" : "off");
+            // ORM steps 5 to 7: townspeople copies held, partial slots, OBJECT_POSE.
+            sync_.SetNpcPose(npc_pose_);
+            sync_.SetHoldEnemies(ai_hold_ != 0);
+            // ORM boss families (coop/host/boss_rules.hpp, oot-remake docs/JEFES.md section 9).
+            sync_.SetFamilies(families_);
+            LOG_INFO(Core,
+                     "coop: objects: boss families {} (a grab keeps its grabber with the held one's game, "
+                     "a volley its tennis boss; LICHII_ORM_BOSS_FAMILIES)",
+                     families_ ? "on" : "off");
+            TheMover().SetNpcPose(npc_pose_);
+            TheMover().SetNpcGaze(npc_gaze_ && npc_);
+            if (npc_gaze_) {
+                LOG_INFO(Core, "coop: npc gaze: {}",
+                         npc_ ? "on (townspeople look at a partner's puppet when he is the nearest "
+                                "player or talks to them)"
+                              : "asked, but LICHII_COOP_NPC is off: nothing turned");
+            }
+            TheMover().SetCarryBone(carry_bone_);
+            TheMover().SetCarryStill(carry_still_);
+            if (carry_) {
+                LOG_INFO(Core,
+                         "coop: carry: on (lifted objects claimed and carried; others' drawn in "
+                         "their puppet's hands by {}; bomb flowers {}; a copy in the hands {})",
+                         carry_bone_ ? "bone" : "the actor frame",
+                         CoopCarry::ShareFlowers() ? "shared" : "each game's own",
+                         carry_still_ ? "held still (its speeds zeroed)"
+                                      : "keeps its speed (LICHII_COOP_CARRY_STILL=0)");
+            }
+            if (npc_pose_) {
+                LOG_INFO(Core,
+                         "coop: npc pose: on (townspeople copies held in ai hold mode {}, partial "
+                         "slots, OBJECT_POSE at {} a second){}",
+                         ai_hold_ != 0 ? ai_hold_ : 1, CoopNpcPose::kSendHz,
+                         npc_ ? "" : "; LICHII_COOP_NPC is off, so this game sends no pose");
+            }
             // A projectile copy's blast here is not our hit (docs/objects.md, "Projectiles").
             sync_.SetBlastNear([](const coop::protocol::Vec3& at, std::uint64_t now) {
                 return CoopProjectiles::TheBlasts().Near(at, now);
@@ -1360,6 +1668,9 @@ public:
                     world_.ForgetKept();
                 }
             }
+            // ORM "Levantar": a break of what a Link holds is the holder's game's.
+            world_.SetHands(carry_ ? lifter_.Claimed(server_now_us) : std::set<std::uint64_t>{},
+                            std::exchange(carried_by_others_, {}));
             world_.Tick(*scene, self, server_now_us, seen, player_, world);
             for (auto& m : world.send) {
                 send.emplace_back(std::move(m));
@@ -1557,6 +1868,7 @@ public:
                                                              our_link_, ocarina_probe_.Active(), server_now_us)) {
                 LOG_INFO(Core, "coop: {}", line);
             }
+            OcarinaHandProbe(system, r, server_now_us);
         }
         if (const u64 made = TheGrass().Made(); made != grass_made_logged_) {
             grass_made_logged_ = made;
@@ -1689,6 +2001,486 @@ public:
                 }
             }
         });
+    }
+
+    // ORM "Levantar" (coop_carry.h): what our own Link lifts is claimed and
+    // our copy left to our game (Sync::SetCarry); while it is ours, its
+    // samples carry where it sits in our Link's hands. Only routes what the
+    // walk read and our Link's bones; the rule is CoopCarry::Lifter's.
+    void Carry(Core::Memory::Memory& memory, const std::string& scene, u64 now_us,
+               const std::vector<Seen>& seen, u8 self) {
+        std::optional<CoopCarry::LinkNow> link;
+        if (player_ && link_rotation_) {
+            CoopCarry::LinkNow l;
+            l.frame.p = *player_;
+            l.frame.r = CoopCarry::Rigid(*link_rotation_).value_or(l.frame.r);
+            l.command = link_command_;
+            link = l;
+        }
+        std::vector<CoopCarry::Candidate> candidates;
+        for (const Seen& s : seen) {
+            if (!CoopCarry::IsLiftable(s.name) || !IsShared(s.name)) {
+                continue;
+            }
+            CoopCarry::Candidate c;
+            c.address = s.address;
+            c.name = s.name;
+            c.position = s.position;
+            c.rotation = s.rotation;
+            c.held_by_other = sync_.CarriedByOther(s.address, now_us);
+            if (c.held_by_other) {
+                carried_by_others_.insert(s.address);  // the world sync's SetHands
+            }
+            candidates.push_back(std::move(c));
+        }
+        MemoryGuest guest(memory);
+        std::optional<CoopCarry::Skeleton> skeleton;
+        if (carry_bone_ && our_link_ != 0 && link) {
+            skeleton = CoopCarry::FindSkeleton(guest, our_link_);
+        }
+        const CoopCarry::Frame link_frame = link ? link->frame : CoopCarry::Frame{};
+        CoopCarry::Lifter::BoneFinder find;
+        CoopCarry::Lifter::BoneReader bone;
+        if (skeleton) {
+            find = [&](const coop::protocol::Vec3& at) {
+                return CoopCarry::NearestBone(guest, *skeleton, link_frame, at);
+            };
+            bone = [&](std::uint16_t b) {
+                return CoopCarry::ReadBone(guest, *skeleton, link_frame, b);
+            };
+        }
+        lifter_.Update(scene, link, candidates, now_us, find, bone);
+        std::map<std::uint64_t, coop::protocol::ObjectCarry> ours;
+        if (const auto held = lifter_.Held()) {
+            if (const auto carry = lifter_.CarryOf(*held, self)) {
+                ours.emplace(*held, *carry);
+            }
+        }
+        sync_.SetCarry(lifter_.Claimed(now_us), std::move(ours));
+        for (const CoopCarry::Event& e : lifter_.TakeEvents()) {
+            const auto id = sync_.IdOf(e.address);
+            const u8 owner = id ? sync_.OwnerOf(*id) : 0;
+            if (e.kind == CoopCarry::Event::Kind::lifted) {
+                LOG_INFO(Core, "coop: carry: lifting {} {:#x} ({}, claimed){}", e.name, e.address,
+                         owner == self ? std::string("ours")
+                         : owner == 0  ? std::string("no owner yet")
+                                       : fmt::format("owner P{}", owner),
+                         e.bone ? fmt::format(", by bone {}", *e.bone)
+                                : std::string(", by our Link's frame"));
+            } else {
+                LOG_INFO(Core, "coop: carry: let go of {} {:#x} ({}){}", e.name, e.address,
+                         CoopCarry::NameOf(e.why), owner == self ? "" : ", not ours yet");
+            }
+        }
+        // The hand-over of what we hold, once: from then on its samples carry it.
+        const auto held = lifter_.Held();
+        const auto held_id = held ? sync_.IdOf(*held) : std::nullopt;
+        const bool ours_now = held_id && sync_.OwnerOf(*held_id) == self;
+        if (held && ours_now && carry_ours_logged_ != *held) {
+            carry_ours_logged_ = *held;
+            LOG_INFO(Core, "coop: carry: {:#x} is ours now: its samples carry it in our hands",
+                     *held);
+        } else if (!held) {
+            carry_ours_logged_ = 0;
+        }
+    }
+
+    // ORM D-R12: the townsperson our player talks to (coop/host/npc_talk.hpp)
+    // is claimed and our copy of it freed (Sync::SetTalk). Only routes what
+    // the walk read; the rule is portable.
+    void Talk(const std::string& scene, bool event, u64 now_us, const std::vector<Seen>& seen,
+              u8 self, const std::map<u8, u8>& statuses) {
+        if (scene != npc_scene_) {
+            npc_talk_.reset();
+            npc_claim_.reset();
+            npc_gaze_rule_.Reset();
+            CoopNpcGaze::TheWriter().Reset();  // the old scene's townspeople are gone: nothing to give back
+            npc_claim_logged_ = coop::host::NpcClaim::State::none;
+            npc_scene_ = scene;
+        }
+        std::vector<coop::host::NpcSeen> npcs;
+        // ORM charla-radio: each one's event component phase, so the game
+        // itself says who we talk to (coop::host::read_event_phase).
+        std::optional<CoopHook::EmulatorMemory> guest;
+        if (memory_ != nullptr && main_ != 0) {
+            guest.emplace(*memory_, main_);
+        }
+        for (const Seen& s : seen) {
+            if (!IsShared(s.name) || !coop::host::is_talker(s.name)) {
+                continue;
+            }
+            coop::host::NpcSeen n;
+            n.address = s.address;
+            n.name = s.name;
+            n.position = s.position;
+            if (s.animation) {
+                n.animation = s.animation->name;
+            }
+            if (guest) {
+                n.event_phase = coop::host::read_event_phase(*guest, s.address);
+            }
+            npcs.push_back(std::move(n));
+        }
+        const std::size_t talkers = npcs.size();
+        for (const Seen& s : stand_ins_) {
+            coop::host::NpcSeen n;
+            n.address = s.address;
+            n.name = s.name;
+            n.position = s.position;
+            if (guest) {
+                n.event_phase = coop::host::read_event_phase(*guest, s.address);
+            }
+            npcs.push_back(std::move(n));
+        }
+        npc_talk_.set_event_name(event ? LocalEventNameNow() : std::nullopt);
+        npc_talk_.update(event, player_, npcs, now_us);
+        if (const auto refused = npc_talk_.take_refused()) {
+            LOG_INFO(Core, "coop: npc: our event '{}' is not a talk: no townsperson taken by reach", *refused);
+        }
+        npcs.resize(talkers);  // the partner is always a townsperson, never a stand-in
+        std::set<std::uint64_t> claims, freed;
+        const auto partner = npc_talk_.partner();
+        // ORM "Dos jugadores con el mismo PNJ": a townsperson its owner is
+        // talking to is not claimed from it (coop::host::NpcClaim); our talk
+        // still plays on our freed copy.
+        for (const auto& [player, flags] : statuses) {
+            npc_claim_.see_status(player, coop::host::in_cutscene(flags), now_us);
+        }
+        const auto partner_seen =
+            partner ? std::find_if(npcs.begin(), npcs.end(),
+                                   [&](const auto& n) { return n.address == *partner; })
+                    : npcs.end();
+        coop::host::NpcOwner npc_owner;
+        if (partner) {
+            const auto partner_id = sync_.IdOf(*partner);
+            npc_owner.player = partner_id ? sync_.OwnerOf(*partner_id) : 0;
+            if (npc_owner.player != 0 && npc_owner.player != self) {
+                const auto st = statuses.find(npc_owner.player);
+                npc_owner.in_event = st != statuses.end() && coop::host::in_cutscene(st->second);
+                npc_owner.link = sync_.PlaceOf(npc_owner.player, now_us);
+                if (npc_pose_ && partner_id) {
+                    for (const CoopNpcPose::Heard& h :
+                         CoopNpcPose::TheNpcPose().Fresh(MonotonicMs())) {
+                        npc_owner.posing =
+                            npc_owner.posing || (h.id == *partner_id && h.player == npc_owner.player);
+                    }
+                }
+            }
+        }
+        const auto claim = npc_claim_.update(
+            partner, partner_seen != npcs.end() ? std::string_view(partner_seen->name) : "",
+            partner_seen != npcs.end() ? partner_seen->position : coop::protocol::Vec3{}, self,
+            npc_owner, now_us);
+        if (partner) {
+            if (claim == coop::host::NpcClaim::State::claimed) {
+                claims.insert(*partner);
+            }
+            freed.insert(*partner);
+        }
+        sync_.SetTalk(std::move(claims), std::move(freed), now_us);
+        if (claim != npc_claim_logged_) {
+            const std::string name =
+                partner_seen != npcs.end() ? partner_seen->name : std::string("?");
+            const u64 address = partner ? *partner : 0;
+            switch (claim) {
+            case coop::host::NpcClaim::State::yielded:
+                LOG_INFO(Core,
+                         "coop: npc: {} {:#x} talks with its owner P{}: not claimed, our talk "
+                         "plays on our copy only",
+                         name, address, npc_owner.player);
+                break;
+            case coop::host::NpcClaim::State::timed_out:
+                LOG_INFO(Core, "coop: npc: claim on {} {:#x} held {} s, let go (stuck?)", name,
+                         address, coop::host::NpcClaim::claim_max_us(name) / 1'000'000);
+                break;
+            case coop::host::NpcClaim::State::claimed:
+                if (npc_claim_logged_ == coop::host::NpcClaim::State::yielded) {
+                    LOG_INFO(Core, "coop: npc: {} {:#x} is ours now: claimed", name, address);
+                } else if (npc_claim_.owner_stuck()) {
+                    LOG_INFO(Core,
+                             "coop: npc: owner P{} of {} {:#x} has been in its event over {} s: "
+                             "taken as stuck, claimed",
+                             npc_owner.player, name, address,
+                             coop::host::NpcClaim::claim_max_us(name) / 1'000'000);
+                }
+                break;
+            case coop::host::NpcClaim::State::none:
+                break;
+            }
+            npc_claim_logged_ = claim;
+        }
+        {
+            std::vector<std::uint64_t> rejoining = sync_.Rejoining(now_us);
+            for (const std::uint64_t address : rejoining) {
+                if (std::find(npc_rejoin_logged_.begin(), npc_rejoin_logged_.end(), address) ==
+                    npc_rejoin_logged_.end()) {
+                    LOG_INFO(Core,
+                             "coop: npc: copy {:#x} blends back to its owner's pose over {} ms",
+                             address, CoopObjects::Sync::kRejoinUs / 1000);
+                }
+            }
+            npc_rejoin_logged_ = std::move(rejoining);
+        }
+        if (partner != npc_logged_) {
+            if (partner) {
+                const auto it = std::find_if(npcs.begin(), npcs.end(),
+                                             [&](const auto& n) { return n.address == *partner; });
+                const auto id = sync_.IdOf(*partner);
+                const u8 owner = id ? sync_.OwnerOf(*id) : 0;
+                LOG_INFO(Core, "coop: npc: talking to {} {:#x} ({}){}, found {}",
+                         it != npcs.end() ? it->name : std::string("?"), *partner,
+                         owner == self ? std::string("ours")
+                         : owner == 0  ? std::string("no owner yet")
+                         : claim == coop::host::NpcClaim::State::claimed
+                             ? fmt::format("owner P{}, claimed", owner)
+                             : fmt::format("owner P{}, not claimed", owner),
+                         npc_talk_.lingering() ? ", talk over" : "",
+                         coop::host::to_string(npc_talk_.found()));
+                // ORM charla-radio self-check: which path took it, once per
+                // townsperson and talk (the scenarios expect this line).
+                if (npc_checked_.insert(*partner).second) {
+                    LOG_INFO(Core, "coop: {}",
+                             coop::host::talk_check_line(
+                                 it != npcs.end() ? std::string_view(it->name) : "?",
+                                 npc_talk_.found(), npc_talk_.stand_in(),
+                                 npc_talk_.distance_m()));
+                }
+            } else {
+                LOG_INFO(Core, "coop: npc: talk over, claim let go");
+                npc_checked_.clear();
+            }
+            npc_logged_ = partner;
+        }
+        if (npc_pose_) {
+            // ORM step 7: the townsperson we own and talk to goes out bone by
+            // bone (at most one: npc_talk_ has one partner).
+            std::optional<CoopNpcPose::Source> source;
+            if (partner) {
+                const auto id = sync_.IdOf(*partner);
+                const auto epoch = id ? sync_.EpochOf(*id) : std::nullopt;
+                if (id && epoch && sync_.OwnerOf(*id) == self) {
+                    source = CoopNpcPose::Source{*id, *epoch, *partner};
+                }
+            }
+            CoopNpcPose::TheNpcPose().SetSource(source);
+            if (source != npc_pose_source_logged_) {
+                if (source) {
+                    const auto it = std::find_if(npcs.begin(), npcs.end(), [&](const auto& n) {
+                        return n.address == source->actor;
+                    });
+                    LOG_INFO(Core, "coop: npc pose: sending {} {:#x} (id {:#x}, epoch {})",
+                             it != npcs.end() ? it->name : std::string("?"), source->actor,
+                             source->id.value, source->epoch);
+                } else {
+                    LOG_INFO(Core, "coop: npc pose: sending stopped");
+                }
+                npc_pose_source_logged_ = source;
+            }
+        }
+        if (npc_gaze_) {
+            Gaze(event, now_us, npcs, partner, self, statuses);
+        }
+    }
+
+    // ORM LICHII_COOP_NPC_GAZE (coop_npc_gaze.h): which townspeople look at a
+    // partner's puppet, from what the walk read; the calc thread writes it.
+    void Gaze(bool event, u64 now_us, const std::vector<coop::host::NpcSeen>& npcs,
+              std::optional<std::uint64_t> partner, u8 self, const std::map<u8, u8>& statuses) {
+        const std::uint32_t live = CoopPuppet::LivePuppets();
+        const auto puppet_live = [live](u8 p) { return p != 0 && p < 32 && ((live >> p) & 1u) != 0; };
+        std::vector<CoopNpcGaze::Partner> partners;
+        for (u8 p = 1; p < 32; ++p) {
+            if (p != self && puppet_live(p)) {
+                if (const auto at = sync_.PlaceOf(p, now_us)) {
+                    partners.push_back({p, *at});
+                }
+            }
+        }
+        std::vector<CoopNpcGaze::Npc> list;
+        for (const auto& n : npcs) {
+            CoopNpcGaze::Npc g;
+            g.actor = n.address;
+            g.name = n.name;
+            g.at = n.position;
+            // During our own event (a talk, a cutscene) every look stays the game's.
+            g.ours_talk = event || (partner && *partner == n.address);
+            if (const auto id = sync_.IdOf(n.address)) {
+                const u8 owner = sync_.OwnerOf(*id);
+                if (owner != self && puppet_live(owner)) {
+                    coop::host::NpcOwner o;
+                    o.player = owner;
+                    const auto st = statuses.find(owner);
+                    o.in_event = st != statuses.end() && coop::host::in_cutscene(st->second);
+                    o.link = sync_.PlaceOf(owner, now_us);
+                    if (npc_pose_) {
+                        for (const CoopNpcPose::Heard& h : CoopNpcPose::TheNpcPose().Fresh(MonotonicMs())) {
+                            o.posing = o.posing || (h.id == *id && h.player == owner);
+                        }
+                    }
+                    if (coop::host::owner_talks(o, n.position, n.name)) {
+                        g.talked_by = owner;
+                    }
+                }
+            }
+            list.push_back(std::move(g));
+        }
+        std::vector<std::string> lines;
+        std::vector<CoopNpcGaze::Order> orders = npc_gaze_rule_.Plan(list, player_, partners, now_us, lines);
+        const std::size_t turned = orders.size();
+        u64 link = 0;
+        for (const auto& [a, known] : names_) {
+            if (known.first == "Player_Child" || known.first == "Player_Adult") {
+                link = a;
+                break;
+            }
+        }
+        auto& writer = CoopNpcGaze::TheWriter();
+        writer.SetOrders(std::move(orders), link);
+        for (const auto& line : lines) {
+            LOG_INFO(Core, "coop: {}", line);
+        }
+        for (const auto& line : writer.TakeLog()) {
+            LOG_INFO(Core, "coop: {}", line);
+        }
+        if (now_us >= npc_gaze_log_us_ + 5'000'000 || now_us < npc_gaze_log_us_) {
+            npc_gaze_log_us_ = now_us;
+            const CoopNpcGaze::Counts c = writer.TakeCounts();
+            if (turned != 0 || c.written != 0 || c.overwritten != 0 || c.given_back != 0) {
+                LOG_INFO(Core,
+                         "coop: npc gaze: {} turned to a puppet; slot-frames written {}, kept {}, set again "
+                         "by the game {}, given back {}, no slot {}, ambiguous {}{}",
+                         turned, c.written, c.kept, c.overwritten, c.given_back, c.no_slot, c.ambiguous,
+                         writer.fell_back() ? " (fallen back: nothing written)" : "");
+            }
+        }
+    }
+
+    // ORM step 7, every frame: our copies that follow an owner's OBJECT_POSE,
+    // our own townsperson's pose out, and a line every 5 s.
+    void NpcPoseFrame(coop::host::Session& session, u64 server_now_us) {
+        auto& npc_pose = CoopNpcPose::TheNpcPose();
+        const u64 now_ms = MonotonicMs();
+        std::vector<CoopNpcPose::Target> targets;
+        std::vector<std::string> follows;
+        for (const CoopNpcPose::Heard& h : npc_pose.Fresh(now_ms)) {
+            if (const auto actor = sync_.CopyFor(h.id, h.player, h.epoch)) {
+                // Just let go by our talk: blended back, not snapped (Sync::SetTalk).
+                targets.push_back({h.id, *actor,
+                                   sync_.RejoinWeight(*actor, server_now_us).value_or(1.0f)});
+                follows.push_back(fmt::format("P{} {:#x}", h.player, *actor));
+            }
+        }
+        if (follows != npc_pose_targets_logged_) {
+            if (follows.empty()) {
+                LOG_INFO(Core, "coop: npc pose: no copy follows a pose now");
+            } else {
+                std::string list;
+                for (const auto& f : follows) {
+                    list += (list.empty() ? "" : ", ") + f;
+                }
+                LOG_INFO(Core, "coop: npc pose: copies following their owner's pose: {}", list);
+            }
+            npc_pose_targets_logged_ = follows;
+        }
+        npc_pose.SetTargets(std::move(targets));
+        // ORM (coop_interest.h): the townsperson's pose goes at its native
+        // rate while another player is in our place (nobody else sees it).
+        // A townsperson of many bones goes in parts (coop_npc_pose.h), in order.
+        if (CoopInterest::The().AnyoneHere(CoopEvery::NowUs() / 1000)) {
+            if (auto parts = npc_pose.TakeOutgoing(server_now_us, now_ms); !parts.empty()) {
+                session.with_client([&](coop::net::Client& c) {
+                    for (const auto& m : parts) c.send(m);
+                });
+            }
+        }
+        if (now_ms - npc_pose_log_ms_ >= 5000) {
+            npc_pose_log_ms_ = now_ms;
+            const CoopNpcPose::Counts n = npc_pose.TakeCounts();
+            const std::size_t partials = TheMover().TakePartials();
+            if (n.read + n.not_read + n.sent + n.received + n.stale + n.incomplete + n.bad +
+                    n.written + n.other_skeleton + n.no_skeleton + n.gone + partials >
+                0) {
+                LOG_INFO(Core,
+                         "coop: npc pose: 5 s: {} read ({} bones), {} not read, {} sent ({} "
+                         "parts, {} bones), {} received ({} stale, {} incomplete, {} bad), {} "
+                         "written, {} other skeleton, {} no skeleton, {} gone; last write kept "
+                         "{}, overwritten {}; {} partial slot plays",
+                         n.read, n.bones, n.not_read, n.sent, n.sent_parts, n.sent_bones,
+                         n.received, n.stale, n.incomplete, n.bad, n.written, n.other_skeleton,
+                         n.no_skeleton, n.gone, n.kept, n.overwritten, partials);
+            }
+        }
+    }
+
+    static u64 MonotonicMs() {
+        return static_cast<u64>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    std::chrono::steady_clock::now().time_since_epoch())
+                                    .count());
+    }
+
+    // ORM D-R12: the walk's actor list for the talk flag deferral
+    // (coop/host/flag_defer.hpp, WalkActors). Only copies what the walk read.
+    void Walked(const std::string& scene, const std::vector<Seen>& seen, u8 self) {
+        walk_actors_.clear();
+        std::unordered_map<u64, std::size_t> at;
+        for (const auto& [address, known] : names_) {
+            at.emplace(address, walk_actors_.size());
+            walk_actors_.push_back({known.first, std::nullopt, false});
+        }
+        for (const Seen& s : seen) {
+            const auto it = at.find(s.address);
+            if (it == at.end()) {
+                continue;
+            }
+            auto& a = walk_actors_[it->second];
+            a.position = s.position;
+            const auto id = sync_.IdOf(s.address);
+            const u8 owner = id ? sync_.OwnerOf(*id) : 0;
+            a.copy = owner != 0 && owner != self;
+        }
+        for (const auto& [address, w] : watched_) {  // ORM: RIESGOS_RESUELTOS.md
+            const auto it = at.find(address);
+            if (it == at.end()) {
+                continue;
+            }
+            auto& seen_actor = walk_actors_[it->second];
+            if (!seen_actor.position) {
+                seen_actor.position = w.position;
+            }
+            seen_actor.animation = w.animation;
+        }
+        walk_scene_ = scene;
+    }
+
+    // ORM held switches (coop_held_switch.h): the actor of a placement hash
+    // in the last walk, when that walk was in `scene`. The walk runs every
+    // two frames and keeps its old list when one fails (the list changing
+    // under it, as when a room unloads), so the address is read again: it is
+    // given only while its placement still has this hash (a freed actor, or
+    // another actor in its place, is not written into).
+    std::optional<u64> LoadedActor(u64 hash, const std::optional<std::string>& scene) const {
+        if (hash == 0 || !scene || scene->empty() || walk_scene_ != *scene || memory_ == nullptr) {
+            return std::nullopt;
+        }
+        for (const auto& [address, known] : names_) {
+            if (known.second == hash) {
+                Reader r(*memory_);
+                const auto placement = r.Ptr(address + kActorPlacement);
+                if (!placement || r.Get<u64>(*placement + kPlacementHash).value_or(0) != hash) {
+                    return std::nullopt;
+                }
+                return address;
+            }
+        }
+        return std::nullopt;
+    }
+
+    std::optional<std::vector<coop::host::SeenActor>> WalkActors(
+        const std::optional<std::string>& scene) const {
+        if (!scene || scene->empty() || walk_scene_ != *scene) {
+            return std::nullopt;
+        }
+        return walk_actors_;
     }
 
     // Network thread.
@@ -1851,6 +2643,39 @@ public:
     bool release_ = true;  // LICHII_COOP_OBJECTS_RELEASE=0 turns it off (issues 150, 157)
     bool wake_far_ = true;  // LICHII_COOP_OBJECTS_ASLEEP=0 turns it off (issue 101)
     std::size_t asleep_placed_ = 0;  // copy-frames placed in state 6 since the last log
+    // ORM golpes (coop_hits.h, coop_copy_smooth.h, oot-remake docs/GOLPES_LATENCIA.md).
+    bool hit_feedback_ = true;  // LICHII_COOP_HITS=0 turns it off
+    bool hit_dedupe_ = false;   // LICHII_COOP_HITS_DEDUPE=1 turns it on
+    bool copy_smooth_ = true;   // LICHII_COOP_COPY_SMOOTH=0 turns it off
+    bool npc_ = false;  // LICHII_COOP_NPC (ORM D-R12)
+    // ORM "Levantar" (coop_carry.h).
+    CoopCarry::Lifter lifter_;
+    std::set<std::uint64_t> carried_by_others_;  // this walk's copies in another's puppet's hands
+    bool carry_ = true;       // LICHII_COOP_CARRY
+    bool carry_bone_ = true;  // LICHII_COOP_CARRY_BONE
+    bool carry_still_ = true;  // LICHII_COOP_CARRY_STILL (levantar-vasija)
+    std::optional<std::array<float, 9>> link_rotation_;  // our Link at the last walk
+    std::optional<std::string> link_command_;           // his AS slot 0
+    u64 carry_ours_logged_ = 0;
+    // The copies in another player's hands at the last frame: (holder, fell).
+    std::map<u64, std::pair<u8, bool>> carried_logged_;
+    coop::host::NpcTalk npc_talk_;
+    std::vector<Seen> stand_ins_;  // ORM charla-radio: Npc_Invisible_<X> of the last walk
+    std::set<std::uint64_t> npc_checked_;  // ORM charla-radio: check line logged this talk
+    coop::host::NpcClaim npc_claim_;  // ORM: two players talking to the same townsperson
+    coop::host::NpcClaim::State npc_claim_logged_ = coop::host::NpcClaim::State::none;
+    std::vector<std::uint64_t> npc_rejoin_logged_;
+    std::string npc_scene_;
+    std::vector<coop::host::SeenActor> walk_actors_;  // ORM D-R12: the last walk (Walked)
+    std::string walk_scene_;
+    std::optional<u64> npc_logged_;
+    bool npc_pose_ = false;  // LICHII_COOP_NPC_POSE (ORM steps 5 to 7)
+    std::optional<CoopNpcPose::Source> npc_pose_source_logged_;
+    std::vector<std::string> npc_pose_targets_logged_;
+    u64 npc_pose_log_ms_ = 0;
+    bool npc_gaze_ = false;  // LICHII_COOP_NPC_GAZE (ORM, coop_npc_gaze.h)
+    CoopNpcGaze::Rule npc_gaze_rule_;
+    u64 npc_gaze_log_us_ = 0;
     bool drive_ = false;
     int ai_hold_ = 0;  // 0 off, 1 set the brain skip bit on copies, 2 clear it
     u64 test_take_ = 0;
@@ -2122,6 +2947,8 @@ private:
             return false;
         }
         std::optional<coop::protocol::Vec3> player;
+        link_rotation_.reset();
+        link_command_.reset();
         std::unordered_map<u64, std::pair<std::string, u64>> names;
         for (const u64 a : actors) {
             auto it = names_.find(a);
@@ -2151,6 +2978,12 @@ private:
                     at[i] = r.Get<float>(a + kActorPosition + 4 * i).value_or(0.0f);
                 }
                 player = at;
+                if (carry_) {  // ORM "Levantar": his turn and AS command, for the lift
+                    link_rotation_ = r.Get<std::array<float, 9>>(a + kActorRotation);
+                    if (const auto anim = Animation(r, a)) {
+                        link_command_ = anim->name;
+                    }
+                }
                 // Issue 88: the hearts the game shows come from Link's own Life
                 // component; logged beside the MaxLife flag (coop_flags debug)
                 // so one run shows whether a shared MaxLife reaches it.
@@ -2210,6 +3043,38 @@ private:
                     d.position[i] = r.Get<float>(a + kActorPosition + 4 * i).value_or(0.0f);
                 }
                 platform_drivers_.push_back(std::move(d));
+            }
+            // ORM boss families (coop/host/boss_rules.hpp): an actor of the table that is no
+            // shared object (a tennis boss's ball), by name and place, for the watcher.
+            if (families_ && !IsShared(known.first) && coop::host::family_actor(known.first) != nullptr) {
+                coop::protocol::Vec3 at{};
+                for (std::size_t i = 0; i < 3; ++i) {
+                    at[i] = r.Get<float>(a + kActorPosition + 4 * i).value_or(0.0f);
+                }
+                family_extras_.emplace_back(known.first, at);
+            }
+            // ORM (orm_ride.h): a lift, moving floor or boat, by its
+            // placement hash (one the game made itself has none: skipped).
+            if (known.second != 0 && known.second != ~u64{0} &&
+                coop::host::is_ride_platform(known.first)) {
+                coop::host::RidePlatform p;
+                p.key = known.second;
+                p.name = known.first;
+                for (std::size_t i = 0; i < 3; ++i) {
+                    p.position[i] = r.Get<float>(a + kActorPosition + 4 * i).value_or(0.0f);
+                }
+                ride_platforms_.push_back(std::move(p));
+            }
+            if (known.first.find("WaterPlane") != std::string::npos ||
+                coop::host::held_door_actor(known.first)) {  // ORM: RIESGOS_RESUELTOS.md
+                Watched w;
+                for (std::size_t i = 0; i < 3; ++i) {
+                    w.position[i] = r.Get<float>(a + kActorPosition + 4 * i).value_or(0.0f);
+                }
+                if (const auto anim = Animation(r, a)) {
+                    w.animation = anim->name;
+                }
+                watched_[a] = std::move(w);
             }
             if (gimmick_probe_on_ && CoopWorld::IsGimmick(known.first)) {
                 CoopWorld::GimmickProbe::Gimmick g;
@@ -2276,6 +3141,187 @@ private:
     }
 
     // AS slot 0 of an actor: command name, frame, rate (as PlayerReader).
+    // ORM (oot-remake docs/SONDAS.md, 2026-11-12): the puppet's own Ocarina stays on its belt under the
+    // copied pose (check: ocarina hand fallback), while our Link's rises to his hand. Which of our bones
+    // holds it, and where in that bone's frame: 1.5 s into each free play, one line. Reads only.
+    void OcarinaHandProbe(Core::System& system, Reader& r, std::uint64_t now_us) {
+        const auto anim = our_link_ != 0 ? Animation(r, our_link_) : std::nullopt;
+        if (!anim || !CoopOcarina::PlaysFreely(anim->name)) {
+            ocarina_hand_since_us_ = 0;
+            ocarina_hand_said_ = false;
+            OcarinaRestSnapshot(system, r, now_us);
+            return;
+        }
+        if (ocarina_hand_since_us_ == 0) {
+            ocarina_hand_since_us_ = now_us;
+        }
+        if (ocarina_hand_said_ || now_us - ocarina_hand_since_us_ < 1'500'000) {
+            return;
+        }
+        ocarina_hand_said_ = true;
+        namespace pa = CoopPuppet::addr;
+        MemoryGuest guest(system.ApplicationMemory());
+        const auto link = CoopCarry::ReadActor(guest, our_link_);
+        const auto skeleton = CoopCarry::FindSkeleton(guest, our_link_);
+        const u64 parts = r.Get<u64>(our_link_ + pa::kActorParts).value_or(0);
+        const u64 eu = parts != 0 ? r.Get<u64>(parts + pa::kPartsEquipmentUser).value_or(0) : 0;
+        if (!link || !skeleton || eu == 0) {
+            LOG_INFO(Core, "coop: ocarina hand probe: our Link's skeleton or equipment not read");
+            return;
+        }
+        for (std::uint32_t a = 0; a < pa::kArmorLinkCount; ++a) {
+            const u64 holder = r.Get<u64>(eu + pa::kArmorLinks + pa::kEquipSlotStride * a + pa::kEquipSlotHolder)
+                                   .value_or(0);
+            const u64 piece = holder != 0 ? r.Get<u64>(holder + pa::kHolderActor).value_or(0) : 0;
+            const auto name = piece != 0 ? r.Name(piece) : std::string();
+            if (!name.starts_with("Item_Ocarina_") || name.ends_with("_Holder")) {
+                continue;
+            }
+            const auto frame = CoopCarry::ReadActor(guest, piece);
+            if (!frame) {
+                continue;
+            }
+            const auto nearest = CoopCarry::NearestBone(guest, *skeleton, *link, frame->p);
+            if (!nearest) {
+                LOG_INFO(Core, "coop: ocarina hand probe: {} at up {:.2f}: no bone read", name,
+                         frame->p[1] - link->p[1]);
+                return;
+            }
+            const auto bone = CoopCarry::ReadBone(guest, *skeleton, *link, nearest->first);
+            const CoopCarry::Frame in_bone = bone ? CoopCarry::Relative(*bone, *frame) : CoopCarry::Frame{};
+            OcarinaHandDiff(guest, eu, a, holder, piece);
+            BoneCensus(guest, *skeleton, *link, frame->p);
+            LOG_INFO(Core,
+                     "coop: ocarina hand probe: our {} (armor link {}) at up {:.2f} is {:.3f} m from bone {} "
+                     "while we play '{}'; in its frame at ({:.3f}, {:.3f}, {:.3f}), rows ({:.3f} {:.3f} {:.3f}, "
+                     "{:.3f} {:.3f} {:.3f}, {:.3f} {:.3f} {:.3f})",
+                     name, a, frame->p[1] - link->p[1], nearest->second, nearest->first, anim->name, in_bone.p[0],
+                     in_bone.p[1], in_bone.p[2], in_bone.r[0], in_bone.r[1], in_bone.r[2], in_bone.r[3],
+                     in_bone.r[4], in_bone.r[5], in_bone.r[6], in_bone.r[7], in_bone.r[8]);
+            return;
+        }
+        LOG_INFO(Core, "coop: ocarina hand probe: no Item_Ocarina_ piece among our armor links");
+    }
+    // ORM ocarina-mano (round 5): what moves our Ocarina from the belt to the hand. While we do not
+    // play, once a second, the EquipmentUser, the Ocarina's armor link holder and its piece are read;
+    // 1.5 s into a free play every word of them that changed is logged (at most kDiffLines a region),
+    // so the field the puppet needs (a binding, a bone index, a state byte) shows. Reads only.
+    struct RestSnap {
+        u64 eu = 0, holder = 0, piece = 0;
+        std::uint32_t link = 0;
+        std::vector<u32> eu_words, holder_words, piece_words;
+        std::uint64_t at_us = 0;
+    };
+    static constexpr std::size_t kEuBytes = 0x1600, kHolderBytes = 0x100, kPieceBytes = 0x400;
+    static constexpr int kDiffLines = 40;
+    static std::vector<u32> Words(CoopPuppet::Guest& guest, u64 at, std::size_t bytes) {
+        std::vector<u32> w(bytes / 4);
+        if (at == 0 || !guest.Read(at, w.data(), bytes)) {
+            w.clear();
+        }
+        return w;
+    }
+    void OcarinaRestSnapshot(Core::System& system, Reader& r, std::uint64_t now_us) {
+        if (our_link_ == 0 || (rest_.at_us != 0 && now_us - rest_.at_us < 1'000'000)) {
+            return;
+        }
+        namespace pa = CoopPuppet::addr;
+        const u64 parts = r.Get<u64>(our_link_ + pa::kActorParts).value_or(0);
+        const u64 eu = parts != 0 ? r.Get<u64>(parts + pa::kPartsEquipmentUser).value_or(0) : 0;
+        if (eu == 0) {
+            return;
+        }
+        MemoryGuest guest(system.ApplicationMemory());
+        for (std::uint32_t a = 0; a < pa::kArmorLinkCount; ++a) {
+            const u64 holder = r.Get<u64>(eu + pa::kArmorLinks + pa::kEquipSlotStride * a + pa::kEquipSlotHolder)
+                                   .value_or(0);
+            const u64 piece = holder != 0 ? r.Get<u64>(holder + pa::kHolderActor).value_or(0) : 0;
+            const auto name = piece != 0 ? r.Name(piece) : std::string();
+            if (!name.starts_with("Item_Ocarina_") || name.ends_with("_Holder")) {
+                continue;
+            }
+            rest_.eu = eu;
+            rest_.holder = holder;
+            rest_.piece = piece;
+            rest_.link = a;
+            rest_.eu_words = Words(guest, eu, kEuBytes);
+            rest_.holder_words = Words(guest, holder, kHolderBytes);
+            rest_.piece_words = Words(guest, piece, kPieceBytes);
+            rest_.at_us = now_us;
+            return;
+        }
+    }
+    void OcarinaHandDiff(CoopPuppet::Guest& guest, u64 eu, std::uint32_t link, u64 holder, u64 piece) {
+        if (rest_.at_us == 0 || rest_.eu != eu || rest_.holder != holder || rest_.piece != piece) {
+            LOG_INFO(Core, "coop: ocarina hand probe: diff: no rest snapshot of the same pieces (link {})", link);
+            return;
+        }
+        const auto diff = [&](const char* what, u64 base, const std::vector<u32>& before, std::size_t bytes) {
+            const std::vector<u32> now = Words(guest, base, bytes);
+            if (now.size() != before.size() || now.empty()) {
+                LOG_INFO(Core, "coop: ocarina hand probe: diff {}: not read", what);
+                return;
+            }
+            int lines = 0, changed = 0;
+            for (std::size_t i = 0; i < now.size(); ++i) {
+                if (now[i] == before[i]) {
+                    continue;
+                }
+                ++changed;
+                if (lines++ < kDiffLines) {
+                    float fb = 0, fn = 0;
+                    std::memcpy(&fb, &before[i], 4);
+                    std::memcpy(&fn, &now[i], 4);
+                    LOG_INFO(Core, "coop: ocarina hand probe: diff {}+{:#x}: {:#010x} -> {:#010x} ({:g} -> {:g})",
+                             what, i * 4, before[i], now[i], fb, fn);
+                }
+            }
+            LOG_INFO(Core, "coop: ocarina hand probe: diff {}: {} words changed of {}", what, changed, now.size());
+        };
+        diff("eu", eu, rest_.eu_words, kEuBytes);
+        diff("holder", holder, rest_.holder_words, kHolderBytes);
+        diff("piece", piece, rest_.piece_words, kPieceBytes);
+    }
+    // ORM levantar-vasija / ocarina-mano: NearestBone found only bone 0 both times. How many of the
+    // skeleton's world matrices read as rigid frames near Link, at the stride in use and at 0x40,
+    // and the three nearest to `at`. Reads only.
+    static void BoneCensus(CoopPuppet::Guest& guest, const CoopCarry::Skeleton& skeleton,
+                           const CoopCarry::Frame& link, const coop::protocol::Vec3& at) {
+        for (int k = 0; k < 3; ++k) {
+            CoopCarry::Skeleton t = skeleton;
+            t.layout = k == 2 ? CoopCarry::Layout::m34 : CoopCarry::Layout::m44;
+            t.columns = k == 1;
+            int ok = 0;
+            std::vector<std::pair<float, std::uint32_t>> near;
+            for (std::uint32_t i = 0; i < t.count; ++i) {
+                std::array<float, 16> m{};
+                if (!guest.Read(t.world + t.Stride() * i, m.data(), t.Stride())) {
+                    continue;
+                }
+                const auto f = CoopCarry::BoneWorld(link, CoopCarry::RowsOf(t, m.data()));
+                if (!f) {
+                    continue;
+                }
+                ++ok;
+                const float dx = f->p[0] - at[0], dy = f->p[1] - at[1], dz = f->p[2] - at[2];
+                near.emplace_back(std::sqrt(dx * dx + dy * dy + dz * dz), i);
+            }
+            std::sort(near.begin(), near.end());
+            std::string best;
+            for (std::size_t n = 0; n < near.size() && n < 3; ++n) {
+                best += fmt::format(" {}:{:.3f}", near[n].second, near[n].first);
+            }
+            LOG_INFO(Core,
+                     "coop: bone census: {}{}: {} of {} bones read as rigid frames near Link; nearest{}",
+                     CoopCarry::NameOf(t), t.layout == skeleton.layout && t.columns == skeleton.columns
+                                               ? " (the one in use)" : "",
+                     ok, t.count, best.empty() ? std::string(" none") : best);
+        }
+    }
+    RestSnap rest_;
+    std::uint64_t ocarina_hand_since_us_ = 0;
+    bool ocarina_hand_said_ = false;
+
     std::optional<coop::protocol::Animation> Animation(Reader& r, u64 a) {
         return AnimationAt(r, a, 0, false);
     }
@@ -2512,6 +3558,11 @@ private:
                 return;
             }
         }
+        if (w.max > 0 && memory.IsValidVirtualAddressRange(value->second + 8, 4)) {
+            const s32 old_max = r.Get<s32>(value->second + 8).value_or(-1);
+            memory.Write32(value->second + 8, static_cast<u32>(w.max));  // first: the game clamps life to it
+            LOG_INFO(Core, "coop: objects: share max {:#x}: {} -> {}", w.address, old_max, w.max);
+        }
         memory.Write32(value->first + 8, static_cast<u32>(w.life));
         LOG_INFO(Core, "coop: objects: share life {:#x}: {} -> {}", w.address, old, w.life);
     }
@@ -2635,6 +3686,37 @@ private:
         }
     }
 
+    // ORM "Levantar": a line when another player's hold of a copy starts,
+    // ends (the copy follows its samples again) or is left to fall.
+    void NoteCarried(const std::vector<Sync::CarryPose>& carried) {
+        std::map<u64, std::pair<u8, bool>> now;
+        for (const Sync::CarryPose& c : carried) {
+            now[c.address] = {c.carry.holder, c.fall};
+            const auto before = carried_logged_.find(c.address);
+            if (before != carried_logged_.end() && before->second == now[c.address]) {
+                continue;
+            }
+            if (c.fall) {
+                LOG_INFO(Core,
+                         "coop: carry: P{} holds {} {:#x} but has no puppet here: it falls",
+                         c.carry.holder, c.name, c.address);
+            } else {
+                LOG_INFO(Core, "coop: carry: P{} holds {} {:#x}: drawn in the puppet's hands{}",
+                         c.carry.holder, c.name, c.address,
+                         c.carry.bone != coop::protocol::kCarryNoBone
+                             ? fmt::format(" (bone {})", c.carry.bone)
+                             : std::string(" (actor frame)"));
+            }
+        }
+        for (const auto& [address, was] : carried_logged_) {
+            if (!now.contains(address)) {
+                LOG_INFO(Core, "coop: carry: P{} let go of {:#x}: it follows the samples", was.first,
+                         address);
+            }
+        }
+        carried_logged_ = std::move(now);
+    }
+
     // Every frame: each copy we do not own goes where the owner's enemy was.
     // How far the game moved it since our last write is logged every 5 s: if
     // its AI or physics fight the write, that shows here.
@@ -2644,7 +3726,25 @@ private:
         // A placed world object goes where coop_world says, or stays where
         // this game has it: the enemy sharing does not place those.
         std::erase_if(poses, [this](const PoseWrite& w) { return world_.Places(w.address); });
-        world_.Poses(now_us, poses);        auto& memory = system.ApplicationMemory();
+        world_.Poses(now_us, poses);
+        // ORM "Levantar": what our Link lifts is our game's to move; what
+        // another player holds goes in his puppet's hands (or, his puppet
+        // gone from here, is left to fall).
+        std::vector<Sync::CarryPose> carried;
+        if (carry_) {
+            std::erase_if(poses, [this](const PoseWrite& w) { return sync_.CarryFreed(w.address); });
+            sync_.Carried(now_us, CoopPuppet::LivePuppets(), carried);
+            std::erase_if(poses, [&carried](const PoseWrite& w) {
+                return std::any_of(carried.begin(), carried.end(),
+                                   [&w](const Sync::CarryPose& c) { return c.address == w.address; });
+            });
+            NoteCarried(carried);
+            // ORM levantar-vasija: copies no longer held still (CoopCarry::Still).
+            for (const std::string& line : TheMover().TakeStillLines()) {
+                LOG_INFO(Core, "{}", line);
+            }
+        }
+        auto& memory = system.ApplicationMemory();
         Reader r(memory);
         std::unordered_map<u64, coop::protocol::Vec3> placed;
         std::vector<Mover::Pose> wish;
@@ -2699,11 +3799,27 @@ private:
             wish.push_back(p);
             placed.emplace(w.address, w.position);
         }
+        for (const Sync::CarryPose& c : carried) {
+            if (c.fall) {
+                continue;  // no puppet holds it here: our game drops it
+            }
+            Mover::Pose p;
+            p.actor = c.address;
+            std::copy(c.fallback.position.begin(), c.fallback.position.end(), p.transform.begin());
+            if (c.fallback.rotation) {
+                std::copy(c.fallback.rotation->begin(), c.fallback.rotation->end(),
+                          p.transform.begin() + 3);
+                p.rotation = true;
+            }
+            p.attach = Mover::Pose::Attach{c.carry, c.weight};
+            wish.push_back(p);
+        }
         placed_ = std::move(placed);
         std::vector<PlayWish> plays;
         sync_.Plays(now_us, plays);
-        if (ai_hold_ != 0) {
-            TheMover().Hold(sync_.Holds(now_us), CoopHold::MasksFor(ai_hold_));
+        if (ai_hold_ != 0 || npc_pose_) {
+            // ORM: LICHII_COOP_NPC_POSE alone holds the townspeople copies in mode 1.
+            TheMover().Hold(sync_.Holds(now_us), CoopHold::MasksFor(ai_hold_ != 0 ? ai_hold_ : 1));
         }
         if (const auto ours = sync_.TakeOursNow(); release_ && !ours.empty()) {
             TheMover().Release(ours);
@@ -2770,6 +3886,16 @@ private:
                 LOG_INFO(Core, "coop: objects: share worst copy {:#x} '{}' off {:.2f} m", drift_worst_,
                          r.Name(drift_worst_), drift_max_);
             }
+            if (carry_) {
+                const auto [on_bone, on_actor, fell_back, held_still] = TheMover().TakeCarryCounts();
+                if (on_bone + on_actor + fell_back > 0) {
+                    LOG_INFO(Core,
+                             "coop: carry: 5 s: {} carried copy-frames on a puppet's bone, {} on "
+                             "its actor frame, {} where the samples put them (no puppet); {} held "
+                             "still (speeds zeroed)",
+                             on_bone, on_actor, fell_back, held_still);
+                }
+            }
             if (release_) {
                 const auto [cleared, clear, dropped] = TheMover().TakeReleases();
                 if (cleared + clear + dropped > 0) {
@@ -2779,12 +3905,12 @@ private:
                              cleared, clear, dropped);
                 }
             }
-            if (ai_hold_ != 0) {
+            if (ai_hold_ != 0 || npc_pose_) {
                 const auto [frames, kept] = TheMover().TakeHolds();
                 LOG_INFO(Core,
                          "coop: objects: ai hold mode {}: {} copy-frames held, brain skip bit as "
                          "asked in {}; {} plays in {:.1f} s",
-                         ai_hold_, frames, kept, played,
+                         ai_hold_ != 0 ? ai_hold_ : 1, frames, kept, played,
                          static_cast<double>(now_us - drift_at_) / 1e6);
             }
             drift_at_ = now_us;
@@ -3000,6 +4126,20 @@ Objects& Instance() {
         objects.release_ = EnvOn("LICHII_COOP_OBJECTS_RELEASE");
         objects.pvp_replay_ = EnvOn("LICHII_COOP_PVP_REPLAY");
         objects.wake_far_ = EnvOn("LICHII_COOP_OBJECTS_ASLEEP");
+        objects.hit_feedback_ = CoopSwitch::On("LICHII_COOP_HITS", true);           // ORM golpes, on by default
+        objects.hit_dedupe_ = CoopSwitch::On("LICHII_COOP_HITS_DEDUPE", false);    // off by default
+        objects.copy_smooth_ = CoopSwitch::On("LICHII_COOP_COPY_SMOOTH", true);    // on by default
+        objects.npc_ = CoopSwitch::On("LICHII_COOP_NPC", false);  // ORM D-R12, off by default
+        objects.npc_pose_ = CoopSwitch::On("LICHII_COOP_NPC_POSE", false);  // ORM steps 5 to 7, off by default
+        objects.npc_gaze_ = CoopSwitch::On("LICHII_COOP_NPC_GAZE", false);  // ORM NPC_MIRADA.md, off by default
+        // ORM "Levantar" (coop_carry.h), on by default.
+        objects.carry_ = CoopSwitch::On("LICHII_COOP_CARRY", true);
+        objects.carry_bone_ = CoopSwitch::On("LICHII_COOP_CARRY_BONE", true);
+        objects.carry_still_ = CoopSwitch::On("LICHII_COOP_CARRY_STILL", true);  // levantar-vasija
+        // ORM boss families (oot-remake docs/JEFES.md section 9), on by default.
+        objects.families_ = CoopSwitch::On("LICHII_ORM_BOSS_FAMILIES", true);
+        CoopCarry::SetShareFlowers(objects.carry_ &&
+                                   CoopSwitch::On("LICHII_COOP_CARRY_FLOWERS", true));
         return true;
     }();
     (void)once;
@@ -3146,12 +4286,20 @@ void OnEvent(const coop::net::Event& event) {
     Objects& objects = Instance();
     if (event.kind == coop::net::EventKind::reconnected) {
         objects.ForgetOwnerLog();  // a restarted server may hand out the same owner and epoch again
+        // Its epochs start at 0 again: an old track would take the new poses
+        // for stale (review 2026-11-11, oot-remake docs/REVISION_OBJETOS.md).
+        CoopNpcPose::TheNpcPose().Reset();
     }
     if (event.kind != coop::net::EventKind::message) {
         return;
     }
     if (objects.share_) {
         objects.Receive(event.message);
+    }
+    if (objects.share_ && objects.npc_pose_) {
+        if (const auto* pose = std::get_if<coop::protocol::ObjectPose>(&event.message)) {
+            CoopNpcPose::TheNpcPose().Receive(*pose, Objects::MonotonicMs());
+        }
     }
 }
 

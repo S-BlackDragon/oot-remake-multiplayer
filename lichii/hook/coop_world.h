@@ -501,6 +501,17 @@ public:
     // breaks (locks) are forgotten, so our locks come back with their rooms.
     void ForgetKept();
 
+    // ORM "Levantar" (coop_carry.h), present thread, before Tick. `ours`: what
+    // our own Link holds or has just let go (CoopCarry::Lifter::Claimed): a
+    // WORLD_BREAK of it from another game is not taken while it is ours to
+    // carry (our game decides; seen in a game: a copy in the holder's puppet's
+    // hands broke in the other game and its break broke the pot in our Link's
+    // hands). `others`: our copies another player's puppet holds here now
+    // (CoopObjects::Sync::CarriedByOther): a break read on one of them while it
+    // is held or kHeldEchoUs after is not sent (the holder's game decides).
+    void SetHands(std::set<std::uint64_t> ours, std::set<std::uint64_t> others);
+    static constexpr std::uint64_t kHeldEchoUs = 1'500'000;  // as CoopCarry::Lifter::kAfterUs
+
     // Present thread, once per walk, with every breakable and movable the
     // walk saw. `player` is our own Link, when the walk saw him.
     void Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_us,
@@ -592,6 +603,7 @@ private:
         std::uint64_t first_us = 0;
         int missed = 0;
         bool sent_break = false;
+        std::uint64_t held_other_us = 0;  // last walk another player's puppet held it (SetHands)
         bool kept = false;  // a small-key door's lock (IsLock)
         // A break from elsewhere being made here.
         std::uint64_t life_written_us = 0;
@@ -644,6 +656,8 @@ private:
     std::map<std::uint64_t, Break> broken_;    // by placement hash, this scene
     std::vector<std::uint32_t> refunds_;       // keys to give back, for the next Out
     std::vector<std::string> refund_notes_;
+    std::set<std::uint64_t> hands_ours_;    // SetHands
+    std::set<std::uint64_t> hands_others_;
     std::vector<std::pair<std::uint32_t, std::uint64_t>> own_drops_;  // (key flag, when)
     bool no_key_logged_ = false;
     std::map<std::uint64_t, Remote> remote_;   // by placement hash, this scene

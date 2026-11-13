@@ -47,6 +47,18 @@ bool valid(const Settings& s) {
          s.edge_min_alpha <= 1.0f;
 }
 
+Rgb default_color(std::uint8_t number) {
+  // ORM test10: upstream's slot colour (its puppet tint for a player with none).
+  const std::uint32_t c = protocol::slot_color(number == 0 ? 1 : number);
+  return {static_cast<std::uint8_t>(c >> 16), static_cast<std::uint8_t>(c >> 8),
+          static_cast<std::uint8_t>(c)};
+}
+
+Rgb color_of(const presence::Player* player, std::uint8_t number) {
+  if (player != nullptr && player->color()) return *player->color();
+  return default_color(number);
+}
+
 std::vector<Shown> collect(presence::Presence& presence, std::uint64_t server_now_us) {
   std::vector<Shown> out;
   for (std::uint8_t n : presence.players()) {
@@ -58,6 +70,7 @@ std::vector<Shown> collect(presence::Presence& presence, std::uint64_t server_no
     if (p != nullptr) {
       s.name = p->nickname();
       s.scene = p->scene();
+      s.color = p->color();
     }
     s.position = pose->position;
     s.fade = pose->fade;
@@ -143,6 +156,7 @@ Result Overlay::build(const Camera& camera, std::string_view local_scene,
 
     DrawItem item;
     item.number = p.number;
+    item.color = p.color.value_or(default_color(p.number));
     if (off) {
       const double dx = x - cx;
       const double dy = y - cy;

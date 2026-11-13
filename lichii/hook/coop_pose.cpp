@@ -138,10 +138,39 @@ Vec3 Lerp(const Vec3& a, const Vec3& b, float t) {
     return {a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t};
 }
 
+// The pose between two of one bone list, t from older (0) to newer (1).
+Pose Blend(const Pose& older, const Pose& newer, float t) {
+    Pose out = newer;
+    for (std::size_t i = 0; i < out.bones.size(); ++i) {
+        BonePose& b = out.bones[i];
+        const BonePose& o = older.bones[i];
+        if (b.rotation) b.rotation = Nlerp(*o.rotation, *b.rotation, t);
+        if (b.translation) b.translation = Lerp(*o.translation, *b.translation, t);
+        if (b.scale) b.scale = Lerp(*o.scale, *b.scale, t);
+        if (t < 0.5f) b.flags = o.flags;
+    }
+    return out;
+}
+
 }  // namespace
 
-void Track::Push(Pose pose, std::uint64_t now_ms) {
-    if (newest_ && SameBones(*newest_, pose)) {
+void Track::Push(Pose pose, std::uint64_t now_ms, coop::protocol::SampleTime time) {
+    const bool resumed = newest_ && now_ms - std::min(now_ms, newest_ms_) > kResumeGapMs;
+    if (time.server_time_us != 0) {
+        // Timed (ORM smoothing): a resume starts the timeline over, as it
+        // starts the blend over; so does another bone list (not blended).
+        if (resumed || (!timeline_.empty() && !SameBones(timeline_.newest(), pose))) {
+            timeline_.clear();
+        }
+        timeline_.push(time, pose);
+    }
+    if (resumed) {
+        // Back after a gap: not blended over the gap's length (which would
+        // play it in slow motion), but faded in from what the puppet holds.
+        resume_gap_ms_ = now_ms - newest_ms_;
+        resumed_ms_ = now_ms;
+        older_.reset();
+    } else if (newest_ && SameBones(*newest_, pose)) {
         older_ = std::move(newest_);
         older_ms_ = newest_ms_;
     } else {
@@ -151,9 +180,17 @@ void Track::Push(Pose pose, std::uint64_t now_ms) {
     newest_ms_ = now_ms;
 }
 
-std::optional<Pose> Track::At(std::uint64_t now_ms) const {
+std::optional<Pose> Track::At(std::uint64_t now_ms, std::uint64_t render_us) const {
     if (!newest_) {
         return std::nullopt;
+    }
+    if (render_us != 0 && !timeline_.empty()) {
+        if (const auto v = timeline_.at(render_us, kResumeGapMs * 1000)) {
+            if (v->b != nullptr && SameBones(*v->a, *v->b)) {
+                return Blend(*v->a, *v->b, std::clamp(v->t, 0.0f, 1.0f));
+            }
+            return *v->a;
+        }
     }
     if (!older_ || newest_ms_ <= older_ms_) {
         return newest_;
@@ -164,16 +201,24 @@ std::optional<Pose> Track::At(std::uint64_t now_ms) const {
     if (t >= 1.0f) {
         return newest_;
     }
-    Pose out = *newest_;
-    for (std::size_t i = 0; i < out.bones.size(); ++i) {
-        BonePose& b = out.bones[i];
-        const BonePose& o = older_->bones[i];
-        if (b.rotation) b.rotation = Nlerp(*o.rotation, *b.rotation, t);
-        if (b.translation) b.translation = Lerp(*o.translation, *b.translation, t);
-        if (b.scale) b.scale = Lerp(*o.scale, *b.scale, t);
-        if (t < 0.5f) b.flags = o.flags;
+    return Blend(*older_, *newest_, t);
+}
+
+std::optional<float> Track::Weight(std::uint64_t now_ms) const {
+    if (!newest_) {
+        return std::nullopt;
     }
-    return out;
+    const std::uint64_t age = now_ms - std::min(now_ms, newest_ms_);
+    if (age >= kHoldMs + kBlendMs) {
+        return std::nullopt;  // held, then handed over: the game's animation has it
+    }
+    if (age > kHoldMs) {
+        return 1.0f - static_cast<float>(age - kHoldMs) / static_cast<float>(kBlendMs);
+    }
+    if (resumed_ms_ != 0 && now_ms >= resumed_ms_ && now_ms - resumed_ms_ < kResumeMs) {
+        return static_cast<float>(now_ms - resumed_ms_) / static_cast<float>(kResumeMs);
+    }
+    return 1.0f;
 }
 
 // ------------------------------------------------------------------ the game side
@@ -197,6 +242,39 @@ static_assert(sizeof(LocalMtx) == addr::kLocalStride);
 Rows RowsOf(const LocalMtx& b) {
     return {b.rows[0], b.rows[1], b.rows[2], b.rows[4], b.rows[5],
             b.rows[6], b.rows[8], b.rows[9], b.rows[10]};
+}
+
+// One bone of a pose onto a skeleton's bone `m`: whole at `weight` 1, below 1
+// blended with what `m` holds now (rotation by nlerp, translation and scale by
+// lerp; the flags taken from the pose only from 0.5 up). `weight` is already
+// clamped to [0, 1]. True when the pose rotated the bone (the write probes
+// keep the first rotated one). Shared by the puppets' WritePose and the
+// townsfolk's WriteActorPose.
+bool BlendBone(LocalMtx& m, const BonePose& b, float weight) {
+    const bool blend = weight < 1.0f;
+    if (!blend || weight >= 0.5f) {
+        m.flags = (m.flags & ~addr::kFlagMask) | (std::uint32_t{b.flags} << addr::kFlagShift);
+    }
+    if (b.translation) {
+        const Vec3 to = blend ? Lerp({m.translation[0], m.translation[1], m.translation[2]},
+                                     *b.translation, weight)
+                              : *b.translation;
+        std::copy_n(to.data(), 3, m.translation);
+    }
+    if (b.scale) {
+        const Vec3 to =
+            blend ? Lerp({m.scale[0], m.scale[1], m.scale[2]}, *b.scale, weight) : *b.scale;
+        std::copy_n(to.data(), 3, m.scale);
+    }
+    if (!b.rotation) return false;
+    const Rows r =
+        QuatToRows(blend ? Nlerp(RowsToQuat(RowsOf(m)), *b.rotation, weight) : *b.rotation);
+    for (std::size_t row = 0; row < 3; ++row) {
+        for (std::size_t col = 0; col < 3; ++col) {
+            m.rows[row * 4 + col] = r[row * 3 + col];
+        }
+    }
+    return true;
 }
 
 struct Skeleton {
@@ -329,6 +407,7 @@ struct State {
     // band and seed, the bow's string.
     std::vector<Pose> pieces_outbox;
     std::uint32_t outbox_serial = 0;
+    std::uint64_t outbox_ms = 0;  // when the calc thread read it
     std::uint32_t sent_serial = 0;
     std::uint64_t last_send_ms = 0;
     std::uint32_t sequence = 0;
@@ -345,6 +424,11 @@ struct State {
     std::array<std::map<std::uint32_t, Track>, proto::kMaxPlayers + 1> tracks;
     // What was last written to each puppet, to see whether the game keeps it.
     std::vector<Written> written_last;
+    // WritePose's skeleton buffer, kept between writes.
+    std::vector<LocalMtx> write_bones;
+    // Per player: its poses stopped and the hold ran out (the blend into its
+    // AS command began), for one log line each way.
+    std::array<bool, proto::kMaxPlayers + 1> dropped{};
     // Counters for the debug line.
     std::uint64_t log_ms = 0;
     unsigned sent = 0, received = 0, written = 0, refused = 0, kept = 0, overwritten = 0;
@@ -475,19 +559,7 @@ bool WritePose(State& s, CoopPuppet::Guest& guest, std::uint64_t actor, const Po
     std::optional<std::uint16_t> probe;
     for (const BonePose& b : pose.bones) {
         if (b.bone >= bones.size()) continue;
-        LocalMtx& m = bones[b.bone];
-        m.flags = (m.flags & ~addr::kFlagMask) | (std::uint32_t{b.flags} << addr::kFlagShift);
-        if (b.rotation) {
-            const Rows r = QuatToRows(*b.rotation);
-            for (std::size_t row = 0; row < 3; ++row) {
-                for (std::size_t col = 0; col < 3; ++col) {
-                    m.rows[row * 4 + col] = r[row * 3 + col];
-                }
-            }
-            if (!probe) probe = b.bone;
-        }
-        if (b.translation) std::copy_n(b.translation->data(), 3, m.translation);
-        if (b.scale) std::copy_n(b.scale->data(), 3, m.scale);
+        if (BlendBone(bones[b.bone], b, weight) && !probe) probe = b.bone;
     }
     if (!guest.Write(skel->local, bones.data(), bones.size() * sizeof(LocalMtx))) return false;
     if (probe) {
@@ -529,21 +601,26 @@ bool Drives(std::uint8_t number, std::uint64_t now_ms) {
     if (!s.no_as || number == 0 || number >= s.tracks.size()) return false;
     std::uint64_t last = 0;
     for (const auto& [skeleton, track] : s.tracks[number]) last = std::max(last, track.last_ms());
-    return last != 0 && now_ms - std::min(now_ms, last) < kFreshMs;
+    return last != 0 && now_ms - std::min(now_ms, last) < kHoldMs;
 }
 
 namespace {
 
 // Calc thread, under the lock: the pose for `actor` (a puppet or a piece in
 // its hands) from `number`'s poses of that skeleton, written. Nothing when
-// no pose of its skeleton has come.
+// no pose of its skeleton has come, or the last was held and blended out
+// (Track::Weight). `whole`: written at weight 1 from a fresh track (or the
+// debug puppet's own pose); `used`: the track it came from.
 enum class Wrote { none, written, refused };
 Wrote WriteFor(State& s, CoopPuppet::Guest& guest, std::uint8_t number, std::uint64_t actor,
-               std::uint64_t now_ms) {
+               std::uint64_t now_ms, std::uint64_t render_us, bool* whole = nullptr,
+               const Track** used = nullptr) {
     const auto skel = FindSkeleton(guest, actor);
     if (!skel) return Wrote::none;
     const std::uint32_t id = SkeletonId(skel->count, skel->model);
     std::optional<Pose> pose;
+    float weight = 1.0f;
+    bool fresh = true;
     if (number == 0) {
         if (!s.debug) return Wrote::none;
         if (s.outbox && s.outbox->skeleton == id) {
@@ -555,17 +632,27 @@ Wrote WriteFor(State& s, CoopPuppet::Guest& guest, std::uint8_t number, std::uin
         }
     } else {
         const auto& tracks = s.tracks[number];
-        if (const auto it = tracks.find(id); it != tracks.end()) pose = it->second.At(now_ms);
+        const auto it = tracks.find(id);
+        if (it == tracks.end()) return Wrote::none;
+        if (used) *used = &it->second;
+        const auto w = it->second.Weight(now_ms);
+        if (!w) return Wrote::none;
+        weight = *w;
+        fresh = now_ms - std::min(now_ms, it->second.last_ms()) < kFreshPoseMs;
+        pose = it->second.At(now_ms, render_us);
     }
     if (!pose) return Wrote::none;
-    return WritePose(s, guest, actor, *pose) ? Wrote::written : Wrote::refused;
+    if (!WritePose(s, guest, actor, *skel, *pose, weight)) return Wrote::refused;
+    if (whole) *whole = fresh && weight >= 1.0f;
+    return Wrote::written;
 }
 
 }  // namespace
 
-void OnCalcFrame(CoopPuppet::Guest& guest, std::uint64_t main_base,
-                 const std::vector<std::pair<std::uint8_t, std::uint64_t>>& puppets,
-                 std::uint64_t now_ms) {
+std::uint32_t OnCalcFrame(CoopPuppet::Guest& guest, std::uint64_t main_base,
+                          const std::vector<std::pair<std::uint8_t, std::uint64_t>>& puppets,
+                          std::uint64_t now_ms, std::uint64_t render_us) {
+    std::uint32_t posed = 0;
     State& s = S();
     std::lock_guard lock(s.mutex);
     const std::uint64_t player = main_base != 0 ? FindPlayer(guest, main_base) : 0;
@@ -573,6 +660,7 @@ void OnCalcFrame(CoopPuppet::Guest& guest, std::uint64_t main_base,
         if (auto local = ReadLocal(s, guest, player)) {
             s.last_size = local->bones.size();
             s.outbox = std::move(local);
+            s.outbox_ms = now_ms;
             s.pieces_outbox.clear();
             for (const std::uint64_t piece : HeldPieces(guest, player)) {
                 if (const auto skel = FindSkeleton(guest, piece)) {
@@ -586,15 +674,34 @@ void OnCalcFrame(CoopPuppet::Guest& guest, std::uint64_t main_base,
     }
     for (const auto& [number, actor] : puppets) {
         if (actor == 0 || number >= s.tracks.size()) continue;
-        const Wrote body = WriteFor(s, guest, number, actor, now_ms);
+        bool whole = false;
+        const Track* used = nullptr;
+        const Wrote body = WriteFor(s, guest, number, actor, now_ms, render_us, &whole, &used);
         if (body == Wrote::written) {
             ++s.written;
+            if (whole && number < 32) posed |= 1u << number;
         } else if (body == Wrote::refused ||
-                   (number != 0 && !s.tracks[number].empty())) {
+                   (number != 0 && used == nullptr && !s.tracks[number].empty())) {
             ++s.refused;  // poses come, none of this puppet's skeleton (age)
         }
+        // A player's poses stopped (held, then blended into the AS command),
+        // or came back: one line each way.
+        if (number != 0 && used != nullptr) {
+            const std::uint64_t age = now_ms - std::min(now_ms, used->last_ms());
+            if (!s.dropped[number] && age > kHoldMs) {
+                s.dropped[number] = true;
+                Say(s, "P" + std::to_string(number) + " no pose for " + std::to_string(age) +
+                           " ms: last pose held, blending into its own animation over " +
+                           std::to_string(kBlendMs) + " ms");
+            } else if (s.dropped[number] && age <= kHoldMs) {
+                s.dropped[number] = false;
+                Say(s, "P" + std::to_string(number) + " poses back after " +
+                           std::to_string(used->resume_gap_ms()) + " ms: blended in over " +
+                           std::to_string(kResumeMs) + " ms");
+            }
+        }
         for (const std::uint64_t piece : HeldPieces(guest, actor)) {
-            const Wrote w = WriteFor(s, guest, number, piece, now_ms);
+            const Wrote w = WriteFor(s, guest, number, piece, now_ms, render_us);
             if (w == Wrote::written) {
                 ++s.pieces_written;
             }
@@ -625,6 +732,7 @@ void OnCalcFrame(CoopPuppet::Guest& guest, std::uint64_t main_base,
         s.sent = s.received = s.written = s.refused = s.kept = s.overwritten = 0;
         s.pieces_sent_n = s.pieces_written = 0;
     }
+    return posed;
 }
 
 namespace {
@@ -657,8 +765,13 @@ std::vector<proto::PlayerPose> TakeOutgoing(std::uint64_t server_now_us, std::ui
     }
     s.sent_serial = s.outbox_serial;
     s.last_send_ms = now_ms;
+    // When it was read (ORM smoothing): the receiver shows it with the sample
+    // of that moment, not of the network round that sent it.
+    const std::uint64_t read_ago_us = (now_ms - std::min(now_ms, s.outbox_ms)) * 1000;
+    const std::uint64_t read_us =
+        server_now_us > read_ago_us ? server_now_us - read_ago_us : server_now_us;
     proto::PlayerPose body;
-    body.time = {server_now_us, ++s.sequence};
+    body.time = {read_us, ++s.sequence};
     body.skeleton = s.outbox->skeleton;
     body.bones = Encode(*s.outbox);
     out.push_back(std::move(body));
@@ -672,7 +785,7 @@ std::vector<proto::PlayerPose> TakeOutgoing(std::uint64_t server_now_us, std::ui
         last.bones = bones;
         last.ms = now_ms;
         proto::PlayerPose m;
-        m.time = {server_now_us, ++s.sequence};
+        m.time = {read_us, ++s.sequence};
         m.skeleton = piece.skeleton;
         m.bones = std::move(bones);
         out.push_back(std::move(m));
@@ -714,7 +827,7 @@ void Receive(const proto::PlayerPose& m, std::uint64_t now_ms) {
     std::lock_guard lock(s.mutex);
     if (m.player_number == 0 || m.player_number >= s.tracks.size()) return;
     auto& tracks = s.tracks[m.player_number];
-    tracks[m.skeleton].Push(std::move(pose), now_ms);
+    tracks[m.skeleton].Push(std::move(pose), now_ms, m.time);
     // Skeletons not heard from for a while (a piece put away, the other age).
     std::erase_if(tracks, [&](const auto& kv) {
         return now_ms - std::min(now_ms, kv.second.last_ms()) > kTrackForgetMs;
@@ -727,6 +840,134 @@ void Receive(const proto::PlayerPose& m, std::uint64_t now_ms) {
         tracks.erase(oldest);
     }
     ++s.received;
+}
+
+// ------------------------------------------------------------------ any actor (ORM OBJECT_POSE)
+
+std::vector<proto::PoseBone> EncodeBones(const Pose& pose) {
+    return Encode(pose);
+}
+
+Pose DecodeBones(std::uint32_t skeleton, const std::vector<proto::PoseBone>& bones) {
+    Pose pose;
+    pose.skeleton = skeleton;
+    pose.bones.reserve(bones.size());
+    for (const proto::PoseBone& b : bones) {
+        BonePose out;
+        out.bone = b.bone;
+        out.flags = b.flags;
+        if (b.rotation) out.rotation = Unpack(*b.rotation);
+        if (b.translation) out.translation = UnpackUnit(*b.translation);
+        if (b.scale) out.scale = UnpackUnit(*b.scale);
+        pose.bones.push_back(out);
+    }
+    return pose;
+}
+
+std::optional<std::uint32_t> SkeletonOf(CoopPuppet::Guest& guest, std::uint64_t actor) {
+    const auto skel = FindSkeleton(guest, actor);
+    if (!skel) return std::nullopt;
+    return SkeletonId(skel->count, skel->model);
+}
+
+void ActorPoseReader::Reset() {
+    actor_ = 0;
+    skeleton_ = 0;
+    count_ = 0;
+    first_.clear();
+    moving_.clear();
+}
+
+std::optional<Pose> ActorPoseReader::Read(CoopPuppet::Guest& guest, std::uint64_t actor,
+                                          std::uint32_t max_bones, std::string* why) {
+    const auto skel = actor != 0 ? FindSkeleton(guest, actor) : std::nullopt;
+    if (!skel) {
+        if (why) *why = "no skeleton";
+        return std::nullopt;
+    }
+    if (skel->count > max_bones) {
+        if (why) *why = skel->model + " has " + std::to_string(skel->count) + " bones, over " +
+                        std::to_string(max_bones);
+        return std::nullopt;
+    }
+    std::vector<LocalMtx> bones(skel->count);
+    if (!guest.Read(skel->local, bones.data(), bones.size() * sizeof(LocalMtx))) {
+        if (why) *why = "skeleton not readable";
+        return std::nullopt;
+    }
+    for (const LocalMtx& b : bones) {
+        if (!std::isfinite(b.rows[0]) || !std::isfinite(b.translation[0])) {
+            if (why) *why = "not a number in the skeleton";
+            return std::nullopt;
+        }
+    }
+    const std::uint32_t id = SkeletonId(skel->count, skel->model);
+    if (actor != actor_ || id != skeleton_ || first_.size() != bones.size()) {
+        actor_ = actor;
+        skeleton_ = id;
+        count_ = skel->count;
+        first_.resize(bones.size());
+        for (std::size_t i = 0; i < bones.size(); ++i) {
+            const LocalMtx& b = bones[i];
+            first_[i] = {b.translation[0], b.translation[1], b.translation[2],
+                         b.scale[0],       b.scale[1],       b.scale[2]};
+        }
+        moving_.assign(bones.size(), 0);
+    }
+    Pose pose;
+    pose.skeleton = id;
+    pose.bones.reserve(bones.size());
+    for (std::size_t i = 0; i < bones.size(); ++i) {
+        const LocalMtx& b = bones[i];
+        std::uint8_t& m = moving_[i];
+        if (Moved(b.translation, first_[i].data(), 3)) m |= proto::pose_part::translation;
+        if (Moved(b.scale, first_[i].data() + 3, 3)) m |= proto::pose_part::scale;
+        BonePose out;
+        out.bone = static_cast<std::uint16_t>(i);
+        out.flags = static_cast<std::uint8_t>((b.flags & addr::kFlagMask) >> addr::kFlagShift);
+        out.rotation = RowsToQuat(RowsOf(b));
+        if (m & proto::pose_part::translation) {
+            out.translation = Vec3{b.translation[0], b.translation[1], b.translation[2]};
+        }
+        if (m & proto::pose_part::scale) out.scale = Vec3{b.scale[0], b.scale[1], b.scale[2]};
+        pose.bones.push_back(out);
+    }
+    return pose;
+}
+
+WriteResult WriteActorPose(CoopPuppet::Guest& guest, std::uint64_t actor, const Pose& pose,
+                           WriteProbe* probe, std::optional<bool>* kept, float weight) {
+    if (kept) kept->reset();
+    weight = std::isfinite(weight) ? std::clamp(weight, 0.0f, 1.0f) : 1.0f;
+    const auto skel = actor != 0 ? FindSkeleton(guest, actor) : std::nullopt;
+    if (!skel) return WriteResult::no_skeleton;
+    if (SkeletonId(skel->count, skel->model) != pose.skeleton) return WriteResult::other_skeleton;
+    std::vector<LocalMtx> bones(skel->count);
+    if (!guest.Read(skel->local, bones.data(), bones.size() * sizeof(LocalMtx))) {
+        return WriteResult::failed;
+    }
+    if (probe && probe->set && probe->actor == actor && probe->local == skel->local &&
+        probe->bone < bones.size() && kept) {
+        *kept = !Moved(bones[probe->bone].rows, probe->rows.data(), 12);
+    }
+    std::optional<std::uint16_t> first_rotated;
+    for (const BonePose& b : pose.bones) {
+        if (b.bone >= bones.size()) continue;
+        if (BlendBone(bones[b.bone], b, weight) && !first_rotated) first_rotated = b.bone;
+    }
+    if (!guest.Write(skel->local, bones.data(), bones.size() * sizeof(LocalMtx))) {
+        return WriteResult::failed;
+    }
+    if (probe) {
+        probe->set = first_rotated.has_value();
+        if (first_rotated) {
+            probe->actor = actor;
+            probe->local = skel->local;
+            probe->bone = *first_rotated;
+            std::copy_n(bones[*first_rotated].rows, 12, probe->rows.data());
+        }
+    }
+    return WriteResult::written;
 }
 
 }  // namespace CoopPose

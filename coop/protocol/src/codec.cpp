@@ -388,6 +388,7 @@ Error encode_body(const PlayerSample& m, Writer& w) {
       return Error::bad_value;
     }
   }
+  if (m.ride && (m.ride->platform == 0 || !all_finite(m.ride->offset))) return Error::bad_value;
 
   auto component = [&w](SampleComponent id, auto&& write) {
     w.u16(static_cast<std::uint16_t>(id));
@@ -411,6 +412,12 @@ Error encode_body(const PlayerSample& m, Writer& w) {
       w.str(m.animation->name);
       w.f32(m.animation->frame);
       w.f32(m.animation->rate);
+    });
+  }
+  if (m.ride) {  // ORM, component 30
+    component(SampleComponent::ride, [&] {
+      w.u64(m.ride->platform);
+      for (float f : m.ride->offset) w.f32(f);
     });
   }
   return Error::none;
@@ -599,6 +606,7 @@ constexpr EquipName kEquipNames[] = {
     {EquipComponent::third_weapon, &Equipment::third_weapon},
     {EquipComponent::tool, &Equipment::tool},
     {EquipComponent::sub_tool, &Equipment::sub_tool},
+    {EquipComponent::mount, &Equipment::mount},  // ORM D-R19
 };
 
 Error encode_body(const PlayerEquip& m, Writer& w) {
@@ -654,7 +662,20 @@ void write_object_id(const ObjectId& id, Writer& w) {
   w.u64(id.value);
 }
 
+// ORM: a carry's holder is a player and its two turns are unit quaternions
+// (the same test as unit_quat below, which comes later in this file).
+bool carry_ok(const ObjectCarry& c) {
+  const auto unit = [](const Quat& q) {
+    if (!all_finite(q)) return false;
+    const float n = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
+    return n > 0.98f && n < 1.02f;
+  };
+  return c.holder >= 1 && c.holder <= kMaxPlayers && all_finite(c.offset) &&
+         all_finite(c.bone_offset) && unit(c.rotation) && unit(c.bone_rotation);
+}
+
 Error check_object_state(const ObjectState& s) {
+  if (s.carry && !carry_ok(*s.carry)) return Error::bad_value;
   if (s.position && !all_finite(*s.position)) return Error::bad_value;
   if (s.velocity && !all_finite(*s.velocity)) return Error::bad_value;
   if (s.rotation && !all_finite(*s.rotation)) return Error::bad_value;
@@ -718,6 +739,16 @@ void write_object_state(const ObjectState& s, Writer& w) {
         w.f32(a.animation.frame);
         w.f32(a.animation.rate);
       }
+    });
+  }
+  if (s.carry) {
+    component(ObjectComponent::carry, [&] {
+      w.u8(s.carry->holder);
+      w.u16(s.carry->bone);
+      for (float f : s.carry->offset) w.f32(f);
+      for (float f : s.carry->rotation) w.f32(f);
+      for (float f : s.carry->bone_offset) w.f32(f);
+      for (float f : s.carry->bone_rotation) w.f32(f);
     });
   }
 }
@@ -892,25 +923,24 @@ Error encode_body(const Damage& m, Writer& w) {
 // Bones in increasing order; per bone u16 bone, u8 parts, u8 flags, then the
 // parts it has: rotation 4 x s16, translation 3 x s16, scale 3 x s16. -32768
 // is refused in a rotation, so each value fits [-1, 1].
-Error encode_body(const PlayerPose& m, Writer& w) {
-  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
-  if (m.bones.size() > kMaxPoseBones) return Error::bad_value;
-  for (std::size_t i = 0; i < m.bones.size(); ++i) {
-    const PoseBone& b = m.bones[i];
+Error check_pose_bones(const std::vector<PoseBone>& bones, std::size_t max) {
+  if (bones.size() > max) return Error::bad_value;
+  for (std::size_t i = 0; i < bones.size(); ++i) {
+    const PoseBone& b = bones[i];
     if (b.bone >= kMaxPoseBones) return Error::bad_value;
-    if (i > 0 && b.bone <= m.bones[i - 1].bone) return Error::bad_value;
+    if (i > 0 && b.bone <= bones[i - 1].bone) return Error::bad_value;
     if (b.rotation) {
       for (std::int16_t v : *b.rotation) {
         if (v == std::numeric_limits<std::int16_t>::min()) return Error::bad_value;
       }
     }
   }
-  w.u8(m.player_number);
-  w.u64(m.time.server_time_us);
-  w.u32(m.time.sequence);
-  w.u32(m.skeleton);
-  w.u16(static_cast<std::uint16_t>(m.bones.size()));
-  for (const PoseBone& b : m.bones) {
+  return Error::none;
+}
+
+void write_pose_bones(const std::vector<PoseBone>& bones, Writer& w) {
+  w.u16(static_cast<std::uint16_t>(bones.size()));
+  for (const PoseBone& b : bones) {
     const std::uint8_t parts =
         (b.rotation ? pose_part::rotation : 0) | (b.translation ? pose_part::translation : 0) |
         (b.scale ? pose_part::scale : 0);
@@ -921,6 +951,49 @@ Error encode_body(const PlayerPose& m, Writer& w) {
     if (b.translation) for (std::int16_t v : *b.translation) w.u16(static_cast<std::uint16_t>(v));
     if (b.scale) for (std::int16_t v : *b.scale) w.u16(static_cast<std::uint16_t>(v));
   }
+}
+
+Error encode_body(const PlayerPose& m, Writer& w) {
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  COOP_TRY(check_pose_bones(m.bones, kMaxPoseBones));
+  w.u8(m.player_number);
+  w.u64(m.time.server_time_us);
+  w.u32(m.time.sequence);
+  w.u32(m.skeleton);
+  write_pose_bones(m.bones, w);
+  return Error::none;
+}
+
+// OBJECT_POSE (ORM): u8 player, the object id (10 bytes), u16 epoch, u64
+// server time, u32 sequence, u32 skeleton, u8 part, u8 parts, then the bones
+// as in PLAYER_POSE (at most kMaxObjectPoseBones, all in the part's range).
+// part below kMaxObjectPoseParts; parts a mask of the parts below
+// kMaxObjectPoseParts with part's own bit set.
+Error check_object_pose_part(std::uint8_t part, std::uint8_t parts,
+                             const std::vector<PoseBone>& bones) {
+  if (part >= kMaxObjectPoseParts) return Error::bad_value;
+  if ((parts & (1u << part)) == 0 || (parts >> kMaxObjectPoseParts) != 0) return Error::bad_value;
+  const std::size_t first = std::size_t{part} * kObjectPosePartBones;
+  for (const PoseBone& b : bones) {
+    if (b.bone < first || b.bone >= first + kObjectPosePartBones) return Error::bad_value;
+  }
+  return Error::none;
+}
+
+Error encode_body(const ObjectPose& m, Writer& w) {
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  COOP_TRY(check_object_id(m.id));
+  COOP_TRY(check_pose_bones(m.bones, kMaxObjectPoseBones));
+  COOP_TRY(check_object_pose_part(m.part, m.parts, m.bones));
+  w.u8(m.player_number);
+  write_object_id(m.id, w);
+  w.u16(m.epoch);
+  w.u64(m.time.server_time_us);
+  w.u32(m.time.sequence);
+  w.u32(m.skeleton);
+  w.u8(m.part);
+  w.u8(m.parts);
+  write_pose_bones(m.bones, w);
   return Error::none;
 }
 // ---------------------------------------------------------------- bodies: decode
@@ -1104,6 +1177,12 @@ Error decode_component(SampleComponent id, Reader& c, PlayerSample& m, bool& kno
       COOP_READ(c.f32(a.rate));
       if (!std::isfinite(a.frame) || !std::isfinite(a.rate)) return Error::bad_value;
       return Error::none;
+    }
+    case SampleComponent::ride: {  // ORM, component 30
+      auto& ride = m.ride.emplace();
+      COOP_READ(c.u64(ride.platform));
+      if (ride.platform == 0) return Error::bad_value;
+      return read_floats(c, ride.offset);
     }
   }
   known = false;
@@ -1399,6 +1478,16 @@ Error decode_component(ObjectComponent id, Reader& c, ObjectState& s, bool& know
         }
       }
       return Error::none;
+    }
+    case ObjectComponent::carry: {
+      auto& k = s.carry.emplace();
+      COOP_READ(c.u8(k.holder));
+      COOP_READ(c.u16(k.bone));
+      COOP_TRY(read_floats(c, k.offset));
+      COOP_TRY(read_floats(c, k.rotation));
+      COOP_TRY(read_floats(c, k.bone_offset));
+      COOP_TRY(read_floats(c, k.bone_rotation));
+      return carry_ok(k) ? Error::none : Error::bad_value;
     }
   }
   known = false;
@@ -2443,16 +2532,16 @@ Error decode_body(Reader& r, HostChoice& m) {
 Error read_pose_bones(Reader& r, std::vector<PoseBone>& bones, std::size_t max) {
   std::uint16_t count = 0;
   COOP_READ(r.u16(count));
-  if (count > kMaxPoseBones) return Error::bad_value;
+  if (count > max) return Error::bad_value;
   if (r.left() < std::size_t{count} * 4) return Error::truncated;
-  m.bones.resize(count);
-  for (std::size_t i = 0; i < m.bones.size(); ++i) {
-    PoseBone& b = m.bones[i];
+  bones.resize(count);
+  for (std::size_t i = 0; i < bones.size(); ++i) {
+    PoseBone& b = bones[i];
     std::uint8_t parts = 0;
     COOP_READ(r.u16(b.bone));
     COOP_READ(r.u8(parts));
     COOP_READ(r.u8(b.flags));
-    if (b.bone >= kMaxPoseBones || (i > 0 && b.bone <= m.bones[i - 1].bone)) {
+    if (b.bone >= kMaxPoseBones || (i > 0 && b.bone <= bones[i - 1].bone)) {
       return Error::bad_value;
     }
     if ((parts & ~(pose_part::rotation | pose_part::translation | pose_part::scale)) != 0) {
@@ -2468,6 +2557,31 @@ Error read_pose_bones(Reader& r, std::vector<PoseBone>& bones, std::size_t max) 
     if (parts & pose_part::scale) COOP_TRY(read_s16s(r, b.scale.emplace()));
   }
   return Error::none;
+}
+
+Error decode_body(Reader& r, PlayerPose& m) {
+  m = PlayerPose{};
+  COOP_READ(r.u8(m.player_number));
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  COOP_READ(r.u64(m.time.server_time_us));
+  COOP_READ(r.u32(m.time.sequence));
+  COOP_READ(r.u32(m.skeleton));
+  return read_pose_bones(r, m.bones, kMaxPoseBones);
+}
+
+Error decode_body(Reader& r, ObjectPose& m) {
+  m = ObjectPose{};
+  COOP_READ(r.u8(m.player_number));
+  if (!valid_player_or_self(m.player_number)) return Error::bad_value;
+  COOP_TRY(read_object_id(r, m.id));
+  COOP_READ(r.u16(m.epoch));
+  COOP_READ(r.u64(m.time.server_time_us));
+  COOP_READ(r.u32(m.time.sequence));
+  COOP_READ(r.u32(m.skeleton));
+  COOP_READ(r.u8(m.part));
+  COOP_READ(r.u8(m.parts));
+  COOP_TRY(read_pose_bones(r, m.bones, kMaxObjectPoseBones));
+  return check_object_pose_part(m.part, m.parts, m.bones);
 }
 
 template <typename T>
@@ -2570,6 +2684,7 @@ std::uint8_t channel_of(MessageType type) {
     case MessageType::host:
       return kChannelProgress;
     case MessageType::object_sample:
+    case MessageType::object_pose:
     case MessageType::world_move:
     case MessageType::platform_clock:
     case MessageType::platform_counter:
@@ -2650,6 +2765,7 @@ bool allowed_on_channel(MessageType type, std::uint8_t channel) {
     case MessageType::player_ride:
       return channel == kChannelPlayerSamples;
     case MessageType::object_sample:
+    case MessageType::object_pose:
     case MessageType::world_move:
     case MessageType::platform_clock:
     case MessageType::platform_counter:
@@ -2785,7 +2901,13 @@ auto* player_field(M& message) {
                       std::is_same_v<T, PlayerRide> ||
                       std::is_same_v<T, OcarinaNote> ||
                       std::is_same_v<T, PlatformClock> ||
-                      std::is_same_v<T, PlatformCounter>) {
+                      std::is_same_v<T, PlatformCounter> ||
+                      std::is_same_v<T, Revive> ||  // ORM from here
+                      std::is_same_v<T, StoryEvent> || std::is_same_v<T, PlayerLook> ||
+                      std::is_same_v<T, ObjectPose> || std::is_same_v<T, ChestOpen> ||
+                      std::is_same_v<T, OrmOcarinaNote> || std::is_same_v<T, GroupSettings> ||
+                      std::is_same_v<T, RoomSwitch> || std::is_same_v<T, PlayerHit> ||  // ORM orm/pvp
+                      std::is_same_v<T, PlayerCall> || std::is_same_v<T, PlayerRename>) {
           field = &m.player_number;
         }
       },

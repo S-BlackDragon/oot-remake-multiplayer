@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 #include <optional>
 #include <string>
 #include <vector>
@@ -32,6 +33,9 @@ void Shutdown();
 struct OverlayLine {
     std::string text;
     bool dim = false;  // a player that is not drawn (other scene, no position)
+    // ORM: the player's colour (red, green, blue) for this line: ours on the
+    // first line and on "you", each other player's on its own; none: plain.
+    std::optional<std::array<std::uint8_t, 3>> color;
 };
 std::vector<OverlayLine> OverlayLines();
 

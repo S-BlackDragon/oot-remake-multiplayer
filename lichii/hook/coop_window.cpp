@@ -283,7 +283,13 @@ protected:
         const QFontMetrics fm(font());
         int y = kPad + fm.ascent();
         for (const auto& line : lines_) {
-            p.setPen(line.dim ? QColor(170, 170, 170) : QColor(255, 255, 255));
+            // ORM: a player's line in its colour (dimmer when not drawn).
+            if (line.color) {
+                p.setPen(QColor((*line.color)[0], (*line.color)[1], (*line.color)[2],
+                                line.dim ? 170 : 255));
+            } else {
+                p.setPen(line.dim ? QColor(170, 170, 170) : QColor(255, 255, 255));
+            }
             p.drawText(kPad, y, QString::fromStdString(line.text));
             y += fm.lineSpacing();
         }
@@ -409,8 +415,8 @@ protected:
                 DrawGameText(p, QPointF(tx, ty), tag, f, fill);
                 continue;
             }
-            // White text (yellow for yourself) with a dark outline, so it
-            // reads on sky and on grass alike.
+            // The player's colour (yellow for yourself; ORM) with a dark outline,
+            // so it reads on sky and on grass alike.
             QPainterPath path;
             path.addText(QPointF(tx, ty), f, tag);
             p.setBrush(Qt::NoBrush);

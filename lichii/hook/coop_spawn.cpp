@@ -7,6 +7,9 @@
 
 #include "coop_spawn.h"
 
+#include "coop_check_visual.h"
+#include "coop/host/chest_open.hpp"
+
 #include "coop_objects_sync.h"  // QuatOf
 #include "orm_pvp_shared.h"     // ORM PvP: our shots and the unseen blasts
 
@@ -27,8 +30,11 @@ struct Kind {
     std::string_view name;
     bool explodes;
     bool flies;
+    // An effect copy (Sync::ShowFor): shown at most this long after its
+    // spawn, 0 for no limit.
+    std::uint64_t show_us = 0;
 };
-constexpr std::array<Kind, 10> kKinds{{
+constexpr std::array<Kind, 13> kKinds{{
     {"Item_Bomb", true, true},
     {"Item_Bombchu", true, true},
     {"Item_DekuNut", false, true},
@@ -40,6 +46,14 @@ constexpr std::array<Kind, 10> kKinds{{
     // Issue 151: a cast lure (always a stand-in, see StandInOnly).
     {"Weapon_Lure", false, true},
     {"Weapon_SinkingLure", false, true},
+    // ORM objetos-uso: Din's Fire and the Megaton Hammer's shock wave, the
+    // player's own shootables (ShooterParam/Player*). Fire and attack
+    // actors: only ever their effect stand-ins (StandInOnly).
+    {"ExpandFireField", false, true, Sync::kDinFireShowUs},
+    {"PlayerShockWave", false, true, Sync::kShockWaveShowUs},
+    // Farore's Wind's warp point: effect and sound only (no AI, physics or
+    // attack), so the game's own actor is the copy. It stays while it lives.
+    {"FaroreWindWarpPoint", false, false},
 }};
 
 const Kind* Find(std::string_view name) {
@@ -101,6 +115,10 @@ bool Animated(std::string_view name) {
 bool Flies(std::string_view name) {
     const Kind* k = Find(name);
     return (k != nullptr && k->flies) || CoopEnemyShots::IsEnemyShot(name);
+}
+std::uint64_t ShowFor(std::string_view name) {
+    const Kind* k = Find(name);
+    return k != nullptr ? k->show_us : 0;
 }
 
 // ---------------------------------------------------------------- Sync
@@ -175,6 +193,7 @@ void Sync::Apply(std::uint64_t now_us) {
             r.held_path.Add({s->state.time.server_time_us, *s->state.position, {}});
             r.animation = s->state.animation;
             r.animation_at = s->state.time.server_time_us;
+            r.spawned_us = now_us;
             copies_.emplace(s->id, std::move(r));
         } else if (const auto* p = std::get_if<proto::ObjectSample>(&m)) {
             auto it = copies_.find(p->id);
@@ -545,7 +564,12 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
                                                                               CoopProjectiles::kMaxImpacts));
             }
         }
-        c.act = explode ? Act::explode : (!r.removed || landing) ? Act::show : Act::remove;
+        // An effect (Din's Fire, the shock wave) is over by then even if the
+        // owner's actor stays on its list (a shooter may keep its next one
+        // ready): the copy goes (ORM objetos-uso).
+        const std::uint64_t show_for = ShowFor(r.actor);
+        const bool over = show_for != 0 && now_us - r.spawned_us > show_for;
+        c.act = explode ? Act::explode : ((!r.removed && !over) || landing) ? Act::show : Act::remove;
         if (explode && r.explode_once_made && !made) {
             c.act = Act::show;  // made first; blown up once the director has it
         }
@@ -561,7 +585,32 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
             }
             r.blasted = true;
         }
+        if (r.unseen) {
+            c.act = Act::remove;
+        }
+        // ORM (coop_mascaras.h): the hookshot tip's chain, and the lure's line
+        // as a companion copy at the lure that goes with it.
+        c.owner = it->first.maker;
+        if (r.actor == "NormalArrow") {
+            c.element = ArrowOf(c.owner);  // ORM riesgos-visual: his arrow's element
+        }
+        if (tethers_) {
+            c.tether = CoopMascaras::TetherOf(r.actor);
+        }
+        const bool line = tethers_ && CoopProjectiles::IsLure(r.actor);
+        Copy companion;
+        if (line) {
+            companion.key = c.key | kLineKeyBit;
+            companion.actor = std::string(CoopMascaras::kLineActor);
+            companion.position = c.position;
+            companion.act = c.act == Act::show ? Act::show : Act::remove;
+            companion.owner = c.owner;
+            companion.tether = CoopMascaras::Tether::fishing_line;
+        }
         copies.push_back(std::move(c));
+        if (line) {
+            copies.push_back(std::move(companion));
+        }
         ++it;
     }
     // Issue 166: made where they are and left there (no place written); gone
@@ -575,6 +624,21 @@ void Sync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t now_u
         c.place = false;
         copies.push_back(std::move(c));
     }
+}
+
+void Sync::SetArrow(std::uint8_t player, std::string arrow) {
+    std::lock_guard lock(arrows_mutex_);
+    if (arrow.empty()) {
+        arrows_.erase(player);
+    } else {
+        arrows_[player] = std::move(arrow);
+    }
+}
+
+CoopProjectiles::Element Sync::ArrowOf(std::uint8_t player) const {
+    std::lock_guard lock(arrows_mutex_);
+    const auto it = arrows_.find(player);
+    return it != arrows_.end() ? CoopProjectiles::ElementOf(it->second) : CoopProjectiles::Element::none;
 }
 
 void Sync::Rekey(Remote& r, bool held) {
@@ -877,33 +941,55 @@ std::optional<CoopPuppet::Call> Director::Step(CoopPuppet::Guest& guest, bool af
     return NextSetter(guest);
 }
 
+namespace {
+constexpr std::array<std::pair<std::string_view, std::string_view>, 11> kStandIns{{
+    {"Shootable_DekuSeed", "CoopShot_Seed"},
+    {"NormalArrow", "CoopShot_Arrow"},
+    {"Shootable_Hook", "CoopShot_Hook"},
+    {"Shootable_HookLong", "CoopShot_HookLong"},
+    {"Weapon_Lure", "CoopShot_Lure"},
+    {"Weapon_SinkingLure", "CoopShot_SinkingLure"},
+    // Issue 85: the game's own boomerang made here homes on our enemies
+    // and hits them; the stand-in is its model only.
+    {"Weapon_Boomerang", "CoopShot_Boomerang"},
+    // Issue 199: another player's Epona under their puppet (coop_ride.h):
+    // her model and animations, no AI, physics or riding.
+    {"Animal_Epona_Adult", "CoopRide_Epona"},
+    // ORM objetos-uso: effect stand-ins (tools/puppet_pack EFFECT_STAND_INS):
+    // the actor's effect user only, no AI, physics, chemical or attack.
+    {"ExpandFireField", "CoopShot_DinFire"},
+    {"PlayerShockWave", "CoopShot_ShockWave"},
+    // ORM mascaras: the fishing line beside each lure copy (Sync, kLineKeyBit),
+    // the rope's model only; its bones are laid each frame (coop_mascaras.h).
+    {CoopMascaras::kLineActor, "CoopShot_FishingLine"},
+}};
+} // namespace
+
 std::string_view StandIn(std::string_view actor) {
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 8> kStandIns{{
-        {"Shootable_DekuSeed", "CoopShot_Seed"},
-        {"NormalArrow", "CoopShot_Arrow"},
-        {"Shootable_Hook", "CoopShot_Hook"},
-        {"Shootable_HookLong", "CoopShot_HookLong"},
-        {"Weapon_Lure", "CoopShot_Lure"},
-        {"Weapon_SinkingLure", "CoopShot_SinkingLure"},
-        // Issue 85: the game's own boomerang made here homes on our enemies
-        // and hits them; the stand-in is its model only.
-        {"Weapon_Boomerang", "CoopShot_Boomerang"},
-        // Issue 199: another player's Epona under their puppet (coop_ride.h):
-        // her model and animations, no AI, physics or riding.
-        {"Animal_Epona_Adult", "CoopRide_Epona"},
-    }};
     for (const auto& [shared, stand_in] : kStandIns) {
         if (shared == actor) {
             return stand_in;
         }
     }
-    return {};
+    // ORM efectos2: a status stand-in is asked for by its own name.
+    for (const std::string_view fx : CoopEffects::kFxStandIns) {
+        if (fx == actor) {
+            return fx;
+        }
+    }
+    return coop::host::chest_get_stand_in(actor);  // ORM cofre: a chest's find, "" for anything else
 }
 
 bool StandInOnly(std::string_view actor) {
     // Issue 199: the game's own Epona made here would be a second horse with
     // her own AI (she runs off, or to us): only ever the stand-in.
-    return CoopProjectiles::IsLure(actor) || actor == "Animal_Epona_Adult";
+    // A real Din's Fire or shock wave here would burn and hit this game's
+    // grass, torches and enemies a second time; a real chest find would give
+    // its item here (ORM cofre).
+    return CoopProjectiles::IsLure(actor) || actor == "Animal_Epona_Adult" || actor == "ExpandFireField" ||
+           actor == "PlayerShockWave" || coop::host::is_chest_find(actor) ||
+           CoopEffects::IsFxStandIn(actor) ||  // ORM efectos2: no game actor of that name
+           actor == CoopMascaras::kLineActor;    // the game's own line is a Phive rope a reel drives
 }
 
 std::string_view HeldStandIn(std::string_view actor) {
@@ -912,12 +998,10 @@ std::string_view HeldStandIn(std::string_view actor) {
 
 std::set<std::string> StandInsIn(std::string_view manifest) {
     std::set<std::string> out;
-    for (const std::string_view shared :
-         {"Shootable_DekuSeed", "NormalArrow", "Shootable_Hook", "Shootable_HookLong", "Weapon_Lure",
-          "Weapon_SinkingLure", "Weapon_Boomerang", "Animal_Epona_Adult"}) {
-        const std::string quoted = "\"" + std::string(StandIn(shared)) + "\"";
+    for (const auto& [shared, stand_in] : kStandIns) {
+        const std::string quoted = "\"" + std::string(stand_in) + "\"";
         if (manifest.find(quoted) != std::string_view::npos) {
-            out.insert(std::string(StandIn(shared)));
+            out.insert(std::string(stand_in));
         }
     }
     const std::string_view bomb = HeldStandIn("Item_Bomb");
@@ -932,12 +1016,34 @@ std::set<std::string> StandInsIn(std::string_view manifest) {
             }
         }
     }
+    for (const auto& find : coop::host::chest_items()) {  // ORM cofre: CoopGet_*
+        const std::string quoted = "\"" + std::string(find.stand_in) + "\"";
+        if (manifest.find(quoted) != std::string_view::npos) {
+            out.insert(std::string(find.stand_in));
+        }
+    }
+    for (const std::string_view arrow : CoopProjectiles::kElementStandIns) {  // ORM riesgos-visual
+        if (manifest.find("\"" + std::string(arrow) + "\"") != std::string_view::npos) {
+            out.insert(std::string(arrow));
+        }
+    }
+    for (const std::string_view fx : CoopEffects::kFxStandIns) {  // ORM efectos2
+        if (manifest.find("\"" + std::string(fx) + "\"") != std::string_view::npos) {
+            out.insert(std::string(fx));
+        }
+    }
     return out;
 }
 
 void Director::SetStandIns(std::set<std::string> names) {
     std::lock_guard lock(mutex_);
     stand_ins_ = std::move(names);
+}
+
+void Director::SetAnchors(CoopMascaras::AnchorSource source) {
+    std::lock_guard lock(mutex_);
+    next_anchors_ = std::move(source);
+    ++next_anchors_serial_;
 }
 
 std::optional<CoopPuppet::Call> Director::NextSetter(CoopPuppet::Guest& guest) {
@@ -1075,6 +1181,12 @@ void Director::NewFrame(CoopPuppet::Guest& guest, std::uint64_t now_ms) {
         copies_.insert(copies_.end(), next_enemies_.begin(), next_enemies_.end());
         copies_.insert(copies_.end(), next_drops_.begin(), next_drops_.end());
         copies_.insert(copies_.end(), next_rides_.begin(), next_rides_.end());
+        copies_.insert(copies_.end(), next_finds_.begin(), next_finds_.end());
+        copies_.insert(copies_.end(), next_fx_.begin(), next_fx_.end());
+        if (anchors_serial_ != next_anchors_serial_) {
+            anchors_ = next_anchors_;
+            anchors_serial_ = next_anchors_serial_;
+        }
     }
     if (base != base_) {
         // A new game (or none): nothing we had is ours any more.
@@ -1156,6 +1268,15 @@ void Director::NewFrame(CoopPuppet::Guest& guest, std::uint64_t now_ms) {
                 if (c->setter && c->act == Act::show && !slot.stand_in) {
                     setters_.push_back(i);
                 }
+                if (slot.stand_in && c->tether != CoopMascaras::Tether::none && c->act == Act::show &&
+                    anchors_) {
+                    // ORM: the chain or line from the copy to its owner's
+                    // puppet's hand, folded while that puppet is not here.
+                    tethers_.Lay(guest, slot.key, slot.taken, c->tether, c->position,
+                                 c->rotation.value_or(CoopMascaras::kIdentity),
+                                 anchors_(guest, c->owner, c->actor),
+                                 [this](const std::string& s) { Say(s); });
+                }
                 if (c->animation && c->act == Act::show && !c->animation->name.empty()) {
                     plays_.push_back(i);  // issue 169: the fuse's blink
                 }
@@ -1208,6 +1329,12 @@ void Director::NewFrame(CoopPuppet::Guest& guest, std::uint64_t now_ms) {
             live[slot.key] = slot.taken;
         }
     }
+    std::vector<std::uint64_t> keys;
+    keys.reserve(live.size());
+    for (const auto& entry : live) {
+        keys.push_back(entry.first);  // ORM: the laid tethers of copies gone are forgotten
+    }
+    tethers_.Keep(keys);
     std::lock_guard lock(mutex_);
     live_ = std::move(live);
 }
@@ -1336,6 +1463,25 @@ std::optional<CoopPuppet::Call> Director::Next(CoopPuppet::Guest& guest, std::ui
         std::string_view stand_in = no_stand_in_.count(copy.actor) != 0 ? std::string_view{}
                                     : copy.held ? HeldStandIn(copy.actor)
                                                 : StandIn(copy.actor);
+        if (!copy.held && copy.element != CoopProjectiles::Element::none) {
+            // ORM riesgos-visual: a fire, ice or light arrow as its own stand-in.
+            const std::string_view element = CoopProjectiles::ElementStandIn(copy.element);
+            bool has = false;
+            {
+                std::lock_guard lock(mutex_);
+                has = stand_ins_.count(std::string(element)) != 0;
+            }
+            const std::string who = "P" + std::to_string(copy.owner) + "'s " + CoopProjectiles::NameOf(copy.element) +
+                                    " arrow";
+            if (has) {
+                stand_in = element;
+                CoopVCheck::Ok("arrow element", who + " drawn as " + std::string(element) +
+                                                    " (his PLAYER_EQUIP arrow, PlayerStatus.EquipArrow)");
+            } else {
+                CoopVCheck::Fallback("arrow element", who + " drawn as a plain arrow: the puppet pack has no " +
+                                                          std::string(element) + " (run make-puppet-pack again)");
+            }
+        }
         if (!stand_in.empty()) {
             std::lock_guard lock(mutex_);
             if (stand_ins_.count(std::string(stand_in)) == 0) {
@@ -1408,6 +1554,7 @@ Director& TheDirector() {
 #include "coop_flags.h"  // EmulatorMemory
 #include "coop_pvp_game.h"
 #include "coop_svc.h"
+#include "coop_switch.h"
 
 namespace CoopSpawn {
 namespace {
@@ -1443,6 +1590,13 @@ bool On() {
     return on;
 }
 
+// ORM (coop_mascaras.h): the hookshot chain and the fishing line on the
+// copies, on unless LICHII_ORM_TETHERS=0.
+bool TethersOn() {
+    static const bool on = CoopSwitch::On("LICHII_ORM_TETHERS", true);
+    return on;
+}
+
 class Glue {
 public:
     void Frame(Core::System& system, coop::host::Session* session,
@@ -1468,6 +1622,7 @@ public:
             return;
         }
         active_ = true;
+        sync_.SetTethers(TethersOn());
         Shots(memory, now_us);
         std::vector<coop::protocol::Message> send;
         std::vector<Copy> copies;
@@ -1571,6 +1726,8 @@ public:
             }
         });
     }
+
+    void SetArrow(std::uint8_t player, std::string arrow) { sync_.SetArrow(player, std::move(arrow)); }
 
     void Receive(const coop::protocol::Message& m) {
         if (const auto* s = std::get_if<coop::protocol::ObjectSpawn>(&m)) {
@@ -1859,6 +2016,11 @@ void UseDirector() {
         LOG_INFO(Core, "coop: spawn: stand-ins in the puppet pack: {}",
                  list.empty() ? "none (copies are the game's own actors; rebuild the puppet pack)" : list);
         TheDirector().SetStandIns(std::move(names));
+        if (TethersOn()) {
+            TheDirector().SetAnchors(&CoopMascaras::PuppetAnchor);
+        }
+        LOG_INFO(Core, "coop: spawn: hookshot chains and fishing lines on the copies {}",
+                 TethersOn() ? "on" : "off (LICHII_ORM_TETHERS=0)");
         CoopSvc::AddCaller(10, [](CoopPuppet::Guest& guest, bool after_call,
                                   std::uint64_t result, std::uint64_t now_ms) {
             return TheDirector().Step(guest, after_call, result, now_ms);
@@ -1879,6 +2041,10 @@ void Frame(Core::System& system, coop::host::Session* session,
 void OnEvent(const coop::net::Event& event) {
     if (On() && event.kind == coop::net::EventKind::message) {
         TheGlue().Receive(event.message);
+    }
+    if (On() && event.kind == coop::net::EventKind::player_equip && event.player != 0) {
+        // ORM riesgos-visual: his arrows' element (an older game says nothing: plain).
+        TheGlue().SetArrow(event.player, event.equipment.arrow.value_or(""));
     }
 }
 

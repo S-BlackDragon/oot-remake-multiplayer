@@ -4,6 +4,7 @@
 // which win. Co-op stays off unless a server is set. No emulator code here.
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -46,5 +47,6 @@ void ApplyEnvironment(const std::function<std::optional<std::string>(const char*
 // Any error turns co-op off (server cleared), so a typo never connects
 // somewhere unintended.
 Settings LoadSettings(const std::filesystem::path& ini, std::vector<std::string>& errors);
+
 
 } // namespace CoopHook

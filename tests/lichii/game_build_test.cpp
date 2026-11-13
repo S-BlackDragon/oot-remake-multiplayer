@@ -7,6 +7,7 @@
 #include <string>
 
 #include "../../coop/host/src/addresses.hpp"
+#include "coop_carry.h"
 #include "coop_fairy.h"
 #include "coop_downed.h"
 #include "coop_game_build.h"
@@ -91,6 +92,8 @@ TEST_CASE("game build: the table agrees with the readers' constants") {
     CHECK(m.equip_change_state == p::kEquipChangeState);
     CHECK(m.unequip_armor == p::kUnequipArmor);
     CHECK(m.set_matrix == p::kSetMatrix);
+    CHECK(m.set_linear_velocity == CoopCarry::still::kSetLinearVelocity);
+    CHECK(m.set_angular_velocity == CoopCarry::still::kSetAngularVelocity);
     CHECK(m.cut_foliage == CoopWorld::kCutFoliage);
     // The loader patches.
     CHECK(m.svc_hook_rare == CoopSvc::kHooks[0].offset);

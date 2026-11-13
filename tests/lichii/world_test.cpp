@@ -896,6 +896,60 @@ TEST_CASE("world: another player's break takes our copy's life, then the copy if
     CHECK(w.Removes() == std::vector<std::uint64_t>{0x200});
 }
 
+TEST_CASE("world: a pot in a Link's hands breaks only by the holder's game (levantar-vasija)") {
+    // Seen in a game (sondas9): B's copy of the pot in A's puppet's hands read
+    // life 0, B sent the break, and A's game broke the pot in A's own hands.
+    // B, the copy's game: held by another's puppet, its break is not sent...
+    WorldSync b;
+    Walk(b, 1000 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    b.SetHands({}, {0x100});
+    Walk(b, 1100 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    b.SetHands({}, {});
+    auto out = Walk(b, 1200 * kMs, {Thing(0x100, 0x11, 0, "Obj_Pot_A_08")});
+    CHECK(Sent<proto::WorldBreak>(out).empty());
+    REQUIRE(out.notes.size() == 1);
+    CHECK(out.notes[0].find("broke in another player's hands here (life 0): not sent") != std::string::npos);
+    // ...nor when it leaves the walk right after.
+    Walk(b, 1300 * kMs, {});
+    Walk(b, 1400 * kMs, {});
+    out = Walk(b, 2200 * kMs, {});
+    CHECK(Sent<proto::WorldBreak>(out).empty());
+    // The holder's own break, later, still reaches the copy's game as usual.
+    WorldSync late;
+    Walk(late, 1000 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    late.SetHands({}, {0x100});
+    Walk(late, 1100 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    late.SetHands({}, {});
+    out = Walk(late, 2700 * kMs, {Thing(0x100, 0x11, 0, "Obj_Pot_A_08")});  // 1.6 s after the hold
+    CHECK(Sent<proto::WorldBreak>(out).size() == 1);
+
+    // A, the holder's game: another game's break of what our Link holds is
+    // not taken, and our own break of it afterwards still goes out.
+    WorldSync a;
+    Walk(a, 1000 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    a.SetHands({0x100}, {});
+    a.Receive(BreakOf(0x11));
+    out = Walk(a, 1100 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    CHECK(out.lives.empty());
+    CHECK_FALSE(a.Broken(0x11));
+    REQUIRE(out.notes.size() == 1);
+    CHECK(out.notes[0].find("another player's break of what our Link holds: not taken") != std::string::npos);
+    for (std::uint64_t t = 1200; t < 9000; t += 100) {
+        CHECK(Walk(a, t * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")}).lives.empty());
+    }
+    CHECK(a.Removes().empty());
+    a.SetHands({}, {});
+    out = Walk(a, 9100 * kMs, {Thing(0x100, 0x11, 0, "Obj_Pot_A_08")});  // thrown, broken here
+    CHECK(Sent<proto::WorldBreak>(out).size() == 1);
+    // Without the hold, the same break is taken (the rule is only for the holder).
+    WorldSync free;
+    Walk(free, 1000 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    Walk(free, 5000 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    free.Receive(BreakOf(0x11));
+    out = Walk(free, 5100 * kMs, {Thing(0x100, 0x11, 1, "Obj_Pot_A_08")});
+    CHECK(out.lives.size() == 1);
+}
+
 TEST_CASE("world: a grass tuft cut by another player is deleted when life 0 leaves it standing") {
     WorldSync w;
     Walk(w, 1000 * kMs, {Thing(0x100, 0x11, 1, kTuft)});

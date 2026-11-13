@@ -22,12 +22,19 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "coop_ocarina.h"
 #include "coop_snap.h"
 #include "coop_puppet_sound.h"
+
+#include "coop/host/pose_smooth.hpp"
+#include "coop/host/orm_bodies.hpp"  // ORM orm/cuerpos-continuar: a puppet on our Link drawn aside
+#include "coop/host/passages.hpp"
+#include "coop_effects.h"
+#include "coop_mascaras.h"  // ORM: masks on the puppet's head
 
 namespace coop::protocol {
 struct Equipment;
@@ -270,6 +277,36 @@ struct Target {
     std::optional<std::uint32_t> color;
     // The player's newest OCARINA_NOTE, played on the puppet (issue 152).
     CoopPuppetSound::Wanted ocarina;
+    // How old the player's newest PLAYER_SAMPLE is (server time); unset: not
+    // known, taken as fresh. The reveal waits for one under kFreshSampleMs.
+    std::optional<std::uint64_t> sample_age_ms;
+    // Already in `position`: the sideways step the planner draws the puppet
+    // with while it stands on our Link after an event (Planner, presentation
+    // only; the sample is kept). Zero: drawn on its sample. For the log.
+    Vec3 side_step{};
+    float first_sight_m = -1.0f;  // ORM: how far from our Link its first sight here was judged (-1: not yet)
+    // ORM bodies (PlannerSettings::bodies): the part of `offset` that draws it
+    // out of our Link (coop/host/orm_bodies.hpp); zero: none.
+    Vec3 aside{};
+    // ORM choque (Planner::SetColliders, coop_bodies.h): its body in our game
+    // is solid this plan (coop::host::orm::bodies::BodyGate); false: a ghost,
+    // or the colliders are off. `adult`: the player's age (the body's size).
+    bool solid = false;
+    bool adult = false;
+    // What `position` adds to the sample (the side step at its weight now):
+    // the director adds it to the smoothed position (SetSmoothing) too.
+    Vec3 offset{};
+    // ORM (oot-remake docs/PUERTAS.md): drawn only by a puppet that exists;
+    // none is made for it (a player walking out of our place, or gone).
+    bool keep_only = false;
+    // ORM efectos2 (coop_effects.h). `effects`: while the pose copy drives
+    // it, its player's command plays on it too when the effect rules allow
+    // it (Director::SetEffectRules). `flash_since_ms`: the damage flash
+    // began then (0: none); the director blinks it. `status`: the stand-in
+    // on it (coop_effects_game.cpp places it through the spawn director).
+    bool effects = false;
+    std::uint64_t flash_since_ms = 0;
+    CoopEffects::Status status = CoopEffects::Status::none;
 };
 
 struct Input {
@@ -287,6 +324,11 @@ struct Input {
     // while the other game loads, its age reads adult for a moment, and a
     // wrong-age puppet is made and dropped. 0 (a test) creates at once.
     std::uint64_t settle_ms = 0;
+    // The receiver's estimate of the server clock when this was planned, and
+    // the steady time then (ms, the calc thread's clock): the director runs
+    // it on to its own frame for the smoothing (SetSmoothing). 0: not known.
+    std::uint64_t server_now_us = 0;
+    std::uint64_t server_at_ms = 0;
 };
 
 Mat3 QuatToMatrix(const Quat& q);  // rows; normalises q, identity if it is 0
@@ -326,8 +368,51 @@ public:
     static bool IsTunicActor(std::string_view name) {
         constexpr std::string_view kBase = "CoopPuppet_";
         return name.substr(0, kBase.size()) == kBase &&
-               name.find('_', kBase.size()) != std::string_view::npos;
+               name.find('_', kBase.size()) != std::string_view::npos &&
+               !name.ends_with("_Lock");  // ORM orm/pvp: the lock-on variant is no tunic
     }
+    // The reveal (the Link puppets'): a new puppet is made parked
+    // kHideDrop under its spot and kept there, posed but out of sight, until
+    // it has both a fresh sample (Target::sample_age_ms under
+    // kFreshSampleMs) and a first pose on it (a whole fresh pose from the
+    // pose copy, or, for a player who sends none, its AS command played and
+    // its frame set); then it shows at the sampled position, so no frame of
+    // T-pose or of a stale place is drawn. A live puppet whose player was out
+    // of the plan for kBackHideMs or more (a reconnect, a stall) goes through
+    // the same reveal when it comes back, instead of snapping to the new
+    // place. After kRevealTimeoutMs it shows whatever it has, with a line.
+    // The debug puppet (number 0) shows at once.
+    void SetRevealGate(bool on) { reveal_gate_ = on; }
+    // ORM choque (coop_bodies.h): every actor is made kHideDrop under its spot
+    // and placed by the next pose (shown, or parked for a hide), without the
+    // reveal's wait: a body made where its mate stands could appear on our
+    // Link for a frame and the game's physics push him.
+    void SetCreateParked(bool on) { create_parked_ = on; }
+    // ORM (coop_mascaras.h, LICHII_ORM_MASK_FOLLOW): each calc frame after
+    // the pose copy, a live puppet's mask or lens is put on its head.
+    void SetHeadFollow(bool on) { head_follow_ = on; }
+    // ORM smoothing (oot-remake docs/SUAVIZADO.md, LICHII_ORM_SMOOTH): where
+    // each shown puppet is drawn, asked each calc frame with the server time
+    // of that frame (Input's run on): position (plus Target::offset) and
+    // rotation from coop::host::PoseSmoother instead of the plan's, the body
+    // pose shown for the same time (CoopPose::OnCalcFrame's render_us, the
+    // server time less `delay_us`), and the AS fallback plays the sender's
+    // command of that time. Without a source (the fairies, a test, the
+    // switch off) everything is as before.
+    using SmoothSource =
+        std::function<std::optional<coop::host::SmoothedPose>(std::uint8_t number,
+                                                              std::uint64_t server_now_us)>;
+    void SetSmoothing(SmoothSource source, std::uint64_t delay_us) {
+        smooth_ = std::move(source);
+        smooth_delay_us_ = delay_us;
+    }
+    // ORM riesgos-visual (coop::host::DelayTuner): the delay the bodies are
+    // drawn behind changed for everyone. Any thread.
+    void SetSmoothDelay(std::uint64_t delay_us) { smooth_delay_us_.store(delay_us); }
+    // ORM efectos2: the rules a Target::effects puppet's commands are played
+    // by while posed (coop_effects.h). Before the game runs; the built-in
+    // list until then.
+    void SetEffectRules(CoopEffects::Rules rules) { effect_rules_ = std::move(rules); }
 
     // Any thread. The next frame of the cave uses it.
     void SetInput(Input input);
@@ -375,6 +460,15 @@ public:
     static constexpr float kFrameSlack = 3.0f;
     // A hidden puppet is moved this far down, under the floor.
     static constexpr float kHideDrop = 500.0f;
+    // ORM riesgos-visual (OcarinaBelt): frames the belt Ocarina is parked
+    // before it is judged, and how far apart the two must be to be two.
+    static constexpr int kBeltJudgeFrames = 10;
+    static constexpr float kBeltApart = 0.15f;
+    // ORM (OcarinaBelt, the hand check; docs/SONDAS.md 2026-11-12): while its player plays the
+    // Ocarina freely, the puppet's own Ocarina piece is judged after kHandJudgeFrames: above
+    // kHandUp of the puppet's height it is in the hand (the player's own rose 0.49 -> 0.78).
+    static constexpr int kHandJudgeFrames = 45;
+    static constexpr float kHandUp = 0.65f;
     // A worn piece this far from its shown puppet was left behind (made while
     // the puppet was parked under the floor, seen 2026-11-09): worn again.
     static constexpr float kGearFar = 5.0f;
@@ -388,6 +482,16 @@ public:
     static constexpr std::uint64_t kDrawnMs = 750;
     // ...or, when the drawing never broke, this long after it.
     static constexpr std::uint64_t kSteadyMs = 3000;
+    // The reveal (SetRevealGate).
+    static constexpr std::uint64_t kFreshSampleMs = 200;
+    static constexpr std::uint64_t kRevealTimeoutMs = 3000;
+    static constexpr std::uint64_t kBackHideMs = 500;
+    // A live puppet whose actor reads neither present (4) nor gone (7 to 11),
+    // say 6, is not posed, revealed or moved. When the plan wants it seen
+    // (not hidden for our cutscene or a ride) and it stays so this long, it
+    // is deleted and made again: parked under the floor it would stay there
+    // for good (review 2026-11-11, oot-remake docs/REVISION_OBJETOS.md).
+    static constexpr std::uint64_t kAbsentMs = 3000;
 
 private:
     struct Slot {
@@ -452,8 +556,37 @@ private:
         bool remake = false;
         std::array<std::uint64_t, kGearCount> off_since_ms{};  // its player's slot empty since (0: not)
         std::array<bool, kGearCount> unequip_refused{};        // the take-off call returned 0
+        // ORM (coop_detalles.h): armor the puppet put on by itself from our
+        // own flags, which its player does not wear, taken off too.
+        std::string unequip_name;                              // the piece being taken off
+        std::array<std::uint8_t, kGearCount> stray_offs{};     // such take-offs so far
         std::uint64_t moved_frame = 0;      // the cave frame of the last matrix call
         CoopPuppetSound::State sound;       // the player's Ocarina on it (issue 152)
+        // The reveal (SetRevealGate): false while it is kept parked.
+        bool revealed = true;
+        std::uint64_t reveal_since_ms = 0;  // when the wait began (live, or back)
+        const char* reveal_why = "";        // "new" or "back"; string literals only
+        bool side_said = false;             // the side step's line was logged
+        std::optional<Vec3> aside_drawn;    // ORM bodies: written last pass while drawn aside (read back next)
+        bool first_said = false;            // the first sight's line was logged
+        std::uint64_t absent_since_ms = 0;  // live, wanted seen, out of state 4 since; 0 not (kAbsentMs)
+        // ORM smoothing: the sender's command at the shown time (Animate
+        // plays it instead of the newest), and the rate last played.
+        std::optional<Anim> smooth_anim;
+        std::uint32_t smooth_serial = 0;
+        // ORM riesgos-visual (OcarinaBelt): the belt Ocarina parked out of
+        // sight while the one in the hand shows; 0 none parked.
+        std::uint64_t belt_parked = 0;
+        Vec3 belt_offset{};                 // where it was from the puppet, to put it back
+        int belt_frames = 0;                // frames parked (judged at kBeltJudgeFrames)
+        int hand_frames = 0;                // frames its player plays freely (hand check)
+        std::uint64_t hand_piece = 0;       // OcarinaHandPlace: its Ocarina, put in the hand
+        Vec3 hand_back{};                   // where that piece was from the puppet, to put it back
+        bool hand_judged = false;           // the hand check said this play
+        float anim_rate = 1.0f;
+        float play_rate = 1.0f;
+        coop::host::Gait gait = coop::host::Gait::unknown;  // last logged (debug anim)
+        bool effects_said = false;  // ORM efectos2: the first posed command was logged
     };
     enum class Pending {
         none, malloc, create, take, drop, remove, play, frame, sync, equip, unequip, hold, move,
@@ -462,16 +595,41 @@ private:
 
     void NewFrame(Guest& guest, std::uint64_t now_ms);
     void PoseFrame(Guest& guest, std::uint64_t now_ms);
+    void FollowHeads(Guest& guest);  // ORM: SetHeadFollow
+    // ORM riesgos-visual (oot-remake docs/RIESGOS_RESUELTOS.md, OCARINA.md
+    // "dos ocarinas"): while a puppet's Ocarina is in its hand (OcarinaInHand),
+    // the belt one (the Accessory4 piece) would show too. Each frame it is
+    // parked kHideDrop under its place; kBeltJudgeFrames later, if it read
+    // parked, "coop: check: ocarina belt ok" (one Ocarina shows); if the
+    // game's binding put it back each time, "fallback" and no more parking
+    // this run (two show, as before). Put back by the puppet when the hand
+    // one is put away.
+    void OcarinaBelt(Guest& guest);
+    // ORM (docs/SONDAS.md): whether a puppet's own Ocarina goes to its hand while its player plays.
+    void OcarinaHandCheck(Guest& guest, Slot& slot, const Target* t);
+    // ORM ocarina-mano (round 5, docs/SONDAS.md): the game moves a player's own Ocarina from the
+    // belt to his hands by its own state (the holster's AI asks its owner), which a puppet never
+    // runs, and the sub weapon one is never made. While the puppet's player plays freely, its own
+    // Ocarina piece is put each frame where the player's was measured (kOcarinaHeld: in the frame
+    // of skeleton matrix 0, which reads as the model's turn at the actor's place; the actor frame
+    // when that does not read), and back on the belt when the play ends. True while it places.
+    bool OcarinaHandPlace(Guest& guest, Slot& slot, const Target* t);
     void Finish(Guest& guest, std::uint64_t result, std::uint64_t now_ms);
     std::optional<Call> Next(Slot& slot, Guest& guest, std::uint64_t now_ms);
     std::optional<Call> Create(Slot& slot, const Target& target, Guest& guest);
     std::uint64_t Resolve(Slot& slot, Guest& guest);
-    std::optional<Call> Animate(Slot& slot, const Target& target, Guest& guest);
+    // `only` (ORM efectos2): this command and serial instead of the target's.
+    std::optional<Call> Animate(Slot& slot, const Target& target, Guest& guest,
+                                const Anim* only = nullptr, std::uint32_t only_serial = 0);
+    // ORM efectos2: the command played while the pose copy drives it.
+    std::optional<Call> PosedAnimate(Slot& slot, const Target& target, Guest& guest);
     std::optional<Call> Equip(Slot& slot, const Target& target, Guest& guest,
                               std::uint64_t now_ms);
     std::optional<Call> Hold(Slot& slot, const Target& target, Guest& guest,
                              std::uint64_t now_ms);
     void LeftBehind(Slot& slot, Guest& guest, std::uint64_t now_ms);
+    std::optional<Call> TakeOffStray(Slot& slot, Guest& guest, std::size_t i,
+                                     std::uint64_t now_ms);  // ORM, coop_detalles.h
     std::optional<Call> Move(Slot& slot, Guest& guest);
     std::optional<Call> SetFrame(Slot& slot, std::uint64_t controller, float frame);
     static std::uint64_t Controller(Guest& guest, std::uint64_t actor);
@@ -485,9 +643,13 @@ private:
     void Poll(Slot& slot, Guest& guest, std::uint64_t now_ms);
     const Target* Wanted(std::uint8_t number) const;
     bool Drawn(const Slot& slot, std::uint64_t now_ms) const;
+    void Reveal(Slot& slot, const Target& target, std::uint64_t now_ms);
     Slot& SlotFor(std::uint8_t number);
     void Say(const std::string& text) const;
     void Status(Guest& guest, std::uint64_t now_ms);
+    std::uint64_t ServerNow(std::uint64_t now_ms) const;  // 0: not known
+    // The smoothed place of a shown puppet this frame, into `at` and `rot`.
+    void Smooth(Slot& slot, const Target& target, std::uint64_t now_ms, Vec3& at, Mat3& rot);
 
     Log log_;
     bool verbose_;
@@ -500,6 +662,15 @@ private:
     std::map<std::string, int> tunic_timeouts_;    // by actor name
     bool tunic_proven_ = false;  // a tunic puppet spawned with its model: the pack has them
     void TunicFails(const std::string& actor, const std::string& why);
+    bool reveal_gate_ = false;
+    bool create_parked_ = false;  // ORM choque: SetCreateParked
+    bool head_follow_ = false;
+    bool belt_park_failed_ = false;  // OcarinaBelt: the binding undoes the park; never again this run
+    CoopMascaras::Heads heads_;  // the calc thread
+    SmoothSource smooth_;
+    std::atomic<std::uint64_t> smooth_delay_us_{0};  // ORM riesgos-visual: SetSmoothDelay from the tuner
+    CoopEffects::Rules effect_rules_ = CoopEffects::Rules::Default();
+    std::uint32_t posed_ = 0;  // the last PoseFrame's whole fresh poses (CoopPose::OnCalcFrame)
 
     mutable std::mutex input_mutex_;
     Input next_input_;  // guarded
@@ -522,6 +693,26 @@ private:
 // A player's PLAYER_EQUIP as the puppet's pieces, in kGearKinds order.
 Gear GearOf(const coop::protocol::Equipment& equipment);
 
+// The Ocarina in the hand while its player plays (ORM, issue 152,
+// oot-remake docs/OCARINA.md). The belt pieces (kGearOcarinaHolder,
+// kGearOcarina) are what the player wears; on the player the ocarina goes
+// to the hand in the player's own code, which the puppet does not run (as a
+// drawn sword needs the change-state call on the puppet, not just its draw
+// animation). So while the player's AS command is an Ocarina one
+// (coop::host::Activity::ocarina) the target also carries the Ocarina as the
+// carried piece `piece` (kGearSubWeapon: slot 1, the left hand Weapon_L,
+// where the Deku stick and the bottle were seen in the puppet's hand;
+// kGearHeld: slot 3, the right hand Weapon_R) with that slot's drawn bit
+// set, so the Director equips it and draws it into the hand; when the
+// command changes, the player's own slot comes back and the piece is put
+// away. No change, false: `piece` is kGearCount (off) or not a hand slot,
+// or the player has no Ocarina.
+inline constexpr std::size_t kOcarinaHandOff = kGearCount;
+bool OcarinaInHand(Target& target, std::size_t piece);
+// LICHII_ORM_OCARINA_HAND: "" or "sub" kGearSubWeapon, "bow" kGearHeld,
+// "0" or "off" kOcarinaHandOff; anything else is the default too.
+std::size_t OcarinaHandPiece(std::string_view setting);
+
 struct Remote {
     std::uint8_t number = 0;
     std::optional<std::string> scene;
@@ -538,6 +729,7 @@ struct Remote {
     // player's slot colour (coop::protocol::slot_color).
     std::optional<std::uint32_t> color;
     CoopPuppetSound::Wanted ocarina;                 // as Target::ocarina
+    std::optional<std::uint64_t> sample_age_ms;      // as Target::sample_age_ms
 };
 
 struct PlannerSettings {
@@ -556,6 +748,30 @@ struct PlannerSettings {
                                   // wearing your own gear
     std::uint64_t debug_delay_ms = 3000;  // after the scene is known
     Vec3 debug_offset{2.0f, 0.0f, 0.0f};  // from you, in game units (about metres)
+    // The piece a remote player's Ocarina is carried as while they play
+    // (OcarinaInHand; LICHII_ORM_OCARINA_HAND); kOcarinaHandOff: belt only.
+    std::size_t ocarina_hand = kGearSubWeapon;
+    // ORM: LICHII_ORM_SMOOTH (on unless =0): the Link puppets' director
+    // smooths (Director::SetSmoothing, oot-remake docs/SUAVIZADO.md).
+    bool smooth = true;
+    // ORM D-R19 (LICHII_COOP_HORSE, on by default; coop_epona.h): a rider is
+    // shown getting on and in the saddle (a horse of ours goes there), not parked.
+    bool riders = false;
+    // ORM (oot-remake docs/PUERTAS.md): leaving and arriving players
+    // (coop/host/passages.hpp). LICHII_COOP_PASSAGES=0 turns it off.
+    bool passages = true;
+    // ORM bodies (LICHII_ORM_BODIES, on unless =0; oot-remake docs/CUERPOS.md):
+    // a puppet within two body radii of our Link is drawn out to that
+    // distance (coop::host::orm::bodies::PuppetAside). Our Link is never moved.
+    bool bodies = false;
+    // ORM efectos2 (coop_effects.h): the effect commands, the damage flash
+    // and the status stand-ins. All off here; coop_svc.cpp turns them on
+    // (LICHII_ORM_EFFECTS, LICHII_ORM_DAMAGE_FLASH, LICHII_ORM_STATUS_FX).
+    CoopEffects::Settings effects;
+    // ORM choque (coop_bodies.h): the bodies' gate runs from the start (a
+    // test); in the game coop_bodies.cpp turns it on and off each frame
+    // (Planner::SetColliders) by the room's /choque, its switch and the pack.
+    bool colliders = false;
 };
 
 // A puppet pack's coop_puppet.json lists both green puppets
@@ -592,13 +808,75 @@ public:
     // puppet for them.
     void SetFailedTunics(std::vector<std::string> names) { failed_tunics_ = std::move(names); }
     const PlannerSettings& settings() const { return settings_; }
+    // ORM efectos2: the effect changes of the plans since the last call, one
+    // line each ("P2 effects: flash ('Damage_M_F')"), for the log.
+    std::vector<std::string> TakeEffectLines();
+    // ORM choque: each mate's body gate (Target::solid) from the next plan on;
+    // off makes every body a ghost again (the next on waits until clear).
+    // SetOurAdult: our Link's age, for the gate's heights (Publish sets it
+    // from our last sample; a child's until known). The present thread.
+    void SetColliders(bool on);
+    bool Colliders() const { return colliders_; }
+    void SetOurAdult(bool adult) { our_adult_ = adult; }
+
+    // Two Links on one spot after a shared event (the Deku Tree's talk puts
+    // both in front of the Tree): when a puppet's sample stays within
+    // kOverlapNear of our Link for kOverlapForMs, begun within
+    // kOverlapWindowMs after an event ended (ours, or the in-cutscene bit of
+    // theirs), the puppet is drawn kSideStep to its side, away from us,
+    // faded in over kSideStepInMs. The sample itself is not changed. The
+    // step fades out over kSideStepOutMs once they walk kSideStepLeave from
+    // that spot, we get kSideStepApart away, or an event runs again.
+    static constexpr float kOverlapNear = 0.5f;
+    static constexpr std::uint64_t kOverlapForMs = 1000;
+    static constexpr std::uint64_t kOverlapWindowMs = 10000;
+    static constexpr float kSideStep = 0.6f;
+    static constexpr std::uint64_t kSideStepInMs = 250;
+    static constexpr std::uint64_t kSideStepOutMs = 500;
+    static constexpr float kSideStepLeave = 1.0f;
+    static constexpr float kSideStepApart = 1.5f;
+    // ORM (oot-remake docs/SONDAS.md round 7): a puppet whose first plan in a scene with our Link read (in an
+    // event too: the game's boot event runs while it is first shown) finds it on our Link (two
+    // players who pressed Continue at one spot: sondas22r7, B's puppet shown 0.17 m from A, A pushed 0.8 m and
+    // then walking on the spot for a minute) is drawn kFirstSightStep aside at once, with no fade, before the
+    // game's physics can push our Link off it.
+    static constexpr float kFirstSightStep = 1.0f;
 
 private:
+    struct Overlap {
+        bool cutscene = false;           // their in-cutscene bit, last plan
+        std::uint64_t event_end_ms = 0;  // their cutscene ended
+        std::uint64_t near_since_ms = 0; // on our Link since; 0 not
+        bool on = false;                 // the step is wanted
+        Vec3 step{};                     // the full step
+        Vec3 anchor{};                   // their sample when it began
+        float weight = 0.0f;             // how much of it is drawn
+        std::uint64_t last_ms = 0;       // the last plan, for the fade
+        bool judged = false;             // its first sight (with our Link read) was looked at
+        bool first = false;              // the step on is a first sight's (kept through events)
+        float first_m = -1.0f;           // our Link's distance then
+    };
+    // The full step (zero while none is drawn) and how much of it to draw.
+    // `shown`: drawn this plan (its first sight is judged only then: a mate still loading sends no place yet).
+    std::pair<Vec3, float> SideStep(const Remote& remote, const std::optional<Vec3>& ours,
+                                    bool local_event, std::uint64_t now_ms, bool shown = true);
+    float FirstSightM(std::uint8_t number) const;  // Overlap::first_m of that player (-1: none)
+
     PlannerSettings settings_;
     std::vector<std::string> failed_tunics_;
     std::string scene_;
     std::uint64_t scene_since_ms_ = 0;
     std::optional<Vec3> debug_spot_;
+    CoopEffects::Tracker effects_;            // ORM efectos2
+    std::vector<std::string> effect_lines_;   // TakeEffectLines
+    bool local_event_ = false;
+    std::uint64_t local_event_end_ms_ = 0;
+    std::vector<std::pair<std::uint8_t, Overlap>> overlaps_;
+    coop::host::Passages passages_;  // ORM: PlannerSettings::passages
+    coop::host::orm::bodies::PuppetAside aside_;  // ORM: PlannerSettings::bodies
+    coop::host::orm::bodies::BodyGate gate_;      // ORM choque: SetColliders
+    bool colliders_ = false;
+    bool our_adult_ = false;
 };
 
 // The process-wide pair the hook and the SVC handler share.
@@ -645,6 +923,17 @@ std::vector<Remote> Collect(coop::host::Session* session, std::uint64_t server_n
 // does it for the fairies, whose creates were refused or never drawn while a
 // scene loaded (issue 93).
 void StampDrawing(Input& input, std::uint64_t now_ms);
+
+// ORM efectos2: called by Publish with each plan before the director gets
+// it (the present thread); coop_effects_game.cpp places the status
+// stand-ins from it. One observer; an empty one removes it.
+using PlanObserver = std::function<void(const Input&)>;
+void OnPlan(PlanObserver observer);
+// ORM choque: more observers, each called after OnPlan's, in the order
+// added (coop_bodies.cpp's body director). Before the game runs.
+void AddPlanObserver(PlanObserver observer);
+// ORM choque: the puppets' planner's Planner::SetColliders. The present thread.
+void SetColliders(bool on);
 
 // CoopHook::OnFrame, once per present, with no lock held. `session` may be
 // null (not connected): then only the debug puppet is planned.

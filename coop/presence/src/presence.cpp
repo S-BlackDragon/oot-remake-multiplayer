@@ -265,6 +265,7 @@ bool Presence::apply(const protocol::Message& message) {
   if (const auto* m = std::get_if<protocol::PlayerJoined>(&message)) return on_joined(*m);
   if (const auto* m = std::get_if<protocol::PlayerLeft>(&message)) return on_left(*m);
   if (const auto* m = std::get_if<protocol::PlayerStatus>(&message)) return on_status(*m);
+  if (const auto* m = std::get_if<protocol::PlayerLook>(&message)) return on_look(*m);
   if (const auto* m = std::get_if<protocol::PlayerSample>(&message)) {
     const SampleResult r = on_sample(*m);
     return r == SampleResult::buffered || r == SampleResult::state_only;
@@ -298,6 +299,13 @@ bool Presence::on_status(const protocol::PlayerStatus& status) {
   Player* p = find(status.player_number);
   if (p == nullptr) return false;
   p->flags_ = status.flags;
+  return true;
+}
+
+bool Presence::on_look(const protocol::PlayerLook& look) {
+  Player* p = find(look.player_number);
+  if (p == nullptr) return false;
+  p->color_ = look.rgb;
   return true;
 }
 

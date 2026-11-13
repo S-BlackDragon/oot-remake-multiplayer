@@ -76,6 +76,21 @@ OPTIONAL = (
     "Tex/Mt_Vest_Player_Child_Alb.bntx.zs",
     "Model/Player_Child.Player_Child.bfres.zs",
     "Model/Player_Adult.Player_Adult.bfres.zs",
+    "Pack/Actor/Weapon_FishingLine.pack.zs",  # the fishing line's stand-in (ORM mascaras)
+    # build.py EFFECT_STAND_INS (ORM objetos-uso): Din's Fire and the hammer's shock wave.
+    "Pack/Actor/ExpandFireField.pack.zs",
+    "Pack/Actor/PlayerShockWave.pack.zs",
+    # the riders' horses (build.py HORSES, ORM D-R19; Animal_Epona_Adult is upstream's line above)
+    "Pack/Actor/Animal_Horse.pack.zs",
+    "Pack/Actor/Animal_Horse_For_Ingo.pack.zs",
+    # build.py FX_STAND_INS (ORM efectos2): the status stand-ins' effect locators.
+    "Pack/Actor/EftLoc_InsideGanonCastle_SageRoom_Fire_00.pack.zs",
+    "Pack/Actor/EftLoc_FairyFountain_DryIce_00.pack.zs",
+    "Pack/Actor/EftLoc_InsideGanonCastle_EnvSpark_00.pack.zs",
+    "Pack/Actor/EftLoc_SageRoom_Crystal_00.pack.zs",
+    # build.py LOCK_SOURCE (ORM orm/pvp): Dark Link's attention params for the lock-on puppets
+    # (CoopPuppet_*_Lock); a .nup build without it left "Fijar aliados" out.
+    "Pack/Actor/Enemy_MiddleBoss_DarkLink.pack.zs",
 )
 # ORM cofre (oot-remake docs/DETALLES_MARIONETA.md, "Cofres"): what a chest gives, shown over the
 # finder's puppet as a model-only stand-in CoopGet_<drop> (build.py GET_STAND_INS). Every drop and

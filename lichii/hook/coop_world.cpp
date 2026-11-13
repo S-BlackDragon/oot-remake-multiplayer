@@ -8,6 +8,7 @@
 #include <cstring>
 #include <utility>
 
+#include "coop/host/epona.hpp"  // ORM D-R19
 #include "coop/host/game_items.hpp"
 #include "coop/protocol/codec.hpp"
 #include "coop/protocol/messages.hpp"
@@ -71,6 +72,9 @@ std::uint32_t SmallKeyFlag(std::string_view scene) {
 }
 
 bool IsBreakable(std::string_view name) {
+    if (coop::host::epona::own_per_game(name)) {
+        return false;  // ORM D-R19: the horseback archery's pots and targets are each run's own
+    }
     if (IsLock(name)) {
         return true;
     }
@@ -533,6 +537,18 @@ void WorldSync::Drain(std::uint64_t now_us) {
                         o.life_written_us = 0;
                     }
                 }
+            } else if (const auto held = std::find_if(
+                           objects_.begin(), objects_.end(),
+                           [this, b](const auto& o) {
+                               return o.second.hash == b->hash && hands_ours_.contains(o.first);
+                           });
+                       held != objects_.end() && !broken_.contains(b->hash)) {
+                // ORM "Levantar": our Link holds it (or has just let it go):
+                // our game decides its break. Not kept, so our own break of it
+                // goes out as usual.
+                refund_notes_.push_back(Line("world: %016llx %s: another player's break of what our Link "
+                                             "holds: not taken (our game decides)%s",
+                                             b->hash, held->second.name, ""));
             } else if (const auto known = broken_.find(b->hash); known == broken_.end()) {
                 Break k;
                 k.got_us = now_us;
@@ -604,11 +620,24 @@ void WorldSync::Drain(std::uint64_t now_us) {
     }
 }
 
+void WorldSync::SetHands(std::set<std::uint64_t> ours, std::set<std::uint64_t> others) {
+    hands_ours_ = std::move(ours);
+    hands_others_ = std::move(others);
+}
+
 void WorldSync::LocalBreak(Object& o, std::uint64_t now_us, const char* how, Out& out) {
     if (o.sent_break || broken_.contains(o.hash)) {
         return;
     }
     o.sent_break = true;
+    if (o.held_other_us != 0 && now_us - o.held_other_us <= kHeldEchoUs) {
+        // ORM "Levantar": our copy in another player's puppet's hands (or just
+        // out of them): the holder's game decides its break, which comes back.
+        out.notes.push_back(Line("world: %016llx %s broke in another player's hands here (%s): not "
+                                 "sent, the holder's game decides",
+                                 o.hash, o.name, how));
+        return;
+    }
     Break k;
     k.got_us = now_us;
     k.local = true;
@@ -1149,6 +1178,9 @@ void WorldSync::Tick(const std::string& scene, std::uint8_t self, std::uint64_t 
         }
         Object& o = it->second;
         o.missed = 0;
+        if (hands_others_.contains(s.address)) {
+            o.held_other_us = now_us;
+        }
         o.stirred = Finite(s.position) && Distance(s.position, o.position) > 0.003f;
         if (o.shifter && Turn(o.rotation, s.rotation) > 0.005f) {
             o.stirred = true;  // still turning

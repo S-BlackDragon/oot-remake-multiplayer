@@ -163,6 +163,10 @@ struct ClientConfig {
   // more are dropped and counted in rejected_count(). The server's largest
   // table (262,144 flags) is 73 snapshot parts.
   std::uint32_t max_early_messages = 1024;
+  // ORM: our colour (red, green, blue), sent as PLAYER_LOOK after every
+  // WELCOME so the others draw our name tag in it. None: no PLAYER_LOOK, and
+  // the others use our number's default colour.
+  std::optional<std::array<std::uint8_t, 3>> color;
 
   // The client's clock in microseconds. Empty means std::chrono::steady_clock.
   // It must not go backwards by much: a step back only pauses the timers.
@@ -220,6 +224,9 @@ enum class EventKind : std::uint8_t {
   // PLAYER_EQUIP from `player`: `equipment` is what that player now wears,
   // the fields the message left out kept from before (also in players()).
   player_equip,
+  // ORM: PLAYER_LOOK from `player`: `look` is its colour now (also in
+  // players()). Follows the `message` event of the same PLAYER_LOOK.
+  player_look,
 };
 
 std::string_view to_string(EventKind kind);
@@ -275,6 +282,7 @@ struct Event {
   protocol::JoinTarget join_target;          // join_accepted
   protocol::JoinRefuseReason join_reason{};  // join_refused; raw value kept
   protocol::Equipment equipment;             // player_equip
+  protocol::PlayerLook look;                 // player_look
   LinkInfo link;  // disconnected, connect_failed: the link just before
 };
 
@@ -301,6 +309,10 @@ struct Player {
   // each field kept until a message carries it again. Nothing until the
   // first. Ours is sent again to every player who joins, so they see it.
   std::optional<protocol::Equipment> equipment;
+  // ORM: the player's last PLAYER_LOOK (ours: the one we sent), its player
+  // field the player's number. Nothing until the first: draw that player in
+  // its number's default colour. The server gives a joiner everyone's.
+  std::optional<protocol::PlayerLook> look;
   bool operator==(const Player&) const = default;
 };
 
@@ -351,6 +363,12 @@ class Client {
   // text the protocol refuses (bad UTF-8, control characters), or when not
   // connected. The server does not echo it back; show it locally.
   bool send_chat(std::string_view text);
+
+  // ORM: changes our colour (ClientConfig::color) and, while connected, sends
+  // it as PLAYER_LOOK; the next WELCOME sends it again too. False when not
+  // connected (the colour is still kept for the next WELCOME) or the send
+  // failed.
+  bool set_color(const std::array<std::uint8_t, 3>& rgb);
 
   // Sends the flags our game changed: FLAG_SET for the call (one message per
   // kMaxFlagEntries), or FLAG_STATE as the host, which also goes into
@@ -487,6 +505,7 @@ class Client {
   // Stops for good: the server did not encrypt (every session must; REFUSED
   // not_encrypted, shown like a server's refusal).
   void refuse_unencrypted();
+  bool send_look();  // ORM: PLAYER_LOOK with config_.color, if any
   void push(Event event);
   // Checks a room message against players_ and updates it; sets `out` to
   // the event that follows its `message` event, if any. False to refuse.

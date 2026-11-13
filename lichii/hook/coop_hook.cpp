@@ -99,6 +99,8 @@
 #include "coop_game_build.h"
 #include "coop_game_scan.h"
 #include "coop_pickups.h"
+#include "coop_epona.h"
+#include "coop_final_game.h"
 #include "coop_fairy.h"
 #include "coop_drops.h"
 #include "coop_every.h"
@@ -511,6 +513,15 @@ public:
                 }
             }
             CoopRide::OnEvent(event);  // their horses (PLAYER_RIDE, issue 199)
+            CoopDowned::OnEvent(event);  // ORM "downed, not dead"
+            OrmStoryEvents::OnEvent(event);   // ORM story cutscenes for everyone
+            CoopEpona::OnEvent(event);   // ORM D-R19: the horse each player is on
+            CoopChestOpen::OnEvent(event);    // ORM cofre: a chest another player opens
+            CoopFinal::OnEvent(event);        // ORM endgame: the escape's group start
+            OrmRide::OnEvent(event);  // ORM moving floors: the others' rides (orm_ride.h)
+            CoopOcarinaNote::OnEvent(event);  // ORM the others' Ocarina notes (OCARINA_NOTE)
+            OrmGroupSettings::OnEvent(event);  // ORM: the group's settings (docs AJUSTES_GRUPO.md)
+            OrmCommands::OnEvent(event, client);  // ORM: room switches, PvP hits, calls, renames
         };
         CoopPose::SetLog([](const std::string& line) { LOG_INFO(Core, "coop: {}", line); },
                          EnvFlag("LICHII_COOP_DEBUG_POSE"), EnvFlag("LICHII_COOP_POSE_AS"));
@@ -1886,7 +1897,8 @@ private:
             return std::find(view.hidden.begin(), view.hidden.end(), s.number) != view.hidden.end();
         });
         if (debug_camera_ && view.position) {
-            players.push_back({0, "you", *view.position, view.scene, 1.0f, HeadHeight(view.age)});
+            players.push_back({0, "you", *view.position, view.scene, 1.0f, HeadHeight(view.age),
+                               OrmRgb(settings_.color)});
         }
         const auto result = overlay_.build(c, view.scene.value_or(""), players);
         if (result.error != coop::overlay::Error::none) {
@@ -2046,6 +2058,7 @@ private:
         coop::host::PlayerReader reader(memory, &drawn_state_);
         auto reading = reader.read();
         if (reading) {
+            CoopEpona::StampMount(*reading);  // ORM D-R19: the horse we are on, in PLAYER_EQUIP
             view.position = reading->position;
             view.scene = reading->scene;
             view.age = reading->age;
@@ -2447,6 +2460,17 @@ private:
         }
     }
 
+    // ORM: a room player's colour: its PLAYER_LOOK (ours: the one we sent),
+    // else its number's default (coop/overlay).
+    static std::array<std::uint8_t, 3> RoomColor(const RoomView& room, std::uint8_t number) {
+        for (const auto& p : room.players) {
+            if (p.number == number && p.look) {
+                return p.look->rgb;
+            }
+        }
+        return coop::overlay::default_color(number);
+    }
+
     static std::vector<OverlayLine> Compose(const RoomView& room, const FrameView& frame) {
         std::vector<OverlayLine> lines;
         char buf[160];
@@ -2464,7 +2488,7 @@ private:
             }
             // Every session is encrypted (the client refuses a plain server).
             head += room.encrypted ? ", encrypted" : ", NOT encrypted";
-            lines.push_back({head});
+            lines.push_back({head, false, RoomColor(room, room.self)});
         } else {
             std::string head = "Co-op: " + std::string(coop::net::to_string(room.state));
             if (!room.note.empty()) {
@@ -2479,7 +2503,8 @@ private:
         } else if (!frame.position) {
             lines.push_back({"own position not readable", true});
         } else if (frame.scene) {
-            lines.push_back({"you: " + *frame.scene, true});
+            lines.push_back({"you: " + *frame.scene, true,
+                             room.self != 0 ? std::optional(RoomColor(room, room.self)) : std::nullopt});
         }
         if (running && frame.game && !frame.camera_note.empty()) {
             lines.push_back({frame.camera_note, true});
@@ -2498,7 +2523,7 @@ private:
             std::string text = "P" + std::to_string(p.number) + " " + p.nickname;
             const auto it = shown.find(p.number);
             if (it == shown.end() || it->second->fade <= 0.0f) {
-                lines.push_back({text + ": no position", true});
+                lines.push_back({text + ": no position", true, RoomColor(room, p.number)});
                 continue;
             }
             const auto& s = *it->second;
@@ -2513,7 +2538,7 @@ private:
                 std::snprintf(buf, sizeof(buf), ", %.0f units away", d);
                 text += buf;
             }
-            lines.push_back({text, !same});
+            lines.push_back({text, !same, RoomColor(room, p.number)});
         }
         return lines;
     }

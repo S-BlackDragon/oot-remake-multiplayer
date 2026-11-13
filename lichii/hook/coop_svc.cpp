@@ -13,6 +13,7 @@
 #include <mutex>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "common/fs/path_util.h"
 
@@ -29,6 +30,7 @@
 #include "coop_perf.h"  // ORM: LICHII_ORM_PERF
 #include "coop_hold.h"
 #include "coop_sites.h"
+#include "coop_switch.h"
 #include "coop_puppet.h"
 #include "coop_puppet_config.h"
 
@@ -155,8 +157,9 @@ void PatchPuppet(const std::vector<std::uint8_t>& original, std::vector<std::uin
              "    - Applying \"coop puppet\": bl {:#x} at main+{:#x} and main+{:#x}, {} bytes "
              "of cave",
              kCaveOffset, kHooks[0].offset, kHooks[1].offset, kCave.size());
-    // The AI hold's own cave and hook (coop_hold.h), when asked for.
-    if (EnvOn("LICHII_COOP_OBJECTS_AI_HOLD")) {
+    // The AI hold's own cave and hook (coop_hold.h), when asked for (ORM: the
+    // townspeople copies of LICHII_COOP_NPC_POSE are held with it too).
+    if (EnvOn("LICHII_COOP_OBJECTS_AI_HOLD") || CoopSwitch::On("LICHII_COOP_NPC_POSE", false)) {  // as coop_objects.cpp
         const std::size_t at = header + CoopHold::kHookOffset;
         if (Word(original, at) != CoopHold::kHookOriginal ||
             Word(out, at) != CoopHold::kHookOriginal) {
