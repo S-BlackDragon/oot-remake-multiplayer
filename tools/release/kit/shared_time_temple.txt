@@ -1,0 +1,70 @@
+# ORM: the Temple of Time with several players (LICHII_ORM_STORY_EVENTS=1; LICHII_ORM_TIME=0
+# turns this off). The temple is a part of Market_Child and Market_Adult, the market square's
+# scenes: a story cutscene of the temple is taken only by the games whose Link is in the
+# temple, as in oot-64, where the temple is a scene of its own (D-068, D-187).
+#
+#   area SCENE MINX MINY MINZ MAXX MAXY MAXZ   the temple's box in that scene (metres)
+#   noage SCENE    the room's age is never followed there (D-R17)
+#   flag NAME      a saved Bool shared with the rest (the story list does not carry it)
+#   temple EVENT   a mate's start is taken only in the temple
+#   travel EVENT   the same, and it changes the age: the others follow by the reload
+#   chain EVENT [ITEM]  a later part of the sword's story: a mate's start is never taken
+#   sage EVENT ITEM     a sage's awakening, only for who warps (solo); ITEM is shared
+#   scene EVENT    every game in the scene follows (Sheik elsewhere)
+
+# The temple, read from the scenes' LocationArea TimeTemple, with a margin.
+area Market_Child 58 95 -56 160 125 -4
+area Market_Adult 58 95 -56 160 125 -4
+# The Chamber of Sages: no age in its name; its story takes Link out.
+noage SageRoom
+
+# ---- The Door of Time and the pedestal (child)
+# The temple, the first time (asked at the entrance).
+temple Dm_TimeTemple_0000
+# The Song of Time at the altar: the Door of Time opens (its flag is shared).
+temple Market_Child_DoorOfTime_OpenDoor
+# The Master Sword's pedestal, the first time; it sets the light shaft below.
+temple DoorOfTime_DiscoverySword
+flag Market_Child_TimeTemple_DeleteLightShaft_FirstTime_00
+# The pedestal room's Area is there while this is 0.
+flag Market_Child_FoundMasterSword
+
+# ---- Seven years: the sword out and back in
+# Drawing the sword the first time: the Sacred Realm, Rauru, back adult.
+travel Market_Child_DoorOfTime_Draw
+chain SageRoom_MeetGanondorf
+chain SageRoom_MeetRauru Item_Medal_Light
+# The later trips (the sword back in: child to adult; out: adult to child).
+travel Market_Child_Field_ChildToAdult
+travel Market_Adult_Field_AdultToChild
+flag Market_Adult_Firsttime_GobacktoChild
+
+# ---- Sheik in the temple (adult)
+# Sheik meets adult Link (after Rauru); it sets the first adult times.
+temple Market_Adult_AllSage_Start
+flag Market_Child_Firsttime_GotoAdult
+flag HrlField_HasEnteredFirstTime_Adult
+temple Dm_TimeTemple_0065
+# The Prelude of Light; Sheik is Zelda, the Light Arrows.
+temple Market_Adult_Field_GetLightPrelude
+temple Market_Adult_Field_GetArrowLight
+
+# ---- Sheik elsewhere: everyone in the scene (the story list's own rule)
+scene ForestTemple_SageOfForest_MelodyGet
+scene SageOfFire_MelodyGetFire
+scene SageOfWater_MelodyGet_Water
+scene KakarikoVillage_Arrive
+scene KakarikoVillage_FlashbackScenes
+scene KakarikoVillage_MelodyGet_Shadow
+scene Dm_MelodyGet_Spilit
+
+# ---- The sages after each adult temple: only who takes the blue warp; the medallion is shared
+sage ForestTemple_SageOfForest_SageRoom Item_Medal_Forest
+sage FireTemple_SageOfFire_SageRoom Item_Medal_Fire
+# Saria's or Darunia's awakening sets this (the first of the two).
+flag AllSage_AwakeSage_Fire_Or_Forest
+sage SageOfWater_SageRoom Item_Medal_Water
+sage ShadowTemple_SageOfShadow_SageRoom Item_Medal_Shadow
+sage SpiritTemple_SageOfSpirit_SageRoom Item_Medal_Spirit
+# After the last of Shadow and Spirit: Rauru and the sages (Dm_SageRoom_0010).
+flag HavePlayedEvent.SageRoom_Allsage_LastSage

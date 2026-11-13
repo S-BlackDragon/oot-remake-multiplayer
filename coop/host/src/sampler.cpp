@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "coop/protocol/codec.hpp"
+#include "coop/protocol/orm_status.hpp"
 
 namespace coop::host {
 namespace {

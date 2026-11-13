@@ -63,6 +63,8 @@
 #include "coop/overlay/overlay.hpp"
 #include "coop/presence/presence.hpp"
 #include "coop/version.hpp"
+#include "coop_age_game.h"
+#include "coop_ocarina_note.h"
 #include "coop_boss.h"
 #include "coop_songs_game.h"
 #include "coop_teleport_game.h"
