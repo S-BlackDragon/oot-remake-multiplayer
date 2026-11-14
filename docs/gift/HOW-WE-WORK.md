@@ -1,5 +1,7 @@
 # How we work
 
+**English** | [Español](es/HOW-WE-WORK.md)
+
 This is our method in plain words. "We" is me (S-BlackDragon) and the AI agents I work with. The tools named here are
 in this gift under `tools/orm/`.
 

@@ -1,5 +1,7 @@
 # What we ran, and how
 
+**English** | [Español](es/TESTED.md)
+
 This file lists every two-game scenario we ran between 2026-11-12 and 2026-11-13 while building this gift: the
 probe rounds 1 to 7, the body-collision runs, the first full run on the test10-based tree (we call it "the 0.12
 end-to-end run", after the version number of our app) and the in-game check on the test10-based tree the next morning.

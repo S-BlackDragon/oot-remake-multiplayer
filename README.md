@@ -1,6 +1,6 @@
 # A gift for daurosk's co-op: our work on top of v0.1.0-test10
 
-*Español: [README.es.md](README.es.md)*
+**English** | [Español](README.es.md)
 
 Hi daurosk. I'm not a programmer, but I know Ocarina of Time well. I play your co-op with friends and, with AI
 agents (Claude), added these things on top of your test10. It's a gift: take anything as it is or change it; if it

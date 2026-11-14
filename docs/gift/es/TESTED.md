@@ -1,5 +1,7 @@
 # Lo que ejecutamos, y cómo
 
+[English](../TESTED.md) | **Español**
+
 Este archivo lista cada escenario de dos juegos que ejecutamos entre el 2026-11-12 y el 2026-11-13 mientras
 preparábamos este regalo: las rondas de sondas 1 a 7, las pruebas de colisión de cuerpos, la primera pasada completa
 sobre el árbol basado en test10 (la llamamos "la pasada de punta a punta de la 0.12", por el número de versión de

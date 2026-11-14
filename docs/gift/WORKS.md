@@ -1,5 +1,7 @@
 # What works in a real game
 
+**English** | [Español](es/WORKS.md)
+
 Only what is **confirmed in game**: seen with two players in a real game run (two emulated games, a local room server,
 the scenario green), with the scenario name, the tree, what was seen and the evidence. How we ran them, and every red,
 is in [TESTED.md](TESTED.md). "test9" and "test10" below mean our work on top of your v0.1.0-test9 or v0.1.0-test10;

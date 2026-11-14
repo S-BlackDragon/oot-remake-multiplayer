@@ -1,6 +1,6 @@
 # Un regalo para el cooperativo de daurosk: nuestro trabajo sobre v0.1.0-test10
 
-*English: [README.md](README.md)*
+[English](README.md) | **Español**
 
 Hola, daurosk. No soy programador, pero conozco bien Ocarina of Time. Juego tu cooperativo con amigos y, con agentes
 de IA (Claude), añadí estas cosas sobre tu test10. Es un regalo: toma lo que quieras tal cual o cámbialo; si algo no

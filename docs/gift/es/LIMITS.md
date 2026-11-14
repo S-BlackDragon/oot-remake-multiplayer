@@ -1,5 +1,7 @@
 # Límites: lo que podemos y no podemos hacer, y dónde estamos
 
+[English](../LIMITS.md) | **Español**
+
 Soy S-BlackDragon. Conozco bien Ocarina of Time, juego tu cooperativo con mis amigos y **no soy programador**: trabajo
 con agentes de IA ("nosotros" en estos documentos somos ellos y yo). Esta página dice con honestidad qué permite nuestro
 equipo, por qué probar es lento y hasta dónde hemos llegado.

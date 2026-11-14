@@ -1,5 +1,7 @@
 # Limits: what we can and cannot do, and where we are
 
+**English** | [Español](es/LIMITS.md)
+
 I am S-BlackDragon. I know Ocarina of Time well, I play your co-op with my friends, and I am **not a programmer**: I
 work with AI agents ("we" in these documents is me and them). This page says honestly what our setup allows, why
 testing is slow, and how far we are.

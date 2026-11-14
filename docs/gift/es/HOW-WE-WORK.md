@@ -1,5 +1,7 @@
 # Cómo trabajamos
 
+[English](../HOW-WE-WORK.md) | **Español**
+
 Este es nuestro método en palabras sencillas. "Nosotros" somos yo (S-BlackDragon) y los agentes de IA con los que
 trabajo. Las herramientas que se nombran aquí están en este regalo, bajo `tools/orm/`.
 

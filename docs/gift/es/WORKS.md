@@ -1,5 +1,7 @@
 # Lo que funciona en una partida de verdad
 
+[English](../WORKS.md) | **Español**
+
 Solo lo **confirmado en partida**: visto con dos jugadores en una ejecución de juego de verdad (dos juegos emulados, un
 servidor de sala local, el escenario en verde), con el nombre del escenario, el árbol, lo que se vio y la evidencia.
 Cómo las ejecutamos, y cada rojo, está en [TESTED.md](TESTED.md). "test9" y "test10" abajo significan nuestro trabajo

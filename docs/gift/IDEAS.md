@@ -1,5 +1,7 @@
 # Ideas we had and did not finish (or did not confirm in a game)
 
+**English** | [Español](es/IDEAS.md)
+
 These are the ideas in our work that are not finished, or that work in unit tests but have not been confirmed in a
 real game yet. For each one: what the player would see, how we would implement it (or how it is built today), what is
 known, what is unknown, and the exact probe that would confirm it. Take any of it, change it, or ignore it.

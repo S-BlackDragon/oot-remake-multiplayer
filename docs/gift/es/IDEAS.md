@@ -1,5 +1,7 @@
 # Ideas que tuvimos y no terminamos (o no confirmamos en una partida)
 
+[English](../IDEAS.md) | **Español**
+
 Estas son las ideas de nuestro trabajo que no están terminadas, o que funcionan en las pruebas unitarias pero aún no se
 han confirmado en una partida real. Para cada una: qué vería el jugador, cómo la implementaríamos (o cómo está hecha
 hoy), qué se sabe, qué no se sabe y la sonda exacta que la confirmaría. Toma lo que quieras, cámbialo o ignóralo.
