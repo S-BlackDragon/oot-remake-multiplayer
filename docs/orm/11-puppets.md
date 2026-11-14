@@ -1,3 +1,5 @@
+**English** | [Español](11-puppets.es.md)
+
 # 11-puppets: Puppet polish
 
 The puppet (docs/puppet.md) is how another player's Link is drawn in your game. This feature is a set of independent layers on it, each with its own switch, so that you see the others doing anything: smoother movement, effects and status, what they carry, masks and tethers, the armor they really wear, their Ocarina, their horse, the moving floor they stand on, the townsperson they talk to, and their colour. Every layer is presentation only: nothing in your own game state changes.

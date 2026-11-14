@@ -1,3 +1,5 @@
+**English** | [Español](14-app.es.md)
+
 # 14-app: The "Cooperativo" screen and its helper protocol
 
 A Qt screen inside the emulator's own window that replaces the game list: it shows whether everything needed to play is in place, prepares the puppet pack and the shaders, takes a room, a name and a password, and starts the game in the same process with co-op on. The screen does no work of its own: it talks to a separate **helper** program over stdin/stdout, one JSON object per line. Any program that speaks this protocol can be the helper. A second, in-process channel links the game's hook and the screen (chat commands that need the helper, and the room's PvP and "lock on mates" toggles).

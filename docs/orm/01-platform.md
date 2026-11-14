@@ -1,3 +1,5 @@
+**English** | [Español](01-platform.es.md)
+
 # 01-platform: Thin platform layer, one switch reader, frame-time log
 
 Everything our hook code needs from what runs the game (guest memory, the pad, calls into the game, folders, the environment and the log) goes through one small interface, so moving from the emulator to Hookshot is one adapter, not a change in every feature. With it come one reader for every on/off switch and an optional per-frame time log.

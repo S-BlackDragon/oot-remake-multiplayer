@@ -1,3 +1,5 @@
+**English** | [Español](07-cutscenes.es.md)
+
 # 07-cutscenes: Story cutscenes for everyone
 
 A listed story cutscene that one player's game starts by itself (meeting the Great Deku Tree, Saria on the bridge, Kaepora Gaebora...) plays on every game in the same scene at the same moment, and a game that has played it does not play it again. The cutscene's end state (the flags it sets and the story steps it moves) is shared too, so a player who was elsewhere ends with the same world. Only the cutscene's owner can skip it for everyone. This goes on top of upstream's boss-room sync, which keeps the boss intros and deaths.

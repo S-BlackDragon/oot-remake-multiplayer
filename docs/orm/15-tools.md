@@ -1,3 +1,5 @@
+**English** | [Español](15-tools.es.md)
+
 # 15-tools: Test tools, perf meter and kit scripts
 
 What we added to make the other features testable and shippable: a meter of the hook's own time, more test-script commands for `coop_testinput`, a flag probe, PvP scenarios for upstream's autotest, the kit's options file with our switches, Spanish hosting checks, and puppet pack additions. Our own two-game harness and the synthetic save tool are not part of the code tree: they come as `tools/orm/harness` and `tools/orm/saves` (see the end).

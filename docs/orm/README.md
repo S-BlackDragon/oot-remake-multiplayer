@@ -1,3 +1,5 @@
+**English** | [Español](README.es.md)
+
 # ORM features on top of v0.1.0-test10
 
 One page per feature. Each page says what changes for players, the switches (exact names, the kit's shipped value and the code's default), how it works and where it hooks into upstream files, the messages it uses, its tests, the log lines that tell which path ran, its status and its known gaps.

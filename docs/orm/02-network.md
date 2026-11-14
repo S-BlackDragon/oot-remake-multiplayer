@@ -1,3 +1,5 @@
+**English** | [Español](02-network.es.md)
+
 # 02-network: Six players, our message block, WebSocket, one host
 
 The network side of our work: up to six players in a session, one block of message numbers for everything we add (0xF000 to 0xF0FF) and protocol version 110, a `Transport` interface under the client so the same protocol runs over ENet/UDP or WebSocket (`ws://`, `wss://`), notices about a player's own link, the group's settings, the relay's choice of host, and interest management for poses with six players.

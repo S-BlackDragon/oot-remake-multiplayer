@@ -1,3 +1,5 @@
+**English** | [Español](10-hud.es.md)
+
 # 10-hud: In-image HUD, partner map and quick chat
 
 Upstream draws the co-op's name tags, panel and chat as Qt windows over the emulator window, and since test10 a game-look HUD of the others' hearts as another Qt layer. This feature draws the name tags (with ping), the panel, the chat, short notices and a line of everyone's rupees **inside the game's own picture**, from the emulator's present pass. Each player can place and size his own HUD. On top of it come a partner map (edge arrows, dots on the minimap and pause map, "Ana: en <place>" lines) and quick chat (hold L and press the d-pad).

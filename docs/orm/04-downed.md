@@ -1,3 +1,5 @@
+**English** | [Español](04-downed.es.md)
+
 # 04-downed: Downed, revive and group defeat
 
 With another player in the room, a Link whose hearts run out lies on the ground instead of getting the game over, and a mate who holds A beside him for 3 s gets him up. When everyone is down at once, the game over runs for all (group defeat). Around that core: a fairy in your own bottle works as in the original, a spectator camera while you lie down, the group keeps its state through Continue, and an optional sound when a mate goes down. The rules follow our earlier lockstep co-op for the N64 game ("downed, not dead"; nobody dies and simply comes back).

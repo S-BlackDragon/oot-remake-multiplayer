@@ -1,3 +1,5 @@
+**English** | [Español](08-age.es.md)
+
 # 08-age: Age change and the Temple of Time
 
 In this game the era is part of the save (`Sequence_IsChildhood`), and the child and adult worlds are different scenes (`KokiriForest_Child` / `KokiriForest_Adult`). When one player draws or puts back the Master Sword, the others would stay in the other era with nothing to share. This feature makes the group follow one player's age change through the game's own era change, and keeps the Temple of Time's cutscenes for the players who are in the temple. It is **off in the kit** until a game confirms that the game takes the era change asked for away from the pedestal.

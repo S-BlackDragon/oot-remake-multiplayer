@@ -1,3 +1,5 @@
+**English** | [Español](09-pvp.es.md)
+
 # 09-pvp: PvP rules, ally lock-on and chat commands
 
 Since test10 the session's player-against-player switch and hit messages are upstream's (`PVP_MODE`, `PVP_HIT`, `PVP_HURT`, `lichii/hook/coop_pvp*`). This feature keeps our rules as a thin layer on top of them, and adds three things that are not PvP but were built with it: "Fijar aliados" (Z-targeting a mate's puppet), a registry of chat commands with Tab completion, and the calls, renames and on-screen statistics those commands drive.

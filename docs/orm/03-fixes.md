@@ -1,3 +1,5 @@
+**English** | [Español](03-fixes.es.md)
+
 # 03-fixes: Bug fixes, including in upstream code paths
 
 Fixes we made while building on test10 that touch code or tests that were already in the tree, or that anyone building the tree with the emulator's flags would hit. Each row points to the file changed and the test that covers it. Fixes inside our own new features are in their feature files.

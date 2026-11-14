@@ -1,3 +1,5 @@
+**English** | [Español](06-world.es.md)
+
 # 06-world: One world for the group
 
 Everything that makes the world the same in every game beyond upstream's shared flags: water levels, held floor switches, chests and doors seen opening on every screen, what a talk changes, the warp-song invitation, the kit's flag lists for each part of the game, the item rules with a wallet per player, the heart capacity guard, one clock, the group's Epona, and the pause and title-screen status. Each part has its own switch, and each can be taken alone.

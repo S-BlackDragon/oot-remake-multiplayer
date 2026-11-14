@@ -1,3 +1,5 @@
+**English** | [Español](13-resume.es.md)
+
 # 13-resume: Back to your own last place
 
 A player who closes the game and comes back to the same room returns to his own last scene and place, not to where the loaded save puts everyone. A place that was in a boss fight or a cutscene sends him to that scene's entrance instead, and inside a dungeon he goes back to the entrance room (the game can only load a dungeon at its entrance). This is "resume session" from our earlier lockstep co-op for the N64 game.

@@ -1,3 +1,5 @@
+**English** | [Español](12-bodies.es.md)
+
 # 12-bodies: Real bodies between Links
 
 Each mate's puppet gets a real body in your game: your Link stops at it as at a townsperson and can stand on its head. Before this, two Links simply walked through each other, and a mate who pressed Continue on the same spot as you was drawn inside your Link. The bodies are a room switch (`/choque`), on by default. When the bodies cannot run (old puppet pack, a create the game refuses, a switch set to off), the mate's puppet is only drawn aside, which is the older layer of this feature.

@@ -1,3 +1,5 @@
+**English** | [Español](05-bosses.es.md)
+
 # 05-bosses: Bosses, enemies and hazards with six
 
 Rules for fights with up to six players on top of upstream's shared boss room ([dungeons-boss.md](../dungeons-boss.md)) and object ownership ([objects.md](../objects.md)): boss families that act on "the player" (grabs, tennis, Twinrova's mirror), downed players at the boss door, enemies that turn to the players still standing, hits on another game's enemy that feel immediate, the endgame (barrier count, Ganondorf and Ganon rooms, the escape), the Gerudo Fortress and Spirit Temple, and hazards. The rules come from our earlier lockstep co-op for the N64 game, turned into "it acts on its owner's Link, and its owner does not change while it does".
